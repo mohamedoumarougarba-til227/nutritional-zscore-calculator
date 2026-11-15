@@ -53,4 +53,4 @@ Le forfait Vercel Hobby est réservé aux usages personnels non commerciaux. Une
 - Licences exactes et commits figés dans `tools/reference/who`, `tools/reference/who2007` et `tools/reference/pdf-report/sources.json`.
 - [Conditions Vercel](https://vercel.com/legal/terms), version consultée du 19 octobre 2026, et [Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines).
 
-Contact public : contact@tilbadge.com.
+Contact public : contact@tilniger.com.

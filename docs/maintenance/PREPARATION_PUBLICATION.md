@@ -2,7 +2,7 @@
 
 ## Livraison courante - 5.0.0, 21 octobre 2026
 
-La version 5.0.0 est publiée sur https://zscore-niger.vercel.app/ depuis le commit signé `cede1e4`. Le dépôt privé est relié à `main` ; les push déclenchent la production. Le site est accessible sans compte ; les préversions Vercel restent protégées. Le choix GPLv3, les notices et sources téléchargeables sont mis en œuvre. Aucune nouvelle décision propriétaire/GPL ou création de projet Vercel n'est attendue.
+La version 5.0.0 a été publiée initialement sous l'ancienne URL Vercel, remplacée pour les nouveaux visiteurs par https://zscore.tilniger.com/ depuis le commit signé `cede1e4`. Le dépôt privé est relié à `main` ; les push déclenchent la production. Le site est accessible sans compte ; les préversions Vercel restent protégées. Le choix GPLv3, les notices et sources téléchargeables sont mis en œuvre. Aucune nouvelle décision propriétaire/GPL ou création de projet Vercel n'est attendue.
 
 L'aide PB/orientation OMS, les sauvegardes courantes avec option chiffrée et les exports agrégés préparant DHIS2 sont livrés. Une adaptation nationale, une prescription automatique ou une connexion DHIS2 ne sont pas annoncées sans leurs références et paramètres réels.
 
@@ -110,11 +110,11 @@ Avec des dossiers fictifs, installer hors ligne, fermer/rouvrir sans réseau, sa
 
 ## Préparation Vercel et mentions — 20 octobre 2026
 
-Les informations légales, de confidentialité, de stockage local, les conditions d’usage et attributions sont préparées en français, anglais et arabe (`src/legal*.html`) et intégrées au paquet hors ligne. Identité publique de Tout Informatique Lazaret reprise des pages TIL, contact `contact@tilbadge.com`. Aucun cookie publicitaire ni outil de mesure d’audience ajouté.
+Les informations légales, de confidentialité, de stockage local, les conditions d’usage et attributions sont préparées en français, anglais et arabe (`src/legal*.html`) et intégrées au paquet hors ligne. Identité publique de Tout Informatique Lazaret reprise des pages TIL, contact actuel `contact@tilniger.com` (mis à jour le 15 novembre 2026). Aucun cookie publicitaire ni outil de mesure d’audience ajouté.
 
 `vercel.json` définit une construction Node sans installation npm, une sortie `dist` limitée au paquet vérifié et les en-têtes CSP, anti-cadrage et confidentialité. La commande `node tools/scripts/vercel-build.cjs` refuse la publication tant que `legalReady` est faux. Voir [audit de distribution](../references/AUDIT_DROITS_DISTRIBUTION.md). Ce refus est attendu et ne doit pas être supprimé pour contourner la décision sur les droits.
 
-Cible prévue : équipe `mohameds-projects-0af41c6a`, dépôt privé `mohamedoumarougarba-til-227/nutritional-zscore-calculator`, branche `main`. Aucun lien Git Vercel actif n’est encore créé. Après résolution des droits, du forfait commercial et des préférences d’entraînement : créer le projet avec cette configuration, relier le dépôt et vérifier un déploiement issu du SHA poussé. Les futurs push sur `main` pourront alors déclencher la production via l’intégration Git native, sans secret de déploiement ajouté au dépôt.
+État historique de la préparation initiale : équipe `mohameds-projects-0af41c6a`, dépôt privé `mohamedoumarougarba-til227/nutritional-zscore-calculator`, branche `main`. Aucun lien Git Vercel actif n’est encore créé. Après résolution des droits, du forfait commercial et des préférences d’entraînement : créer le projet avec cette configuration, relier le dépôt et vérifier un déploiement issu du SHA poussé. Les futurs push sur `main` pourront alors déclencher la production via l’intégration Git native, sans secret de déploiement ajouté au dépôt.
 
 ## Liaison Git établie — 21 octobre 2026
 

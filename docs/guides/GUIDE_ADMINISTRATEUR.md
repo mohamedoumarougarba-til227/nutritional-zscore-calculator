@@ -36,7 +36,7 @@ Les empreintes SHA-256/SRI contrôlent la cohérence des fichiers avec la page r
 
 ## Déploiement, mise à jour et retour arrière
 
-La publication actuelle a été autorisée par le titulaire. Vercel est relié à `main` ; chaque push sur cette branche déclenche le build contrôlé et la publication sur https://zscore-niger.vercel.app/. Les préversions restent protégées. Contrôler le SHA Git, l'état READY et les octets réellement servis à chaque livraison. Désactiver toute transformation automatique des fichiers JavaScript/CSS. Conserver l'ancienne version et l'adresse stable. Vérifier HTTPS, en-têtes, identité de release reçue et protection réelle des droits de publication.
+La publication actuelle a été autorisée par le titulaire. Vercel est relié à `main` ; chaque push sur cette branche déclenche le build contrôlé et la publication sur https://zscore.tilniger.com/. Les préversions restent protégées. Contrôler le SHA Git, l'état READY et les octets réellement servis à chaque livraison. Désactiver toute transformation automatique des fichiers JavaScript/CSS. Conserver l'ancienne version et l'adresse stable. Vérifier HTTPS, en-têtes, identité de release reçue et protection réelle des droits de publication.
 
 Dans l'application, une version téléchargée attend l'adoption. **Sauvegarder et mettre à jour** conserve d'abord le travail, puis active la version ; les autres onglets doivent être sauvegardés et fermés. Une incohérence doit laisser l'ancienne version disponible. Une correction/retour arrière est préparée comme une autre version complète, sans effacer caches, journaux ou archives. Confirmer la version après adoption ; remettre des fichiers sur le serveur ne remplace pas automatiquement les sessions déjà ouvertes.
 

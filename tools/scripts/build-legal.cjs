@@ -4,6 +4,7 @@ const {publisher,content}=require('./legal-content.cjs');
 const root=path.resolve(__dirname,'../..');
 const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pages={fr:'legal.html',en:'legal-en.html',ar:'legal-ar.html'};
+const seoDescriptions={fr:'Mentions légales, confidentialité, conditions d’utilisation et licences de Z-score Niger, édité par Tout Informatique Lazaret.',en:'Legal notice, privacy, terms of use and licences for Z-score Niger, published by Tout Informatique Lazaret.',ar:'الإشعارات القانونية والخصوصية وشروط الاستخدام والتراخيص لتطبيق Z-score Niger من Tout Informatique Lazaret.'};
 function legalPages(){
     const links=[['Z-score · GPLv3','data/LICENSE-TIL.txt'],['Z-score · Source ZIP','data/zscore-sources.zip'],['Source ZIP · SHA-256','data/zscore-sources.json'],['WHO · Data source ZIP','data/who-data-sources.zip'],['WHO 2006','https://www.who.int/tools/child-growth-standards'],['WHO 2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],
         ['Anthro · b776d8a12b1c','https://github.com/WorldHealthOrganization/anthro/tree/b776d8a12b1c97369c748b561159fd2ec4f4db58'],
@@ -17,7 +18,7 @@ function legalPages(){
         const html=`<!doctype html>
 <html lang="${lang}" dir="${lang==='ar'?'rtl':'ltr'}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
-<title>${escape(c.title)} · Z-score Niger</title><link rel="stylesheet" href="css/workspace.css"><link rel="stylesheet" href="css/legal.css"></head>
+<title>${escape(c.title)} · Z-score Niger</title><meta name="description" content="${escape(seoDescriptions[lang])}"><link rel="canonical" href="https://zscore.tilniger.com/${pages[lang]}"><link rel="stylesheet" href="css/workspace.css"><link rel="stylesheet" href="css/legal.css"></head>
 <body class="legal-page"><a class="skip" href="#content">${escape(c.title)}</a>
 <header class="legal-header"><a class="brand" href="./"><span class="brand-mark">Z</span><span>Z-score Niger</span></a>
 <nav aria-label="Language">${Object.entries(pages).map(([code,file])=>`<a href="${file}" lang="${code}" hreflang="${code}"${code===lang?' aria-current="page"':''}>${{fr:'Français',en:'English',ar:'العربية'}[code]}</a>`).join('')}</nav></header>

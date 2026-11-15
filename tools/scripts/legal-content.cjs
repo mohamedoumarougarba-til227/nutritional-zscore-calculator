@@ -5,12 +5,12 @@ const publisher = {
     rccm: 'NE-NIM-01-2023-A10-01440', nif: '102382/P',
     address: 'Rue LZ-102 de Nord Lazaret - Gao Magobri, BP 12825 Niamey (Niger)',
     phones: '+227 80 14 50 80 / +227 88 41 49 94 / +227 93 36 45 66',
-    email: 'contact@tilbadge.com', website: 'https://toutinformatiquelazaret.vercel.app/',
-    verifiedOn: '2026-10-20', identitySource: 'https://www.tilbadge.com/legal'
+    email: 'contact@tilniger.com', website: 'https://tilniger.com/',
+    verifiedOn: '2026-11-15', identitySource: 'https://tilniger.com/'
 };
 const content = {
     fr: {
-        title: 'Informations légales et confidentialité', back: 'Retour à Z-score', updated: 'Mise à jour : 6 novembre 2026',
+        title: 'Informations légales et confidentialité', back: 'Retour à Z-score', updated: 'Mise à jour : 15 novembre 2026',
         intro: 'Z-score Niger est édité par Tout Informatique Lazaret. Cette page décrit le fonctionnement de cette application et les droits liés à son utilisation.',
         sections: [
             ['legal', 'Mentions légales', [
@@ -50,7 +50,7 @@ const content = {
         ], links: 'Documents et sources', contact: 'Contact professionnel'
     },
     en: {
-        title: 'Legal information and privacy', back: 'Back to Z-score', updated: 'Updated: 6 November 2026',
+        title: 'Legal information and privacy', back: 'Back to Z-score', updated: 'Updated: 15 November 2026',
         intro: 'Z-score Niger is published by Tout Informatique Lazaret. This page explains how this application works and the rights associated with its use.',
         sections: [
             ['legal', 'Legal notice', [
@@ -90,7 +90,7 @@ const content = {
         ], links: 'Documents and sources', contact: 'Business contact'
     },
     ar: {
-        title: 'المعلومات القانونية والخصوصية', back: 'العودة إلى Z-score', updated: 'آخر تحديث: 6 نوفمبر 2026',
+        title: 'المعلومات القانونية والخصوصية', back: 'العودة إلى Z-score', updated: 'آخر تحديث: 15 نوفمبر 2026',
         intro: 'تنشر شركة Tout Informatique Lazaret تطبيق Z-score Niger. توضح هذه الصفحة طريقة عمل التطبيق والحقوق المرتبطة باستخدامه.',
         sections: [
             ['legal', 'الإشعار القانوني', [
@@ -137,6 +137,6 @@ const cdcAttribution = {
 };
 for (const [lang, c] of Object.entries(content)) {
     c.sections.find(section => section[0] === 'sources')[2].push(cdcAttribution[lang]);
-    c.updated = {fr:'Mise à jour : 27 octobre 2026',en:'Updated: 27 October 2026',ar:'التحديث: 27 أكتوبر 2026'}[lang];
+    c.updated = {fr:'Mise à jour : 15 novembre 2026',en:'Updated: 15 November 2026',ar:'التحديث: 15 نوفمبر 2026'}[lang];
 }
 module.exports = { publisher, content };

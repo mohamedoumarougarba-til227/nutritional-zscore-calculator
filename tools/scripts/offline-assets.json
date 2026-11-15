@@ -1,6 +1,8 @@
 [
   "./",
   "index.html",
+  "robots.txt",
+  "sitemap.xml",
   "manifest.json",
   "css/workspace.css",
   "data/who-official.json",

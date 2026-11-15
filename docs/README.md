@@ -1,5 +1,7 @@
 # Documentation
 
+**Liens officiels (novembre 2026) :** [application Z-score Niger](https://zscore.tilniger.com/) · [Tout Informatique Lazaret](https://tilniger.com/) · [contact@tilniger.com](mailto:contact@tilniger.com). Les anciennes URL d'hébergement et adresses de Badge Access ne sont plus les contacts de Z-score.
+
 Les statuts ci-dessous distinguent l’état actuel des études et résultats datés. Un ancien nombre de tests ne prouve pas une réexécution sur le checkout courant.
 
 | Statut | Documents | Portée |

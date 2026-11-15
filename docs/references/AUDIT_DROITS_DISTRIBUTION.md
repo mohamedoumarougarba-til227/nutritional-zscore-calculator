@@ -73,7 +73,7 @@ Remplacer simplement les tables GPL par un téléchargement Excel ou PDF du site
 - [Conditions GitHub, sections D et E](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).
 - [Conditions Vercel](https://vercel.com/legal/terms), [usage commercial](https://vercel.com/docs/limits/fair-use-guidelines#commercial-usage), [forfait Hobby](https://vercel.com/docs/plans/hobby).
 - [Politique de droits OMS](https://www.who.int/about/policies/publishing/copyright), [accès ouvert et publications antérieures à 2017](https://www.who.int/about/policies/publishing/open-access), [ancien accord du logiciel de bureau Anthro](https://www.who.int/docs/default-source/child-growth/child-growth-standards/software/license2.pdf).
-- Identité éditeur : [mentions publiques TIL](https://www.tilbadge.com/legal), contact public `mailto:contact@tilbadge.com` et [site TIL](https://toutinformatiquelazaret.vercel.app/), vérifiés en lecture seule. Les textes de confidentialité de Badge Access ne sont pas repris comme description technique de Z-score.
+- Mise à jour des coordonnées publiques au 15 novembre 2026 (l'audit juridique d'origine reste historique) : [mentions publiques TIL](https://tilniger.com/), contact public `mailto:contact@tilniger.com` et [site TIL](https://tilniger.com/), adresse et contact actualisés ; leur présence ne vaut pas une vérification juridique de l'audit initial. Les textes de confidentialité de Badge Access ne sont pas repris comme description technique de Z-score.
 
 ## Preuves et portée
 
