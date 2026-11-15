@@ -25,7 +25,13 @@ function publicPaths(release) {
     // Separate allowlist derived from the active HTML, manifest and explicit runtime assets.
     const html = fs.readFileSync(path.join(src, 'index.html'), 'utf8');
     const paths = new Set(['index.html', 'robots.txt', 'sitemap.xml', 'manifest.json', 'sw.js', 'release-manifest.json','legal.html','legal-en.html','legal-ar.html','css/legal.css']);
-    for (const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)) paths.add(safeAsset(match[1]));
+    const assetHtml = html.replace(/<link\b[^>]*>/gi, tag => {
+        if (!/\brel\s*=\s*"canonical"/i.test(tag) || /\bsrc\s*=/i.test(tag)) return tag;
+        const href = tag.match(/\bhref="([^"]*)"/i)?.[1] ?? '';
+        if (!/^https:\/\/zscore\.tilniger\.com\/[\w./-]*$/.test(href)) throw new Error('Unsafe canonical URL: ' + href);
+        return '';
+    });
+    for (const match of assetHtml.matchAll(/(?:src|href)="([^"#]+)"/g)) paths.add(safeAsset(match[1]));
     for (const icon of JSON.parse(fs.readFileSync(path.join(src, 'manifest.json'), 'utf8')).icons) paths.add(safeAsset(icon.src));
     for (const file of ['data/interface-translations.json', 'data/who-manifest.json', 'data/who-official.json','data/who-2007.json','data/who-2007-manifest.json','data/who-additional.json','data/who-additional-manifest.json','data/cdc-growth.json','data/cdc-growth-manifest.json','data/LICENSE-anthroplus.txt', 'data/LICENSE-anthro.txt','data/LICENSE-TIL.txt','data/who-data-sources.zip','data/who-data-sources.json','data/zscore-sources.zip','data/zscore-sources.json','vendor/pdf/NOTICE-report.txt','vendor/pdf/report-provenance.json',
         'vendor/pdf/Amiri-Regular.ttf', 'vendor/pdf/Amiri-Bold.ttf', 'vendor/pdf/OFL.txt', 'vendor/pdf/METADATA.pb', 'vendor/pdf/provenance.json',
