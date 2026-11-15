@@ -1,6 +1,6 @@
 # Contribuer
 
-Z-score Niger est une application statique, local-first, sans compte ni serveur de dossiers patients. Les contributions doivent préserver cette architecture et la GPLv3. La maintenance se fait selon les disponibilités ; aucune réponse immédiate n’est garantie.
+Z-score Niger ([site officiel](https://zscore.tilniger.com/), [éditeur TIL](https://tilniger.com/), contact [contact@tilniger.com](mailto:contact@tilniger.com)) est une application statique, local-first, sans compte ni serveur de dossiers patients. Les contributions doivent préserver cette architecture et la GPLv3. La maintenance se fait selon les disponibilités ; aucune réponse immédiate n’est garantie.
 
 ## Lancer et vérifier
 

@@ -53,6 +53,8 @@
 !/src/data/who-manifest.json
 !/src/data/who-official.json
 !/src/index.html
+!/src/robots.txt
+!/src/sitemap.xml
 !/src/js/components/growth-chart.js
 !/src/js/services/clinical-engine.js
 !/src/js/services/csv-manager.js

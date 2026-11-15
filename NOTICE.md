@@ -19,4 +19,4 @@ Les données saisies, dossiers d’enfants, sauvegardes privées et documents de
 
 **L’utilisation des contenus CDC et des liens correspondants ne constitue aucune approbation du CDC, du HHS ou du gouvernement des États-Unis de cette application, de TIL ou de ses services.** Aucun logo CDC n’est utilisé. Les sources 5.5.0 proposent un profil américain explicite, avec références conservées par visite et contrôles numériques distincts de la validation clinique ou physique.
 
-Contact public : contact@tilbadge.com.
+Contact public : contact@tilniger.com. Site officiel de l'éditeur : https://tilniger.com/. Application : https://zscore.tilniger.com/.

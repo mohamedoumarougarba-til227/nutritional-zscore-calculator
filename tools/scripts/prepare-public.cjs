@@ -24,7 +24,7 @@ function regularFile(base, file) {
 function publicPaths(release) {
     // Separate allowlist derived from the active HTML, manifest and explicit runtime assets.
     const html = fs.readFileSync(path.join(src, 'index.html'), 'utf8');
-    const paths = new Set(['index.html', 'manifest.json', 'sw.js', 'release-manifest.json','legal.html','legal-en.html','legal-ar.html','css/legal.css']);
+    const paths = new Set(['index.html', 'robots.txt', 'sitemap.xml', 'manifest.json', 'sw.js', 'release-manifest.json','legal.html','legal-en.html','legal-ar.html','css/legal.css']);
     for (const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)) paths.add(safeAsset(match[1]));
     for (const icon of JSON.parse(fs.readFileSync(path.join(src, 'manifest.json'), 'utf8')).icons) paths.add(safeAsset(icon.src));
     for (const file of ['data/interface-translations.json', 'data/who-manifest.json', 'data/who-official.json','data/who-2007.json','data/who-2007-manifest.json','data/who-additional.json','data/who-additional-manifest.json','data/cdc-growth.json','data/cdc-growth-manifest.json','data/LICENSE-anthroplus.txt', 'data/LICENSE-anthro.txt','data/LICENSE-TIL.txt','data/who-data-sources.zip','data/who-data-sources.json','data/zscore-sources.zip','data/zscore-sources.json','vendor/pdf/NOTICE-report.txt','vendor/pdf/report-provenance.json',

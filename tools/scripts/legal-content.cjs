@@ -5,8 +5,8 @@ const publisher = {
     rccm: 'NE-NIM-01-2023-A10-01440', nif: '102382/P',
     address: 'Rue LZ-102 de Nord Lazaret - Gao Magobri, BP 12825 Niamey (Niger)',
     phones: '+227 80 14 50 80 / +227 88 41 49 94 / +227 93 36 45 66',
-    email: 'contact@tilbadge.com', website: 'https://toutinformatiquelazaret.vercel.app/',
-    verifiedOn: '2026-10-20', identitySource: 'https://www.tilbadge.com/legal'
+    email: 'contact@tilniger.com', website: 'https://tilniger.com/',
+    verifiedOn: '2026-11-15', identitySource: 'https://tilniger.com/'
 };
 const content = {
     fr: {

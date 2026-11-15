@@ -45,6 +45,8 @@
     "src/data/zscore-sources.json",
     "src/data/zscore-sources.zip",
     "src/index.html",
+    "src/robots.txt",
+    "src/sitemap.xml",
     "src/js/components/growth-chart.js",
     "src/js/components/lot-analysis.js",
     "src/js/services/clinical-engine.js",

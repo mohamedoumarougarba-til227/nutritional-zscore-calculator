@@ -40,7 +40,7 @@ for x,label in [(72,'WHO 2006 / 2007'),(454,'CDC 2000 / 2022'),(836,'INTERGROWTH
 text(72,478,'Explicit reference choices  ·  No automatic diagnosis',28)
 rect((72,550,1208,552),'#c6d7ce')
 text(72,574,'GPL-3.0  ·  Open source',25)
-text(870,574,'zscore-niger.vercel.app',25)
+text(870,574,'zscore.tilniger.com',25)
 svg.append('</svg>')
 (out/'social-preview.svg').write_text('\n'.join(svg)+'\n',encoding='utf-8')
 image.save(out/'social-preview.png',optimize=True)
