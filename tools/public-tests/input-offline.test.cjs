@@ -94,3 +94,25 @@ test('install prompt needs an explicit action, a ready offline copy and successf
     await app.installApp();assert.equal(prompts,0);assert.equal(saves,0);app.offlineState='offlineReady';app.saveImmediate=async()=>{throw Error('full');};await app.installApp();assert.equal(prompts,0);assert.equal(global.ReleaseGuard.installPrompt,prompt);
     app.saveImmediate=async()=>{saves++;};await app.installApp();assert.equal(prompts,1);assert.equal(saves,1);assert.equal(global.ReleaseGuard.installPrompt,null);
 });
+
+test('startup guard ignores extension/blob resource failures but still blocks pinned application resources',()=>{
+    const handlers={},doc={baseURI:'https://fictif.invalid/app/',documentElement:{dataset:{}},addEventListener(){}};
+    const context={URL,document:doc,window:{addEventListener:(key,fn)=>handlers[key]=fn},localStorage:{getItem:()=>null},matchMedia:()=>({matches:false})};
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../src/js/workspace-bootstrap.js'),'utf8'),context);const guard=context.window.ReleaseGuard;let failures=0;guard.fail=()=>failures++;
+    const element=(tag,attrs)=>({tagName:tag,getAttribute:key=>attrs[key]??null});const pin='sha256-'+Buffer.alloc(32).toString('base64');
+    for(const el of [element('SCRIPT',{src:'blob:https://fictif.invalid/extension'}),element('SCRIPT',{src:'https://third.invalid/a.js',integrity:pin}),element('LINK',{rel:'stylesheet',href:'https://third.invalid/style.css'}),element('SCRIPT',{src:'js/unmanaged.js'}),{tagName:'DIV'}]){assert.equal(guard.isReleaseResource(el),false);handlers.error({target:el});}
+    assert.equal(failures,0);
+    for(const el of [element('SCRIPT',{src:'js/workspace-app.js',integrity:pin}),element('LINK',{rel:'stylesheet',href:'css/workspace.css',integrity:pin})]){assert.equal(guard.isReleaseResource(el),true);handlers.error({target:el});}
+    assert.equal(failures,2);
+});
+
+test('initial data verification considers pinned application CSS and ignores unrelated injected stylesheets',async t=>{
+    const old=global.document,failed=Guard.failed;Guard.failed=false;t.after(()=>{global.document=old;Guard.failed=failed;});const bytes=new TextEncoder().encode('FICTIF-DATA'),hash=Buffer.from(await crypto.subtle.digest('SHA-256',bytes)).toString('hex');let missing=false;
+    global.document={querySelector:()=>({content:JSON.stringify({'data/fictif.json':hash})}),querySelectorAll:selector=>{assert.equal(selector,'link[rel="stylesheet"][integrity]');return [{sheet:missing?null:{}}];}};
+    assert.equal((await Guard.verifyData(['data/fictif.json'],[new Response(bytes)])).texts[0],'FICTIF-DATA');missing=true;await assert.rejects(Guard.verifyData(['data/fictif.json'],[new Response(bytes)]),/releaseInvalid/);
+});
+
+test('legal sources prioritize GitHub and the matching release while retaining an offline fallback in FR EN AR',()=>{
+    const {legalPages}=require('../scripts/build-legal.cjs'),pages=legalPages(),repo='https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator';
+    for(const [file,html]of Object.entries(pages)){assert(html.includes('href="'+repo+'"'));assert(html.includes(repo+'/releases/tag/v'+App.version));const fallback=html.match(/<details><summary>[^<]+<\/summary>([\s\S]*?)<\/details>/);assert(fallback);assert(fallback[1].includes('data/zscore-sources.zip'));assert(fallback[1].includes('data/zscore-sources.json'));assert(html.indexOf(repo)<html.indexOf('data/zscore-sources.zip'));if(file==='legal-ar.html')assert(html.includes('dir="rtl"'));}
+});

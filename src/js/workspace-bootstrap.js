@@ -2,6 +2,11 @@
 class ReleaseGuard {
     static failed = false;
     static installPrompt = null;
+    static isReleaseResource(target,baseURI=document.baseURI) {
+        const script=target?.tagName==='SCRIPT',style=target?.tagName==='LINK'&&target.getAttribute('rel')==='stylesheet';
+        if((!script&&!style)||!/^sha256-[A-Za-z0-9+/]{43}=$/.test(target.getAttribute('integrity')||''))return false;
+        try{const base=new URL(baseURI),url=new URL(target.getAttribute(script?'src':'href'),base);return url.protocol===base.protocol&&url.origin===base.origin&&url.pathname.startsWith(new URL('.',base).pathname);}catch(_){return false;}
+    }
     static waitWorker(worker,states) {
         if(states.includes(worker.state))return Promise.resolve();
         return new Promise((resolve,reject)=>{
@@ -38,7 +43,7 @@ class ReleaseGuard {
     }
     static async verifyData(paths,responses) {
         if(this.failed||paths.length!==responses.length||responses.some(r=>!r.ok))throw new Error('releaseInvalid');
-        if([...document.querySelectorAll('link[rel="stylesheet"]')].some(link=>!link.sheet))throw new Error('releaseInvalid');
+        if([...document.querySelectorAll('link[rel="stylesheet"][integrity]')].some(link=>!link.sheet))throw new Error('releaseInvalid');
         let pins;try{pins=JSON.parse(document.querySelector('meta[name="zscore-data-integrity"]')?.content||'{}');}catch(_){throw new Error('releaseInvalid');}
         const bytes=await Promise.all(responses.map(r=>r.arrayBuffer())),hashes=await Promise.all(bytes.map(b=>this.digest(b)));
         if(this.failed||paths.some((path,i)=>!Object.hasOwn(pins,path)||!/^[a-f0-9]{64}$/.test(pins[path])||hashes[i]!==pins[path]))throw new Error('releaseInvalid');
@@ -72,7 +77,7 @@ else {window.ReleaseGuard=ReleaseGuard;
     window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ReleaseGuard.installPrompt=event;window.dispatchEvent(new Event('zscore-install-ready'));});
     window.addEventListener('appinstalled',()=>{ReleaseGuard.installPrompt=null;window.dispatchEvent(new Event('zscore-install-ready'));});
     window.addEventListener('error',event=>{
-        if(event.target?.tagName==='SCRIPT'||event.target?.tagName==='LINK'&&event.target.rel==='stylesheet')ReleaseGuard.fail();
+        if(ReleaseGuard.isReleaseResource(event.target))ReleaseGuard.fail();
     },true);
     document.addEventListener('DOMContentLoaded',()=>{if(ReleaseGuard.failed)ReleaseGuard.fail();});
 })();
