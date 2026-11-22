@@ -36,6 +36,7 @@ class PDFManager {
             const identity = [field('name', c.name), field('caseId', c.caseId), field('measurementDate', c.measurementDate)];
             const age = [field('ageDays', number(c.ageDays, 0)), field('ageMode', t(c.ageMode || 'unknown'))];
             if (c.ageMode === 'months') age.push(field('ageYears', c.ageYears), field('ageMonths', c.ageMonths), t('approximateAge'));
+            if(c.ageMode==='totalMonths')age.push(field('ageTotalMonths',c.totalAgeMonths),t('approximateAge'));
             if (c.ageMode === 'dates') age.push(field('birthDate', c.birthDate));
             const measures = [...age, field('weight', number(c.weight, 0)), field('height', number(c.height, 1)),
                 field('gender', t(c.gender === 'M' ? 'male' : c.gender === 'F' ? 'female' : 'unknown')),
@@ -88,6 +89,7 @@ class PDFManager {
             const compactMeasures=[...(r?.intergrowthContext?[field('postmenstrualDays',number(r.intergrowthContext.age.postmenstrualDays,0))]:[]),field('ageDays',number(c.ageDays,0)),field('weight',number(c.weight,0)),field('height',number(c.height,1)),
                 t(c.gender==='M'?'male':c.gender==='F'?'female':'unknown')+' | '+t(c.position==='L'?'lying':c.position==='H'?'standing':'unknown'),
                 t('pdfOedema')+' : '+t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown')];
+            if(c.ageMode==='totalMonths')compactMeasures.push(field('ageTotalMonths',c.totalAgeMonths),t('approximateAge'));
             if(c.ageMode==='months')compactMeasures.push(field('ageYears',c.ageYears)+' | '+field('ageMonths',c.ageMonths),t('approximateAge'));
             if(c.ageMode==='dates')compactMeasures.push(field('birthDate',c.birthDate));
             if(typeof r?.correctedHeight==='number')compactMeasures.push(field('adjustedHeight',number(r.correctedHeight,1)+' '+t('unitCm')));
@@ -95,6 +97,7 @@ class PDFManager {
             const heightPair=number(c.height,1)+(typeof r?.correctedHeight==='number'?' / '+number(r.correctedHeight,1):'');
             const briefMeasures=[number(c.weight,0)+' g | '+heightPair+' cm',number(c.ageDays,0)+' '+t('pdfDaysUnit')+' ('+t(c.ageMode||'unknown')+') | '+this.clean(c.gender||t('unknown'))+' | '+this.clean(c.position||t('unknown')),t('pdfOedema')+' : '+t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown')];
             if(r?.intergrowthContext)briefMeasures.unshift(field('postmenstrualDays',number(r.intergrowthContext.age.postmenstrualDays,0)));
+            if(c.ageMode==='totalMonths')briefMeasures.push(field('ageTotalMonths',c.totalAgeMonths),t('approximateAge'));
             if(c.ageMode==='months')briefMeasures.push(field('ageYears',c.ageYears)+' | '+field('ageMonths',c.ageMonths),t('approximateAge'));
             if(c.ageMode==='dates')briefMeasures.push(field('birthDate',c.birthDate));
             if(r?.schemaVersion===4 && typeof r.bmi==='number' && Number.isFinite(r.bmi))briefMeasures.push(field('bmi',number(r.bmi,2)+' kg/m²'));

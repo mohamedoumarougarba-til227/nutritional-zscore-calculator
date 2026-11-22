@@ -5,6 +5,9 @@ const assetURLs = STATIC_ASSETS.map(asset => new URL(asset, self.registration.sc
 const hashes = new Map(STATIC_ASSETS.map((asset,i)=>[assetURLs[i],RELEASE.assets[asset]]));
 async function verifiedResponse(url) {
     const response = await fetch(new Request(url,{cache:'reload',credentials:'same-origin'}));
+    return verifyResponse(url,response);
+}
+async function verifyResponse(url,response) {
     if (!response.ok) throw new Error('Release resource unavailable: '+url);
     const digest = await crypto.subtle.digest('SHA-256',await response.clone().arrayBuffer());
     const actual = Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -14,7 +17,10 @@ async function verifiedResponse(url) {
 self.addEventListener('install', event => {
     event.waitUntil((async()=>{
         // Validate the entire set before writing. A rejected install leaves the active release alone.
-        const responses = await Promise.all(assetURLs.map(verifiedResponse));
+        const responses = new Array(assetURLs.length);let cursor=0;
+        async function download(){while(cursor<assetURLs.length){const i=cursor++;responses[i]=await verifiedResponse(assetURLs[i]);}}
+        // Avoid dozens of concurrent transfers on weak mobile connections.
+        await Promise.all(Array.from({length:Math.min(3,assetURLs.length)},download));
         const cache = await caches.open(STATIC_CACHE_NAME);
         await Promise.all(assetURLs.map((url,i)=>cache.put(url,responses[i])));
         // No automatic skipWaiting: open work stays on its current release.
@@ -32,7 +38,8 @@ self.addEventListener('fetch', event => {
         // A pinned document (legal pages, notices) keeps its own content, also offline.
         const target=request.mode==='navigate'&&!hashes.has(canonical)?new URL('index.html',self.registration.scope).href:canonical;
         if(hashes.has(target)){
-            const cached=await cache.match(target);if(cached)return cached;
+            const cached=await cache.match(target);
+            if(cached){try{return await verifyResponse(target,cached);}catch(_){/* Repair only this application resource online; never clear user storage. */}}
             try{const response=await verifiedResponse(target);await cache.put(target,response.clone());return response;}
             catch(_){return new Response('Ressource indisponible hors ligne',{status:503});}
         }

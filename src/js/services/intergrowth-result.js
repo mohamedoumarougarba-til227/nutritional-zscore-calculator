@@ -7,6 +7,7 @@ const IGNutrition=typeof module!=='undefined'&&module.exports?require('./nutriti
 class IntergrowthResult {
     static reference='INTERGROWTH2015-postnatal-gigs-fb58fe6596d4';
     static normalize(raw) {
+        raw=IGInput.measurements(raw);
         if(raw.growthProfile!=='intergrowth')throw Error('growthProfileInvalid');
         if(['name','caseId'].some(k=>raw[k]!==undefined&&typeof raw[k]!=='string'))throw Error('nameInvalid');
         const name=(raw.name||'').trim(),caseId=(raw.caseId||'').trim();

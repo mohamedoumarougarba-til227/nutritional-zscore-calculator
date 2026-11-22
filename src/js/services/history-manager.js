@@ -16,7 +16,7 @@ class HistoryManager {
     static clone(data) { return JSON.parse(JSON.stringify(data)); }
     static hasWork(workspace) {
         const meaningfulDraft = draft => draft && (
-            ['caseId', 'name', 'ageYears', 'ageMonths', 'ageDays', 'birthDate', 'weight', 'height', 'gender', 'position','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...SupplementaryHistory.fields].some(k => draft[k] !== '' && draft[k] !== undefined && draft[k] !== null)
+            ['caseId', 'name', 'ageYears', 'ageMonths', 'ageTotalMonths', 'ageDays', 'birthDate', 'weight', 'height', 'gender', 'position','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...SupplementaryHistory.fields].some(k => draft[k] !== '' && draft[k] !== undefined && draft[k] !== null)
             || NutritionHistory.inputFields.some(k=>draft[k]!==undefined&&draft[k]!==null&&draft[k]!=='') || draft.oedema === 'y' || ['days', 'dates'].includes(draft.ageMode)
             || !!draft.measurementDate && draft.measurementDate !== ClinicalEngine.today()
         );
@@ -156,6 +156,7 @@ class HistoryManager {
     }
     static checkChild(child) {
         if (!child || typeof child.id !== 'string' || !child.id || child.id.length > 200 || typeof child.name !== 'string' || child.name.length > 100) throw new Error('importInvalid');
+        if(Object.hasOwn(child,'weightUnit')||Object.hasOwn(child,'heightUnit'))throw Error('importInvalid');
         if(child.growthProfile==='intergrowth'){IGHistory.checkChild(child);return;}
         if(child.ageDomainVersion!==(ProfileHistory.read(child)==='us'?3:2))throw new Error('importVersion');
         const extended=true;
@@ -178,6 +179,7 @@ class HistoryManager {
         if(child.ageDomainVersion!==(profile==='us'?3:2)||ProfileHistory.checkContext(result)!==profile||result.ageInMonths!==ProfileHistory.calculationAge(child)||result.referenceFamily!==ProfileHistory.family(child))throw new Error('importInvalid');
         if(profile==='us'&&Object.entries(ProfileHistory.context(child)).some(([key,value])=>result.profileContext[key]!==value))throw Error('importInvalid');
         if(result.referenceFamily==='CDC2000')CDCHistory.checkPair(child,result);
+        else if(!child.oedema&&!result.warnings.includes('oedemaUnknown'))throw Error('importInvalid');
     }
     static checkResult(result, children) {
         if (!result || typeof result.id !== 'string' || !result.id || result.id.length > 200 || !children.has(result.childId)) throw new Error('importInvalid');

@@ -1,6 +1,37 @@
 /** Loaded before the application; errors never authorize calculations or erase local work. */
 class ReleaseGuard {
     static failed = false;
+    static installPrompt = null;
+    static waitWorker(worker,states) {
+        if(states.includes(worker.state))return Promise.resolve();
+        return new Promise((resolve,reject)=>{
+            const finish=error=>{clearTimeout(timer);worker.removeEventListener('statechange',inspect);error?reject(error):resolve();};
+            const inspect=()=>{if(states.includes(worker.state))finish();else if(worker.state==='redundant')finish(Error('repairFailed'));};
+            const timer=setTimeout(()=>finish(Error('repairFailed')),120000);worker.addEventListener('statechange',inspect);inspect();
+        });
+    }
+    static async repair() {
+        if(this.repairing)return;this.repairing=true;
+        const lang=document.documentElement.lang,copy={fr:['Réparation des fichiers… Les dossiers et sauvegardes ne sont pas effacés.','Réparation impossible pour le moment. Vérifiez Internet et fermez les autres onglets de cette application, puis réessayez. Ne supprimez pas les données du site.'],en:['Repairing application files… Records and backups are not erased.','Repair is unavailable now. Check your connection and close other tabs of this app, then retry. Do not clear site data.'],ar:['جارٍ إصلاح ملفات التطبيق… لا تُحذف الملفات أو النسخ الاحتياطية.','تعذر الإصلاح حاليًا. تحقق من الإنترنت وأغلق علامات تبويب التطبيق الأخرى ثم أعد المحاولة. لا تمسح بيانات الموقع.']}[lang]||null;
+        const messages=copy||['Repairing application files…','Repair failed. Do not clear site data.'],status=document.getElementById('release-repair-status');
+        if(status)status.textContent=messages[0];
+        try{
+            if(!('serviceWorker' in navigator))throw Error('repairFailed');
+            const registration=await navigator.serviceWorker.register(new URL('sw.js',document.baseURI).href,{updateViaCache:'none'});
+            await registration.update();
+            let worker=registration.waiting||registration.installing;
+            if(worker){await this.waitWorker(worker,['installed','activating','activated']);worker=registration.waiting||worker;
+                if(worker.state==='installed')await new Promise((resolve,reject)=>{
+                    const channel=new MessageChannel(),timer=setTimeout(()=>{channel.port1.close();reject(Error('repairFailed'));},15000);
+                    channel.port1.onmessage=event=>{clearTimeout(timer);channel.port1.close();event.data?.error?reject(Error(event.data.error)):resolve();};
+                    worker.postMessage({type:'ACTIVATE_UPDATE'},[channel.port2]);
+                });
+                await this.waitWorker(worker,['activated']);
+            }else if(!registration.active)throw Error('repairFailed');
+            location.reload();
+        }catch(_){if(status)status.textContent=messages[1];}
+        finally{this.repairing=false;}
+    }
     static async digest(bytes) {
         const hash=await crypto.subtle.digest('SHA-256',bytes);
         return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
@@ -24,7 +55,9 @@ class ReleaseGuard {
         root.textContent='';root.setAttribute('role','alert');root.className='startup';
         const p=document.createElement('p');p.textContent=message;
         const button=document.createElement('button');button.className='btn';button.textContent=label;button.addEventListener('click',()=>location.reload());
-        root.append(p,button);
+        const repair=document.createElement('button');repair.className='btn primary';repair.textContent=({fr:'Réparer les fichiers sans effacer mes données',en:'Repair files without erasing my data',ar:'إصلاح الملفات دون مسح بياناتي'})[lang]||'Repair files without erasing my data';repair.addEventListener('click',()=>this.repair());
+        const status=document.createElement('p');status.id='release-repair-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+        root.append(p,repair,button,status);
     }
 }
 if(typeof module!=='undefined'&&module.exports)module.exports={ReleaseGuard};
@@ -36,6 +69,8 @@ else {window.ReleaseGuard=ReleaseGuard;
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     document.documentElement.lang = ['fr', 'en', 'ar'].includes(prefs.language) ? prefs.language : 'fr';
     document.documentElement.dir = document.documentElement.lang === 'ar' ? 'rtl' : 'ltr';
+    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ReleaseGuard.installPrompt=event;window.dispatchEvent(new Event('zscore-install-ready'));});
+    window.addEventListener('appinstalled',()=>{ReleaseGuard.installPrompt=null;window.dispatchEvent(new Event('zscore-install-ready'));});
     window.addEventListener('error',event=>{
         if(event.target?.tagName==='SCRIPT'||event.target?.tagName==='LINK'&&event.target.rel==='stylesheet')ReleaseGuard.fail();
     },true);

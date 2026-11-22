@@ -11,13 +11,14 @@ class GrowthProfile {
         if (this.read(child) === 'us' && child.totalAgeMonths >= 24) return 'CDC2000';
         return child.totalAgeMonths < 60 ? 'WHO2006' : 'WHO2007';
     }
+    static agePrecision(child){return ['months','totalMonths'].includes(child.ageMode)&&Number.isInteger(child.totalAgeMonths)?'completedMonths':'exact';}
     static calculationAge(child) {
         if(this.read(child)==='intergrowth')return child.totalAgeMonths;
-        return child.totalAgeMonths + (this.family(child) === 'CDC2000' && child.ageMode === 'months' ? 0.5 : 0);
+        return child.totalAgeMonths + (this.family(child) === 'CDC2000' && this.agePrecision(child) === 'completedMonths' ? 0.5 : 0);
     }
     static context(child) {
         if(this.read(child)==='intergrowth')return {version:1,profile:'intergrowth',postmenstrualDays:child.postmenstrualDays};
-        return this.read(child) === 'who' ? undefined : {version: 1, profile: 'us', reportedAgeInMonths: child.totalAgeMonths, agePrecision: child.ageMode === 'months' ? 'completedMonths' : 'exact'};
+        return this.read(child) === 'who' ? undefined : {version: 1, profile: 'us', reportedAgeInMonths: child.totalAgeMonths, agePrecision: this.agePrecision(child)};
     }
     static checkContext(result) {
         const ctx = result.profileContext;

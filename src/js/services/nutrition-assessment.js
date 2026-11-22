@@ -32,7 +32,7 @@ class NutritionAssessment {
         const validZ=typeof wh?.zscoreRaw==='number'&&Number.isFinite(wh.zscoreRaw)&&wh.flagged===false;
         const severe=eligible&&(child.oedema==='y'||muac==='muacSevere'||validZ&&wh.zscoreRaw<-3);
         const moderate=eligible&&(muac==='muacModerate'||validZ&&wh.zscoreRaw>=-3&&wh.zscoreRaw<-2);
-        const complete=eligible&&child.oedema==='n'&&pb!==null&&validZ;
+        const complete=eligible&&!!child.position&&child.oedema==='n'&&pb!==null&&validZ;
         const category=!eligible?'nutritionAgeUnsupported':severe?'nutritionSevere':moderate?'nutritionModerateCriteria':complete?'nutritionNoCriteria':'nutritionIncomplete';
         const danger=this.dangerFields.some(key=>child[key]==='y');
         const criteria=[];
@@ -58,6 +58,8 @@ class NutritionAssessment {
         else orientation='orientationCompleteAssessment';
         // Passing the appetite test alone never establishes outpatient eligibility.
         const missing=[...this.dangerFields,'acuteProblem','appetite','furtherAssessment'].filter(key=>!child[key]);
+        if(!child.oedema)missing.push('oedema');
+        if(eligible&&!child.position)missing.push('position');
         if(child.oedema==='y'&&!child.oedemaGrade)missing.push('oedemaGrade');
         if(eligible&&pb===null)missing.push('muac');
         if(eligible&&!validZ&&child.oedema!=='y')missing.push('weightForHeight');

@@ -21,7 +21,7 @@ class WHO2007Reference {
         const b=table[low+1];return a.map((v,i)=>v+fraction*(b[i]-v));
     }
     compute({sex,ageInMonths,weightKg,heightCm,oedema='n'}){
-        if(!['n','y'].includes(oedema))throw Error('oedemaInvalid');
+        if(!['','n','y'].includes(oedema))throw Error('oedemaInvalid');
         const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
         const bmi=positive(weightKg)&&positive(heightCm)?weightKg/(heightCm/100)**2:null;
         const values={weightForAge:weightKg,heightForAge:heightCm,bmiForAge:bmi},scores={};

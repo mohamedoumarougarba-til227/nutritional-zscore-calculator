@@ -38,7 +38,7 @@ class GrowthChart {
                 if(!dated||!withinAge||result?.schemaVersion!==4||this.reference(result,key)!==reference||indicator?.reference!==reference||!Number.isFinite(indicator.zscore)||indicator.error||indicator.flagged)return [];
                 const value=extra?indicator.measure:key==='weightForAge'?child.weight/1000:key==='heightForAge'?result.correctedHeight:result.bmi;
                 if(!Number.isFinite(value)||value<=0)return [];
-                return [{index,day:older?result.ageInMonths*month:child.ageDays,date:child.measurementDate,value,estimated:child.ageMode==='months',imported:!!result.imported}];
+                return [{index,day:older?result.ageInMonths*month:child.ageDays,date:child.measurementDate,value,estimated:['months','totalMonths'].includes(child.ageMode),imported:!!result.imported}];
             });
             const values=[...curves.flatMap(c=>c.segments.flatMap(s=>s.map(p=>p.value))),...points.map(p=>p.value)];
             const {low,high}=values.reduce((r,v)=>({low:Math.min(r.low,v),high:Math.max(r.high,v)}),{low:Infinity,high:-Infinity}),pad=Math.max((high-low)*.08,.5);

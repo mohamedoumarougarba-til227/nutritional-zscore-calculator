@@ -1,13 +1,13 @@
 # Méthode et périmètre actuels
 
-## Profil américain explicite — sources 5.8.7 / moteur 4.4.0
+## Profil américain explicite — sources 5.9.0 / moteur 4.5.0
 
 Réglages propose OMS 2006/2007 ou OMS avant deux ans puis CDC 2000/IMC étendu 2022. Ce choix est conservé par visite et modifiable explicitement dans le formulaire ; la préférence seule ne réécrit pas les travaux existants. Les imports peuvent indiquer `growthProfile` (`who`/`us`). CDC couvre 24 à moins de 240 mois sans poids/taille. Catégories, courbes et résumés sont séparés des références OMS ; âge déclaré, âge utilisé et méthode figurent dans les sorties. Voir [méthode CDC](CDC.md).
 
 Contrôles numériques, modèles de sortie et parcours navigateur datés sont distingués dans la [matrice manuelle](../maintenance/VALIDATION_MANUELLE.md). Les observations décrites n'établissent ni validation clinique, ni accessibilité complète ou impression papier. La version publiée est identifiée par son tag, son SHA et son manifeste ; elle peut différer du checkout de travail.
 
 
-CURRENT — sources 5.8.7, moteur combiné 4.4.0. Cette page explique le calcul ; ce n’est pas un protocole de traitement.
+CURRENT — sources 5.9.0, moteur combiné 4.5.0. Cette page explique le calcul ; ce n’est pas un protocole de traitement.
 
 ## Références et domaines
 
@@ -47,3 +47,13 @@ Les résultats enregistrés conservent leur référence et version ; leur lectur
 `npm test` couvre un socle public synthétique ; `npm run verify:public` compare les sorties numériques à des attentes conservées séparément. Les cas complémentaires utilisent une évaluation Python Decimal indépendante des tables TSV, explicitement distincte d’une exécution du paquet R OMS. La suite privée, la relecture métier et les essais physiques ont des portées différentes. Aucune certification OMS, gouvernementale ou clinique n’est revendiquée.
 
 Le [profil américain OMS/CDC](CDC.md) et le [profil postnatal INTERGROWTH](INTERGROWTH.md) sont raccordés explicitement aux sources courantes ; INTERGROWTH conserve son PMA exact, ses équations et sa portée séparés. Le [relevé des autres références](REFERENTIELS_COMPLEMENTAIRES.md) conserve les recherches historiques ; elles ne sont pas toutes activées. Les décisions de soins, l’orientation locale et les traitements relèvent du professionnel et du protocole applicable.
+
+## Saisie et observations manquantes — 5.9.0
+
+Les unités sont explicites : kg × 1 000 → g et m × 100 → cm ; les résultats, courbes, PDF et CSV restent en g/cm. Un changement de sélecteur convertit la valeur déjà saisie. La virgule, le point et les chiffres décimaux arabes sont acceptés ; aucune détection automatique d’unité. Les mois seuls utilisent 30,4375 jours et le même arrondi au jour que le mode années/mois. Les mois décimaux restent un âge estimé ; avec CDC, les mois entiers ont le même décalage +0,5 que les années/mois, les mois fractionnaires sont utilisés sans ce décalage (le champ technique agePrecision=exact désigne cette indexation, pas une date de naissance connue).
+
+Sans position renseignée, la longueur couchée avant 731 jours et la taille debout ensuite sont présumées pour OMS 2006, sans correction de 0,7 cm : [guide officiel WHO Anthro Survey Analyser, mesure manquante](https://www.who.int/docs/default-source/child-growth/child-growth-standards/anthro-survey-analyser-quickguide.pdf). Pour OMS 2007 et CDC (dès deux ans), la taille debout est présumée sans correction ; cette hypothèse est affichée et ne remplace pas la position réellement mesurée. La valeur du champ reste vide dans le dossier et les exports. Une position explicitement renseignée garde ses corrections/politiques existantes. La synthèse ne conclut pas à l’absence de critère sur une position inconnue. INTERGROWTH n’applique pas cette présomption : la longueur seule est suspendue si sa position n’est pas confirmée, les mesures indépendantes disponibles restent calculables.
+
+Des œdèmes inconnus restent inconnus dans le dossier : les scores liés au poids sont calculés avec un avertissement conditionnel, selon la convention numérique du [logiciel OMS anthro](https://github.com/WorldHealthOrganization/anthro/blob/master/man/anthro_zscores.Rd). Leur interprétation nécessite de confirmer l’absence d’œdèmes. Aucune observation négative n’est enregistrée automatiquement ; la synthèse conserve les observations manquantes et ne conclut pas à une absence de critère. Des œdèmes déclarés présents suspendent les scores liés au poids. INTERGROWTH conserve sa règle distincte de suspension si les œdèmes sont inconnus. Les domaines, coefficients LMS, seuils et résultats antérieurs avec observations complètes sont inchangés. Les comparaisons numériques automatisées, les contrôles navigateur et la validation physique/métier sont des preuves distinctes.
+
+Le CSV ajoute en fin de ligne les colonnes warnings, measurement_position_used, measurement_position_assumed et age_estimated. Elles distinguent observation brute, convention utilisée et âge estimé sans modifier l’ordre des colonnes précédentes. Les codes d’avertissement restent techniques ; les messages localisés sont dans l’interface et les PDF. Le format de sauvegarde n’est pas remplacé par ce CSV.

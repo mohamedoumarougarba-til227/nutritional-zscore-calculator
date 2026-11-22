@@ -1,4 +1,4 @@
-# Guide utilisateur — Z-score Niger 5.8.7
+# Guide utilisateur — Z-score Niger 5.9.0
 
 ## Créer une copie après un échec de sauvegarde
 
@@ -27,7 +27,7 @@ Télécharger le contrôle des lignes pour retrouver leurs numéros dans ce trav
 Sélectionner explicitement ce profil dans les réglages pour les nouveaux travaux, ou dans la référence de la visite. Entrer le PMA exact en jours (189–448), ou l’âge gestationnel à la naissance et l’âge chronologique exact (jours/deux dates). Les mois estimés ne sont pas convertis. Renseigner au moins un poids en g, une longueur couchée en cm ou un périmètre crânien en cm. Les âges inconnus restent inconnus. Les résultats décrivent une position dans cette référence postnatale, sans catégorie de diagnostic OMS ni admission/prescription. Naissance, perte/reprise de poids et PMA avant 32 semaines demandent une interprétation particulière avec le soignant. Voir [méthode et limites](../references/INTERGROWTH.md).
 
 
-## Profil américain explicite — sources 5.8.7 / moteur 4.4.0
+## Profil américain explicite — sources 5.9.0 / moteur 4.5.0
 
 Réglages propose OMS 2006/2007 ou OMS avant deux ans puis CDC 2000/IMC étendu 2022. Ce choix est conservé par visite et modifiable explicitement dans le formulaire ; la préférence seule ne réécrit pas les travaux existants. Les imports peuvent indiquer `growthProfile` (`who`/`us`). CDC couvre 24 à moins de 240 mois sans poids/taille. Catégories, courbes et résumés sont séparés des références OMS ; âge déclaré, âge utilisé et méthode figurent dans les sorties. Voir [méthode CDC](../references/CDC.md).
 
@@ -42,7 +42,7 @@ L’application calcule localement, sans compte ni transmission des dossiers. Ut
 
 ## Calcul individuel
 
-Saisir identifiant et pseudonyme facultatifs, âge, date de mesure, poids **en grammes**, longueur/taille **en cm**, sexe, position et œdèmes bilatéraux. Les œdèmes doivent être renseignés explicitement : aucune absence n’est présumée. Les dates connues sont préférables à l’âge estimé. Le mois moyen OMS compte 30,4375 jours. Avec le profil OMS, le calcul sélectionne OMS 2006 avant 60 mois moyens, OMS 2007 de 60 à moins de 229 mois. Le profil américain suit les règles distinctes décrites en tête de ce guide.
+Saisir identifiant et pseudonyme facultatifs, âge, date de mesure, poids **en g ou kg**, longueur/taille **en cm ou m**, sexe, position et œdèmes bilatéraux. Sans position, une convention selon l’âge est signalée ; sans observation d’œdèmes, les scores OMS/CDC sont numériques mais conditionnels. Les champs non renseignés restent inconnus : aucune observation d’absence n’est enregistrée. Les dates connues sont préférables à l’âge estimé. Le mois moyen OMS compte 30,4375 jours. Avec le profil OMS, le calcul sélectionne OMS 2006 avant 60 mois moyens, OMS 2007 de 60 à moins de 229 mois. Le profil américain suit les règles distinctes décrites en tête de ce guide.
 
 Cliquer **Calculer**. **Sauvegarder** conserve une version explicite ; la sauvegarde automatique protège aussi le travail commencé. L’état à droite du titre distingue prêt, en cours, enregistré et échec. Une mesure changée après calcul rend le résultat à recalculer. Les actions PDF, CSV et impression utilisent les valeurs enregistrées, avec leur référence et date de calcul.
 
@@ -103,3 +103,11 @@ Les résultats complémentaires repliables, les courbes, le CSV et les notes PDF
 ## Donner un avis ou signaler un problème
 
 Le lien du pied de page ouvre le formulaire externe Tally en français, anglais ou arabe selon la langue active. Une connexion Internet est nécessaire ; le formulaire s’ouvre dans un autre onglet et ne reçoit automatiquement aucun contenu de dossier ou de calcul. Décrire les étapes et utiliser uniquement des mesures fictives et des captures anonymisées. Trois images facultatives de 10 Mo chacune au maximum et un e-mail facultatif sont proposés par les formulaires. Sans connexion, revenir à l’onglet de Z-score : la saisie et les dossiers restent locaux. Ne jamais envoyer une sauvegarde réelle ou une fiche patient.
+
+## Installer, réparer et utiliser les nouvelles unités
+
+Dans Réglages, consulter Installation sur cet appareil. Le bouton Installer apparaît lorsque le navigateur l’autorise et que les fichiers sont disponibles hors ligne. Sur Android Chrome : menu ⋮ → Installer l’application ; sur iPhone : Partager → Sur l’écran d’accueil. Un HTML enregistré avec Télécharger / Enregistrer la page n’est pas cette installation. Attendre le message de disponibilité hors ligne avant de couper la connexion. Le premier téléchargement conserve aussi les ressources et sources GPL nécessaires ; une interruption peut empêcher sa préparation.
+
+Si la vérification des fichiers bloque le démarrage, utiliser Réparer les fichiers sans effacer mes données, avec Internet. Fermer les autres onglets de l’application si demandé. La réparation met à jour les fichiers de l’application sans supprimer les dossiers. Ne pas choisir Effacer les données du site / cookies : cela peut supprimer IndexedDB et les journaux. Si une ancienne version ne propose pas encore ce bouton, faire vérifier uniquement l’enregistrement du service worker par l’assistance ; conserver le stockage, les journaux et sauvegardes. L’ancien et le nouveau domaine ont chacun leur stockage : transférer les dossiers par export/import, pas par suppression des cookies.
+
+Choisir l’unité avant la saisie : 12,71 kg équivaut à 12 710 g ; 1,20 m à 120 cm. Le changement d’unité convertit le nombre affiché. Les détails et exports restent en g/cm. L’âge en mois seul accepte par exemple 18 ou 18,5 ; c’est un âge estimé, les dates connues restent préférables. La position et les œdèmes peuvent rester non renseignés pour lancer les évaluations possibles ; lire les réserves du calcul : position supposée selon l’âge et œdèmes à confirmer. Si des œdèmes sont déclarés présents, les scores liés au poids sont suspendus. INTERGROWTH conserve ses exigences séparées. Compléter les observations pour l’évaluation du dépistage.
