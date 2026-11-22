@@ -8,12 +8,12 @@ const PretermUI=typeof module!=='undefined'&&module.exports?require('./services/
 const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/lot-quality.js').LotQuality:globalThis.LotQuality;
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 class WorkspaceApp {
-    static version = '5.8.7';
+    static version = '5.9.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
     static draftForProfile(draft,profile) {
         ProfileUI.read({growthProfile:profile});
         return {...draft,growthProfile:profile,
-            ageMode:profile==='intergrowth'&&draft.ageMode==='months'||profile!=='intergrowth'&&draft.ageMode==='pma'?'days':draft.ageMode};
+            ageMode:profile==='intergrowth'&&['months','totalMonths'].includes(draft.ageMode)||profile!=='intergrowth'&&draft.ageMode==='pma'?'days':draft.ageMode};
     }
     static draftForAgeMode(draft,mode) {
         const next={...draft,ageMode:mode};
@@ -43,7 +43,7 @@ class WorkspaceApp {
         this.prefs.growthProfile = ['us','intergrowth'].includes(prefs.growthProfile)?prefs.growthProfile:'who';
         this.state = this.emptyWorkspace();
     }
-    emptyDraft(growthProfile=this.prefs?.growthProfile||'who') { return { caseId: '', name: '', ageMode: growthProfile==='intergrowth'?'days':'months', postmenstrualDays:'', gestationalAgeWeeks:'', gestationalAgeDays:'', ageYears: '', ageMonths: '', ageDays: '', birthDate: '', measurementDate: ClinicalEngine.today(), weight: '', height: '', gender: '', position: '', oedema: '', growthProfile }; }
+    emptyDraft(growthProfile=this.prefs?.growthProfile||'who') { return { caseId: '', name: '', ageMode: growthProfile==='intergrowth'?'days':'months', postmenstrualDays:'', gestationalAgeWeeks:'', gestationalAgeDays:'', ageYears: '', ageMonths: '', ageTotalMonths:'', weightUnit:'g',heightUnit:'cm', ageDays: '', birthDate: '', measurementDate: ClinicalEngine.today(), weight: '', height: '', gender: '', position: '', oedema: '', growthProfile }; }
     emptyWorkspace() { return { version: 1, draft: this.emptyDraft(), batchDraft: this.emptyDraft(), single: null, batch: [], paste: '', mode: 'single', stale: false }; }
     t(key) { const own=table=>table&&Object.hasOwn(table,key)&&typeof table[key]==='string'?table[key]:'';return own(this.translations?.[this.prefs.language])||own(this.translations?.fr)||String(key??''); }
     esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -120,6 +120,7 @@ class WorkspaceApp {
             if(ReleaseGuard.failed)throw new Error('releaseInvalid');
             this.applyPreferences(); this.render(); this.events();
             window.addEventListener('online', () => this.updateConnection()); window.addEventListener('offline', () => this.updateConnection());
+            window.addEventListener('zscore-install-ready',()=>this.updateInstallStatus());
             window.addEventListener('pagehide', () => this.checkpoint());
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { this.checkpoint(); this.queueSave(); } });
             matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (this.prefs.theme === 'system') this.applyPreferences(); });
@@ -397,9 +398,21 @@ class WorkspaceApp {
         measure();
         if(typeof ResizeObserver==='function'){this.headerObserver=new ResizeObserver(measure);this.headerObserver.observe(header);}
     }
+    installHTML() {
+        const ready=this.offlineState==='offlineReady',prompt=globalThis.ReleaseGuard?.installPrompt;
+        return `<section class="card"><h2>${this.t('installHelp')}</h2><p role="status">${this.t(ready?'installReady':'installPending')}</p>${prompt?`<button class="btn primary" data-action="install-app" ${ready?'':'disabled'}>${this.t('installApp')}</button>`:''}<p>${this.t('installInstructions')}</p></section>`;
+    }
+    updateInstallStatus(){const section=document.getElementById('install-status');if(section)section.innerHTML=this.installHTML();}
+    async installApp(){
+        const prompt=globalThis.ReleaseGuard?.installPrompt;if(!prompt){this.toast('installUnavailable');return;}
+        if(this.offlineState!=='offlineReady'){this.toast('installPending');return;}
+        let prompted=false;try{await this.saveImmediate('beforeInstall',true);prompted=true;await prompt.prompt();await prompt.userChoice;}
+        catch(_){this.toast('installUnavailable',true);}
+        finally{if(prompted&&globalThis.ReleaseGuard?.installPrompt===prompt)globalThis.ReleaseGuard.installPrompt=null;this.updateInstallStatus();}
+    }
     settingsHTML() {
         const names={fr:'Français',en:'English',ar:'العربية'};
-        return `<section class="card settings-card" aria-label="${this.esc(this.t('settings'))}"><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${['language','theme','growthProfile'].map(kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(kind==='growthProfile'?'growthProfileDefault':kind)}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='language'||kind==='growthProfile'?'language':this.prefs.theme)}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':this.prefs.theme))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`).join('')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p></section>`;
+        return `<section class="card settings-card" aria-label="${this.esc(this.t('settings'))}"><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${['language','theme','growthProfile'].map(kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(kind==='growthProfile'?'growthProfileDefault':kind)}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='language'||kind==='growthProfile'?'language':this.prefs.theme)}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':this.prefs.theme))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`).join('')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p></section><div id="install-status">${this.installHTML()}</div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -439,15 +452,17 @@ class WorkspaceApp {
         const label=(key,hint='')=>`<div class="field-label"><label for="${prefix}-${key}">${this.t(labelKey(key))}${['caseId','name'].includes(key)?` <small>(${this.t('optional')})</small>`:''}</label>${hint?this.infoButton(hint,key,`${prefix}-${key}-info`):''}</div>`;
         const field = (key, type = 'text', attrs = '', hint = '') => `<div class="field">${label(key,hint)}<input id="${prefix}-${key}" name="${key}" type="${type}" value="${this.esc(data[key])}" ${attrs}${hint ? ` aria-describedby="${prefix}-${key}-hint"` : ''}>${hint ? `<p id="${prefix}-${key}-hint" class="sr-only">${this.t(hint)}</p>` : ''}</div>`;
         const select = (key, options, hint = '') => `<div class="field">${label(key,hint)}<select id="${prefix}-${key}" name="${key}"${hint ? ` aria-describedby="${prefix}-${key}-hint"` : ''}>${options.map(([value,text]) => `<option value="${value}" ${data[key] === value ? 'selected' : ''}>${this.t(text)}</option>`).join('')}</select>${hint ? `<p id="${prefix}-${key}-hint" class="sr-only">${this.t(hint)}</p>` : ''}</div>`;
+        const measurement=(key,base,alternative,labelKey)=>{const unit=data[key+'Unit']||base;return `<div class="field"><div class="field-label"><label for="${prefix}-${key}">${this.t(labelKey)}</label>${key==='weight'?this.infoButton('weightHint',labelKey,`${prefix}-${key}-info`):''}</div><div class="measurement-entry"><input id="${prefix}-${key}" name="${key}" type="text" inputmode="decimal" autocomplete="off" value="${this.esc(data[key])}"><label class="sr-only" for="${prefix}-${key}Unit">${this.t(key+'Unit')}</label><select id="${prefix}-${key}Unit" name="${key}Unit" aria-label="${this.t(key+'Unit')}">${[base,alternative].map(u=>`<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}</select></div></div>`;};
         return `<form id="${prefix}-form" novalidate><div class="form-grid">
             ${field('caseId', 'text', 'maxlength="100" autocomplete="off"')}${field('name', 'text', `maxlength="100" autocomplete="off" placeholder="${this.t('namePlaceholder')}"`)}
-            <div class="field">${label('ageMode',ageHelp)}<select id="${prefix}-ageMode" name="ageMode" aria-describedby="${prefix}-ageMode-hint">${(ig?['days','dates','pma']:['months','dates','days']).map(mode => `<option value="${mode}" ${data.ageMode === mode ? 'selected' : ''}>${this.t(mode)}</option>`).join('')}</select><p id="${prefix}-ageMode-hint" class="sr-only">${this.t(ageHelp)}</p></div>
+            <div class="field">${label('ageMode',ageHelp)}<select id="${prefix}-ageMode" name="ageMode" aria-describedby="${prefix}-ageMode-hint">${(ig?['days','dates','pma']:['days','totalMonths','months','dates']).map(mode => `<option value="${mode}" ${data.ageMode === mode ? 'selected' : ''}>${this.t(mode)}</option>`).join('')}</select><p id="${prefix}-ageMode-hint" class="sr-only">${this.t(ageHelp)}</p></div>
             <div class="age-fields" data-age="months" ${data.ageMode !== 'months' ? 'hidden' : ''}>${field('ageYears','number','min="0" max="19" step="1" inputmode="numeric"')}${field('ageMonths','number','min="0" max="11" step="1" inputmode="numeric"')}</div>
+            <div class="age-fields" data-age="totalMonths" ${data.ageMode!=='totalMonths'?'hidden':''}>${field('ageTotalMonths','text','inputmode="decimal" autocomplete="off"')}</div>
             <div class="age-fields" data-age="dates" ${data.ageMode !== 'dates' ? 'hidden' : ''}>${field('birthDate','date',`max="${ClinicalEngine.today()}"`)}</div>
             <div class="age-fields" data-age="days" ${data.ageMode !== 'days' ? 'hidden' : ''}>${field('ageDays','number',`min="0" max="${ig?448:data.growthProfile==='us'?7304:6970}" step="1" inputmode="numeric"`)}</div>
             ${ig?`<div class="age-fields" data-age="pma" ${data.ageMode!=='pma'?'hidden':''}>${field('postmenstrualDays','number','min="189" max="448" step="1" inputmode="numeric"')}</div><div class="age-fields" data-gestation ${data.ageMode==='pma'?'hidden':''}>${field('gestationalAgeWeeks','number','min="0" max="36" step="1" inputmode="numeric"')}${field('gestationalAgeDays','number','min="0" max="6" step="1" inputmode="numeric"')}</div></div><p class="hint">${this.t('intergrowthAgeHelp')}</p><div class="form-grid">`:''}
             ${field('measurementDate','date',`max="${ClinicalEngine.today()}"`)}
-            ${field('weight','number',ig?'min="0" step="any" inputmode="decimal"':'min="50" max="300000" step="1" inputmode="decimal"','weightHint')}${field('height','number',ig?'min="0" step="any" inputmode="decimal"':'min="30" max="250" step="0.1" inputmode="decimal"')}${ig?field('headCircumference','number','min="0" step="any" inputmode="decimal"'):''}
+            ${measurement('weight','g','kg','weightMeasure')}${measurement('height','cm','m','heightMeasure')}${ig?field('headCircumference','number','min="0" step="any" inputmode="decimal"'):''}
             ${select('gender',[['','choose'],['M','male'],['F','female']])}${select('oedema',[['','unknown'],['n','no'],['y','yes']])}${select('position',(ig?[['','choose'],['L','lying']]:[['','choose'],['L','lying'],['H','standing']]),positionHelp)}
             </div><details class="reference-profile"><summary>${this.t(ig?'profileINTERGROWTH':data.growthProfile==='us'?'profileUS':'profileWHO')}</summary><p class="hint">${this.t('growthProfileVisitHelp')}</p>${select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']])}</details><details class="clinical-fields"${NutritionUI.inputFields.some(k=>data[k]!==undefined&&data[k]!=='')?' open':''}><summary>${this.t('clinicalSection')}</summary><p class="hint">${this.t(ig?'intergrowthNoScreening':'clinicalHelp')}</p><div class="form-grid">${field('muac','number','min="50" max="400" step="0.1" inputmode="decimal"','muacHelp')}${select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])}${NutritionUI.dangerFields.map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}${select('acuteProblem',[['','unknown'],['n','no'],['y','yes']])}${select('appetite',[['','unknown'],['good','appetiteGood'],['poor','appetitePoor']])}${select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])}</div></details>${this.additionalFormHTML(prefix,data,ig,field)}<div id="${prefix}-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>`;
     }
@@ -538,6 +553,7 @@ class WorkspaceApp {
         this.dialog('batchCorrectionTitle',`<p>${this.t('qualityRecord')} ${this.number(context.index+1,0)} · <bdi>${this.esc(context.entry.child.name||context.entry.child.caseId||this.t('unknown'))}</bdi></p><p class="hint">${this.t('batchCorrectionHelp')}</p><p id="correction-progress" role="status" aria-live="polite"></p>${this.formHTML('correction',context.draft)}`,`<button class="btn primary" data-action="save-batch-correction">${this.t('batchCorrectionApply')}</button>`);
         const form=document.getElementById('correction-form');
         form.addEventListener('submit',event=>{event.preventDefault();this.saveBatchCorrection();});
+        form.addEventListener('input',event=>{if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);this.readBatchCorrection();});
         form.addEventListener('change',event=>{
             if(!['ageMode','growthProfile'].includes(event.target.name))return;
             this.readBatchCorrection();
@@ -692,6 +708,7 @@ class WorkspaceApp {
         });
         document.getElementById('app-root').addEventListener('input', event => {
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
+            if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
             if (event.target.closest('#single-form,#batch-form') || event.target.id === 'paste-data') {
                 this.readForms(); if (event.target.closest('#single-form') && this.state.single) { this.state.stale = true; document.getElementById('single-results').innerHTML = this.resultsHTML(this.state.single,true); }
                 this.scheduleSave();
@@ -736,6 +753,14 @@ class WorkspaceApp {
         this.encryptedPending=null;this.previewRequest=(this.previewRequest||0)+1;this.importRequest=(this.importRequest||0)+1;
         this.previewedVersion=null;this.stagePreviewSession=null;
         if(this.preparedImport?.format==='stream'){this.transfers().release(this.preparedImport);this.preparedImport=null;}
+    }
+    changeMeasureUnit(select) {
+        const form=select.closest('form');if(!form)return;
+        const draft=form.id==='correction-form'?this.batchCorrection?.draft:this.state[form.id==='single-form'?'draft':'batchDraft'];
+        if(!draft)return;const key=select.name==='weightUnit'?'weight':'height',old=draft[select.name]||(key==='weight'?'g':'cm'),next=select.value;
+        const input=form.querySelector('[name="'+key+'"]');if(!input||old===next||!input.value.trim())return;
+        try{const places=u=>u==='kg'?3:u==='m'?2:0;input.value=String(ClinicalEngine.shiftDecimal(ClinicalEngine.decimal(input.value,'measureUnitInvalid'),places(old)-places(next)));}
+        catch(_){/* Keep invalid text for explicit validation; never erase an unfinished input. */}
     }
     readForms() {
         for (const prefix of ['single','batch']) {
@@ -824,6 +849,7 @@ class WorkspaceApp {
             this.page=button.dataset.value;if(this.page==='history')this.sessions=await this.history.catalog();this.render('main');
         }
         else if(action==='apply-update')await this.applyUpdate();
+        else if(action==='install-app')await this.installApp();
         else if(action==='check-update')await this.checkUpdate();
         else if(action==='capacity-refresh')await this.refreshCapacity();
         else if(action==='stage-refresh')await this.refreshStages();
@@ -1048,11 +1074,11 @@ class WorkspaceApp {
     }
     previewDraft(draft, mode) {
         if (!draft || !HistoryManager.hasWork({[mode === 'batch' ? 'batchDraft' : 'draft']:draft})) return '';
-        const ageFields = draft.ageMode === 'dates' ? ['birthDate'] : draft.ageMode === 'days' ? ['ageDays'] : ['ageYears','ageMonths'];
-        const fields=['caseId','name','ageMode',...ageFields,'measurementDate','weight','height','gender','position','oedema','growthProfile','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...NutritionUI.inputFields,...SupplementaryUI.fields];
+        const ageFields = draft.ageMode === 'dates' ? ['birthDate'] : draft.ageMode === 'days' ? ['ageDays'] : draft.ageMode==='totalMonths'?['ageTotalMonths']:['ageYears','ageMonths'];
+        const fields=['caseId','name','ageMode',...ageFields,'measurementDate','weight','weightUnit','height','heightUnit','gender','position','oedema','growthProfile','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...NutritionUI.inputFields,...SupplementaryUI.fields];
         const labels = { gender:{M:'male',F:'female'}, position:{L:'lying',H:'standing'}, oedema:{n:'no',y:'yes'} };
         const value = key => key === 'growthProfile' ? this.t(draft[key]==='intergrowth'?'profileINTERGROWTH':draft[key]==='us'?'profileUS':'profileWHO') : key === 'ageMode' ? this.t(draft[key]) : labels[key]?.[draft[key]] ? this.t(labels[key][draft[key]]) : draft[key];
-        return `<h3>${this.t('draft')} · ${this.t(mode)}</h3><div class="preview-grid">${fields.filter(k=>draft[k]!==''&&draft[k]!==undefined&&draft[k]!==null).map(k=>`<dl><dt>${this.t(k)}</dt><dd>${this.esc(value(k))}</dd></dl>`).join('')}</div>`;
+        return `<h3>${this.t('draft')} · ${this.t(mode)}</h3><div class="preview-grid">${fields.filter(k=>draft[k]!==''&&draft[k]!==undefined&&draft[k]!==null).map(k=>`<dl><dt>${this.t(k==='weight'&&draft.weightUnit?'weightMeasure':k==='height'&&draft.heightUnit?'heightMeasure':k)}</dt><dd>${this.esc(value(k))}</dd></dl>`).join('')}</div>`;
     }
     async restore(session){
         if(!session?.metadata?.workspace)return;
@@ -1101,7 +1127,7 @@ class WorkspaceApp {
         if(charts)charts.innerHTML=this.chartsHTML(entries.length?entries:[entry]);
     }
     updateConnection(){const badge=document.getElementById('connection');if(badge)badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(navigator.onLine?'online':'offline')}`;}
-    updateOfflineStatus(){document.querySelectorAll('[data-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState);});}
+    updateOfflineStatus(){document.querySelectorAll('[data-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState);});this.updateInstallStatus();}
     updateHTML(){
         if(!this.offlineRegistration?.waiting&&!this.reloadAvailable&&!this.updateError)return '';
         const available=!!this.offlineRegistration?.waiting||this.reloadAvailable;

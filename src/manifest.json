@@ -63,5 +63,6 @@
       "purpose": "any maskable"
     }
   ],
-  "scope": "./"
+  "scope": "./",
+  "id": "./"
 }

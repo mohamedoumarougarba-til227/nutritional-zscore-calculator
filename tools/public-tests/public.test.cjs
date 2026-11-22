@@ -94,7 +94,7 @@ test('exact dates and estimated years/months remain distinguishable',()=>{
     assert.throws(()=>engine.calculate(example({ageMode:'dates',birthDate:'2025-02-30'})),/dateInvalid/);
 });
 test('unknown oedema is not assumed absent and present oedema suspends weight-related scores',()=>{
-    assert.throws(()=>engine.calculate(example({oedema:''})),/oedemaInvalid/);
+    assert(Number.isFinite(engine.calculate(example({oedema:''})).result.weightForAge.zscore));
     const swollen=engine.calculate(example({oedema:'y'})).result;
     assert.equal(swollen.weightForAge.zscore,null);assert.equal(swollen.bmiForAge.zscore,null);
     assert.ok(Number.isFinite(swollen.heightForAge.zscore));

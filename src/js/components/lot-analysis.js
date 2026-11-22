@@ -16,7 +16,7 @@ class LotAnalysis {
             const id=typeof c.caseId==='string'?c.caseId.trim():'';
             if(id){cases.add(id);identifiedRows++;}else model.withoutCaseId++;
             model.sex[['M','F'].includes(c.gender)?c.gender:'unknown']++;
-            if(r?.imported)model.imported++;if(c.ageMode==='months')model.estimated++;
+            if(r?.imported)model.imported++;if(['months','totalMonths'].includes(c.ageMode))model.estimated++;
             const d=c.ageDays;let usableAge=Number.isInteger(d)&&d>=0&&d<=1826;
             if(usableAge&&c.ageDomainVersion!==2&&(c.ageMode==='dates'||d===1826)){
                 try{const date=ClinicalEngine.dateDays(c.measurementDate),birth=c.ageMode==='dates'?ClinicalEngine.dateDays(c.birthDate):date-d;usableAge=ClinicalEngine.beforeFifthBirthday(birth,date);}catch(_){usableAge=false;}

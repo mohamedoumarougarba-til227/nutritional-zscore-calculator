@@ -3,7 +3,7 @@ const NutritionCore=typeof module!=='undefined'&&module.exports?require('./nutri
 const SupplementaryCore=typeof module!=='undefined'&&module.exports?require('./supplementary-growth.js').SupplementaryGrowth:SupplementaryGrowth;
 const ProfileCore=typeof module!=='undefined'&&module.exports?require('./growth-profile.js').GrowthProfile:GrowthProfile;
 class ClinicalEngine {
-    static version = '4.1.0';
+    static version = '4.2.0';
     static indicators = ['weightForAge', 'heightForAge', 'weightForHeight', 'bmiForAge'];
     static resultIndicators(result) { return this.indicators.slice(); }
     static applicable(family,age) { if(family==='INTERGROWTH2015')return ['weightForAge','heightForAge'];return family==='WHO2006'?this.indicators.slice():family==='CDC2000'||age<121?['weightForAge','heightForAge','bmiForAge']:['heightForAge','bmiForAge']; }
@@ -32,6 +32,25 @@ class ClinicalEngine {
         return Number(value);
     }
 
+    static decimal(value,error) {
+        if(typeof value==='number'){if(Number.isFinite(value))return value;throw Error(error);}
+        if(typeof value!=='string')throw Error(error);
+        const text=value.trim().replace(/[٠-٩۰-۹]/g,c=>String(c.charCodeAt(0)-(c<='٩'?0x660:0x6f0))).replace(/[٫,]/g,'.');
+        if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)||!Number.isFinite(Number(text)))throw Error(error);
+        return Number(text);
+    }
+    static shiftDecimal(value,places){const [coefficient,exponent]=String(value).split('e');return Number(coefficient+'e'+(Number(exponent||0)+places));}
+    static measurements(raw) {
+        const weightUnit=raw.weightUnit||'g',heightUnit=raw.heightUnit||'cm';
+        if(!['g','kg'].includes(weightUnit)||!['cm','m'].includes(heightUnit))throw Error('measureUnitInvalid');
+        const next={...raw};
+        for(const [field,factor,error]of [['weight',weightUnit==='kg'?1000:1,'weightInvalid'],['height',heightUnit==='m'?100:1,'heightInvalid']]){
+            if(raw[field]!==undefined&&raw[field]!==null&&raw[field]!=='')next[field]=this.shiftDecimal(this.decimal(raw[field],error),factor===1000?3:factor===100?2:0);
+        }
+        delete next.weightUnit;delete next.heightUnit;return next;
+    }
+    static estimatedAge(child){return ['months','totalMonths'].includes(child.ageMode);}
+
     static dateDays(value) {
         if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('dateInvalid');
         const time = Date.parse(value + 'T00:00:00Z');
@@ -48,6 +67,7 @@ class ClinicalEngine {
     }
 
     static normalize(raw, { forArchive = false, extended = false } = {}) {
+        raw=this.measurements(raw);
         if(raw?.growthProfile==='intergrowth'){const adapter=typeof module!=='undefined'&&module.exports?require('./intergrowth-result.js').IntergrowthResult:IntergrowthResult;return adapter.normalize(raw);}
         const profile=ProfileCore.read(raw),maximumMonths=extended?(profile==='us'?240:229):60;
         const ageMode = raw.ageMode || 'months';
@@ -69,6 +89,9 @@ class ClinicalEngine {
             if (!Number.isInteger(years) || !Number.isInteger(months)) throw new Error('ageInvalid');
             ageMonths = years * 12 + months;
             ageDays = Math.floor(ageMonths * 30.4375 + 0.5);
+        } else if(ageMode==='totalMonths'){
+            ageMonths=this.numeric(this.decimal(raw.ageTotalMonths,'ageInvalid'),0,maximumMonths,'ageInvalid');
+            ageDays=Math.floor(ageMonths*30.4375+0.5);
         } else throw new Error('ageInvalid');
         if (ageMonths < 0 || ageMonths >= maximumMonths || ageDays < 0) throw new Error('ageInvalid');
         // Archive validation retains the previous accepted domain without
@@ -80,8 +103,8 @@ class ClinicalEngine {
             if (!this.beforeFifthBirthday(measurementDays - ageDays, measurementDays)) throw new Error('ageInvalid');
         }
         if (!['M', 'F'].includes(raw.gender)) throw new Error('sexInvalid');
-        if (!['L', 'H'].includes(raw.position)) throw new Error('positionInvalid');
-        if (!['n', 'y'].includes(raw.oedema)) throw new Error('oedemaInvalid');
+        if (!['', 'L', 'H'].includes(raw.position??'')) throw new Error('positionInvalid');
+        if (!['', 'n', 'y'].includes(raw.oedema??'')) throw new Error('oedemaInvalid');
         const weight = this.numeric(raw.weight, 50, extended ? 300000 : 100000, 'weightInvalid');
         const height = this.numeric(raw.height, 30, extended ? 250 : 150, 'heightInvalid');
         if (['name','caseId'].some(key => raw[key] !== undefined && typeof raw[key] !== 'string')) throw new Error('nameInvalid');
@@ -91,6 +114,7 @@ class ClinicalEngine {
         if (name.length > 100 || caseId.length > 100) throw new Error('nameInvalid');
         const clinical = {...NutritionCore.normalize(raw),...SupplementaryCore.normalize(raw)};
         const child = { ...raw, ...clinical, id: raw.id || 'child_' + crypto.randomUUID(), visitId: raw.visitId || 'visit_' + crypto.randomUUID(), name, caseId, ageMode, ageDays, totalAgeMonths: ageMonths, weight, height, createdAt: raw.createdAt || new Date().toISOString() };
+        child.position=raw.position??'';child.oedema=raw.oedema??'';
         child.ageDomainVersion=profile==='us'?3:2;
         if(profile==='us')child.growthProfile='us';else delete child.growthProfile;
         if (ageMode !== 'months') {
@@ -165,7 +189,11 @@ class ClinicalEngine {
 
     calculateNormalized(child) {
         const warnings = [];
-        if (child.ageMode === 'months') warnings.push('estimatedAge');
+        if (ClinicalEngine.estimatedAge(child)) warnings.push('estimatedAge');
+        // WHO Anthro: missing position uses the age-appropriate measure, with
+        // no correction. Retain the missing observation and disclose the assumption.
+        if(!child.position)warnings.push(child.ageDays<731?'positionAssumedLength':'positionAssumedHeight');
+        if(!child.oedema)warnings.push('oedemaUnknown');
         let correctedHeight = child.height;
         const incorrectInfantPosition = child.totalAgeMonths < 9 && child.position === 'H';
         if (incorrectInfantPosition) warnings.push('infantPosition');

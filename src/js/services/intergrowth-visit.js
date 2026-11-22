@@ -60,10 +60,10 @@ class IntergrowthVisit {
         if (!Object.keys(values).length) throw Error('intergrowthMeasureMissing');
         // Length is measured recumbent, not a standing height transformed using
         // the WHO/CDC correction for a different population/reference.
-        if (Object.hasOwn(values, 'height') && raw.position !== 'L') throw Error('intergrowthLengthRequired');
+        if (Object.hasOwn(values, 'height') && raw.position && raw.position !== 'L') throw Error('intergrowthLengthRequired');
         const oedema = raw.oedema ?? '';
         if (!['', 'n', 'y'].includes(oedema)) throw Error('oedemaInvalid');
-        return {values, position: Object.hasOwn(values, 'height') ? 'L' : null, oedema};
+        return {values, position: Object.hasOwn(values, 'height') ? raw.position||'' : null, oedema};
     }
     static warnings(age, observations) {
         return ['intergrowthPostnatalOnly',
@@ -78,7 +78,7 @@ class IntergrowthVisit {
         for (const [key, def] of Object.entries(this.definitions)) {
             const missing = !Object.hasOwn(observations.values, def.field);
             const measure = missing ? null : observations.values[def.field] * def.scale;
-            const error = missing ? 'measureMissing' : key === 'weightForAge' && observations.oedema !== 'n'
+            const error = missing ? 'measureMissing' : key==='lengthForAge'&&observations.position!=='L'?'intergrowthLengthRequired': key === 'weightForAge' && observations.oedema !== 'n'
                 ? observations.oedema === 'y' ? 'oedemaWarning' : 'intergrowthOedemaUnknown' : null;
             const base = {measure, unit: def.unit, reference: Reference.reference};
             if (error) { scores[key] = {...base, zscoreRaw: null, zscore: null, percentile: null, percentileStatus: 'percentileUnavailable', error}; continue; }
@@ -125,7 +125,7 @@ class IntergrowthVisit {
             const v = record.scores[key], missing = !Object.hasOwn(o.values, def.field);
             if (!v || typeof v !== 'object' || Array.isArray(v) || v.reference !== Reference.reference || v.unit !== def.unit ||
                 v.measure !== (missing ? null : o.values[def.field] * def.scale)) fail();
-            const error = missing ? 'measureMissing' : key === 'weightForAge' && o.oedema !== 'n'
+            const error = missing ? 'measureMissing' : key==='lengthForAge'&&o.position!=='L'?'intergrowthLengthRequired': key === 'weightForAge' && o.oedema !== 'n'
                 ? o.oedema === 'y' ? 'oedemaWarning' : 'intergrowthOedemaUnknown' : null;
             if (error) {
                 const expected = {measure: v.measure, unit: def.unit, reference: Reference.reference,

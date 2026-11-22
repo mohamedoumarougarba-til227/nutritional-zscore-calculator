@@ -29,11 +29,11 @@ test('CDC uses [24,240) months, interpolation and an explicit completed-month pr
     assert.equal(out.scores.weightForHeight.notApplicable,true);assert.equal(out.scores.weightForHeight.zscore,null);
 });
 
-test('CDC position correction is 0.8 cm; unknown oedema is rejected and present oedema suspends weight-based scores',()=>{
+test('CDC position correction is 0.8 cm; unknown oedema permits numerical scores while present oedema suspends weight-based scores',()=>{
     const input={sex:'M',ageInMonths:24,weightKg:12,heightCm:85,position:'L'};
     const out=cdc.compute(input);close(out.correctedHeight,84.2);close(out.bmi,12/(.842**2));
     assert.equal(out.heightAdjustmentCm,-.8);
-    assert.throws(()=>cdc.compute({...input,oedema:''}),/oedemaInvalid/);
+    assert(Number.isFinite(cdc.compute({...input,oedema:''}).scores.weightForAge.zscore));
     const swollen=cdc.compute({...input,oedema:'y'});
     assert.equal(swollen.scores.weightForAge.error,'oedemaWarning');assert.equal(swollen.scores.bmiForAge.error,'oedemaWarning');
     assert.ok(Number.isFinite(swollen.scores.heightForAge.zscore));

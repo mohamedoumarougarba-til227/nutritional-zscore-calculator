@@ -1,5 +1,16 @@
 # Préparer et adopter une mise à jour
 
+## 5.9.0 — récupération sans effacement, installation et saisie
+
+Une erreur d’intégrité propose une réparation indépendante du calculateur : mise à jour des fichiers applicatifs et activation contrôlée, sans effacer IndexedDB, les journaux, les sauvegardes ni les caches historiques. Les ressources corrompues du cache sont re-vérifiées et retéléchargées uniquement si leur empreinte correspond à la version. Les téléchargements de l’installation sont limités à trois en parallèle. Le contrôle d’intégrité n’est jamais désactivé. Dans Réglages, l’aide distingue une vraie installation et un fichier HTML ; le bouton d’installation apparaît seulement si le navigateur le propose et les fichiers hors ligne sont prêts.
+
+L’âge propose jours, mois seuls (décimales acceptées), années/mois, dates ; INTERGROWTH conserve ses âges exacts/PMA. Poids en g/kg, longueur/taille en cm/m, virgule ou point ; conversion en g/cm dans les résultats et exports, sans double conversion. Sans position, OMS/CDC utilisent la mesure habituelle selon l’âge avec avertissement et observation originale laissée inconnue ; INTERGROWTH suspend la longueur tant que la position couchée n’est pas confirmée. Sans observation d’œdèmes, les scores numériques sont calculés avec réserve explicite, selon la convention du logiciel OMS ; le champ reste inconnu et le dépistage ne conclut pas à une absence de critère. Avec des œdèmes déclarés présents, les scores dépendant du poids restent suspendus. INTERGROWTH conserve ses exigences propres.
+
+Le CSV ajoute quatre colonnes finales de traçabilité (warnings, measurement_position_used, measurement_position_assumed, age_estimated) ; les colonnes précédentes gardent leur ordre.
+
+Interface 5.9.0 ; moteur combiné 4.5.0 (socle OMS 4.2.0). Pas de changement des coefficients scientifiques ni des résultats des saisies complètes existantes. Les sauvegardes antérieures sont conservées et lisibles. Une sauvegarde contenant le nouveau mode mois seuls ou des observations inconnues nécessite cette version pour sa reprise ; l’enveloppe .zscore / .zscore.enc reste inchangée.
+
+
 ## 5.8.7 — retours utilisateurs FR / EN / AR
 
 Le pied de page ouvre sur demande le formulaire Tally de la langue choisie, dans un onglet distinct, avec connexion Internet requise. Les formulaires existants sont conservés ; aucun dossier, résultat, mesure ou identifiant n’est prérempli ou envoyé automatiquement. Les retours et captures doivent être fictifs ou anonymisés ; l’e-mail est facultatif. Le formulaire externe suit ses propres règles de traitement des données. Le lien est accessible au clavier et masqué à l’impression. Le calcul et la conservation locale restent disponibles sans ce service.

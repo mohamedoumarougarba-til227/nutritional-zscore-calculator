@@ -136,8 +136,8 @@ class CDCReference {
     }
     compute({sex, ageInMonths, weightKg, heightCm, position = 'H', oedema = 'n', agePrecision = 'exact'}) {
         if (!['M', 'F'].includes(sex)) throw Error('sexInvalid');
-        if (!['H', 'L'].includes(position)) throw Error('positionInvalid');
-        if (!['n', 'y'].includes(oedema)) throw Error('oedemaInvalid');
+        if (!['', 'H', 'L'].includes(position)) throw Error('positionInvalid');
+        if (!['', 'n', 'y'].includes(oedema)) throw Error('oedemaInvalid');
         const age = CDCReference.effectiveAge(ageInMonths, agePrecision);
         const adjustedHeight = typeof heightCm === 'number' && Number.isFinite(heightCm) && heightCm > 0.8 ? heightCm - (position === 'L' ? 0.8 : 0) : null;
         const bmi = Number.isFinite(weightKg) && weightKg > 0 && adjustedHeight !== null ? weightKg / (adjustedHeight / 100) ** 2 : null;

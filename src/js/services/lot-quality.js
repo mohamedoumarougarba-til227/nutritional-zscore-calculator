@@ -33,14 +33,14 @@ class LotQuality {
         entries.forEach(({child:c,result:r},index)=>{
             const id=this.key(c),date=this.validDate(c.measurementDate);
             if(!id)signal(index,'qualityNoCaseId');else this.add(identities,id,index);
-            if(c.ageMode==='months')signal(index,'qualityEstimatedAge');
+            if(['months','totalMonths'].includes(c.ageMode))signal(index,'qualityEstimatedAge');
             if(this.profile(c)==='intergrowth'&&c.ageMode==='pma')signal(index,'qualityPmaOnly');
             if(!['n','y'].includes(c.oedema))signal(index,'qualityUnknownOedema');
             if(!this.present(c.measurementDate))signal(index,'qualityMissingDate');else if(!date)signal(index,'qualityInvalidDate');
             if(this.present(c.birthDate)&&!this.validDate(c.birthDate))signal(index,'qualityInvalidDate');
             if(!['M','F'].includes(c.gender))signal(index,'qualityInvalidSex');
             const usableAge=c.ageMode==='pma'?this.profile(c)==='intergrowth'&&Number.isInteger(c.postmenstrualDays)&&c.postmenstrualDays>=189&&c.postmenstrualDays<=448:
-                c.ageMode==='months'?this.integer(c.ageYears,0)&&this.integer(c.ageMonths,0,11):
+                c.ageMode==='totalMonths'?Number.isFinite(c.totalAgeMonths)&&c.totalAgeMonths>=0:c.ageMode==='months'?this.integer(c.ageYears,0)&&this.integer(c.ageMonths,0,11):
                 ['days','dates'].includes(c.ageMode)&&Number.isInteger(c.ageDays)&&c.ageDays>=0&&(c.ageMode!=='dates'||date&&this.validDate(c.birthDate));
             if(!usableAge)signal(index,'qualityAgeUnusable');
             if(this.measures.some(k=>this.present(c[k])&&(!Number.isFinite(c[k])||c[k]<=0)))signal(index,'qualityInvalidMeasure');
@@ -98,7 +98,7 @@ class LotQuality {
             'zscore-analysis-preparation',this.version,'measurement-rows','not-provided',i+1,quality.rows[i].codes.join('|'),
             this.profile(c),r?.referenceFamily||'',r?.referenceVersion||'',r?.engineVersion||'',r?.imported===true,
             this.validDate(c.measurementDate)?c.measurementDate.slice(0,7):'',
-            present(c.ageMode),r?.profileContext?.agePrecision||r?.intergrowthContext?.age.precision||(c.ageMode==='months'?'estimatedMonths':c.ageMode==='pma'?'postmenstrualOnly':['days','dates'].includes(c.ageMode)?'exact':'unknown'),finite(c.ageDays),finite(c.totalAgeMonths),finite(r?.ageInMonths),
+            present(c.ageMode),r?.profileContext?.agePrecision||r?.intergrowthContext?.age.precision||(['months','totalMonths'].includes(c.ageMode)?'estimatedMonths':c.ageMode==='pma'?'postmenstrualOnly':['days','dates'].includes(c.ageMode)?'exact':'unknown'),finite(c.ageDays),finite(c.totalAgeMonths),finite(r?.ageInMonths),
             finite(r?.intergrowthContext?.age.birthGestationDays),finite(c.postmenstrualDays),present(c.gender),
             ...['weight','height'].map(k=>finite(c[k])),finite(r?.correctedHeight),finite(r?.bmi),present(c.position),present(c.oedema),
             ...['muac','headCircumference','tricepsSkinfold','subscapularSkinfold'].map(k=>finite(c[k])),

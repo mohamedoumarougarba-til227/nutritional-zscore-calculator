@@ -16,7 +16,7 @@ class CDCResultValidation {
         for(const key of SavedCDCCore.keys){
             const value=result[key];if(!value||typeof value!=='object'||Array.isArray(value)||value.notApplicable===true)fail();
             if(value.zscore===null){
-                if(!['oedemaWarning','measureMissing','calculationInvalid','cdcTailUnrepresentable'].includes(value.error)||value.zscoreRaw!==null||value.percentile!==null||value.percentileStatus!=='percentileUnavailable'||value.classification!==undefined||value.flagged!==undefined)fail();
+                if(!['oedemaWarning','oedemaUnknown','measureMissing','calculationInvalid','cdcTailUnrepresentable'].includes(value.error)||value.zscoreRaw!==null||value.percentile!==null||value.percentileStatus!=='percentileUnavailable'||value.classification!==undefined||value.flagged!==undefined)fail();
                 continue;
             }
             if(!Number.isFinite(value.zscore)||!Number.isFinite(value.zscoreRaw)||Math.round(value.zscoreRaw*100)/100!==value.zscore||!Number.isFinite(value.modifiedZscore)||value.reference!==result.referenceVersion||value.error!==undefined)fail();
@@ -43,6 +43,7 @@ class CDCResultValidation {
         if(result.bmi!==null&&!this.near(result.bmi,(child.weight/1000)/(result.correctedHeight/100)**2))throw Error('importInvalid');
         const bmi=result.bmiForAge;
         if(bmi.zscore!==null&&bmi.sigma!==SavedCDCCore.sigma(child.gender,result.ageInMonths))throw Error('importInvalid');
+        if(!child.oedema&&!result.warnings.includes('oedemaUnknown'))throw Error('importInvalid');
         if(child.oedema==='y'&&['weightForAge','bmiForAge'].some(k=>result[k].zscore!==null||result[k].error!=='oedemaWarning'))throw Error('importInvalid');
     }
 }
