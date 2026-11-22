@@ -1,5 +1,11 @@
 # Préparer et adopter une mise à jour
 
+## 5.9.1 — démarrage Chrome et accès GitHub
+
+Le contrôle de démarrage traitait tout échec de script ou de feuille de style comme une incohérence du paquet. Un script blob ajouté à la page et bloqué par CSP pouvait ainsi empêcher un calculateur intact de démarrer ; réparer les fichiers ne supprimait pas ce déclencheur extérieur. Le contrôle vise désormais les ressources locales munies de l’empreinte de release. Les scripts ajoutés par le navigateur ne sont pas autorisés à exécuter du code par cette correction : CSP reste inchangée. Les contrôles SRI, données et CSS de l’application restent bloquants.
+
+Le pied de page présente le projet GitHub dans les trois langues. Les mentions proposent le dépôt et les sources de la version correspondante, avec l’archive locale conservée en accès secondaire pour le hors-ligne. Aucun dossier ni résultat n’est envoyé dans ces liens. Interface 5.9.1, moteur 4.5.0 et formats inchangés.
+
 ## 5.9.0 — récupération sans effacement, installation et saisie
 
 Une erreur d’intégrité propose une réparation indépendante du calculateur : mise à jour des fichiers applicatifs et activation contrôlée, sans effacer IndexedDB, les journaux, les sauvegardes ni les caches historiques. Les ressources corrompues du cache sont re-vérifiées et retéléchargées uniquement si leur empreinte correspond à la version. Les téléchargements de l’installation sont limités à trois en parallèle. Le contrôle d’intégrité n’est jamais désactivé. Dans Réglages, l’aide distingue une vraie installation et un fichier HTML ; le bouton d’installation apparaît seulement si le navigateur le propose et les fichiers hors ligne sont prêts.

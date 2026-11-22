@@ -687,7 +687,9 @@
     "installReady": "Les fichiers de cette version sont prêts hors ligne. Conservez la même adresse et le même profil de navigateur.",
     "installPending": "L’installation hors ligne n’est pas encore prête : laissez cette page ouverte avec Internet jusqu’à la fin du téléchargement.",
     "installUnavailable": "Ce navigateur ne propose pas l’installation automatique. Utilisez son menu si disponible.",
-    "offlineFirstLoad": "Mode hors ligne prêt. Rechargez une fois pour utiliser la copie vérifiée ; la saisie sera sauvegardée."
+    "offlineFirstLoad": "Mode hors ligne prêt. Rechargez une fois pour utiliser la copie vérifiée ; la saisie sera sauvegardée.",
+    "githubProject": "Projet GitHub",
+    "githubProjectHelp": "Code source, versions et contributions — connexion Internet requise"
   },
   "en": {
     "brand": "Z-score Niger",
@@ -1377,7 +1379,9 @@
     "installReady": "This version’s files are ready offline. Keep using the same address and browser profile.",
     "installPending": "Offline installation is not ready yet: keep this page open with internet access until the download finishes.",
     "installUnavailable": "This browser does not offer an automatic install prompt. Use its menu if available.",
-    "offlineFirstLoad": "Offline files are ready. Reload once to use the verified copy; your work will be saved."
+    "offlineFirstLoad": "Offline files are ready. Reload once to use the verified copy; your work will be saved.",
+    "githubProject": "GitHub project",
+    "githubProjectHelp": "Source code, releases and contributions — internet required"
   },
   "ar": {
     "brand": "مؤشر Z — النيجر",
@@ -2067,6 +2071,8 @@
     "installReady": "ملفات هذا الإصدار جاهزة دون اتصال. استخدم العنوان نفسه وملف المتصفح نفسه.",
     "installPending": "التثبيت دون اتصال لم يجهز بعد: اترك الصفحة مفتوحة مع الإنترنت حتى يكتمل التنزيل.",
     "installUnavailable": "هذا المتصفح لا يوفر طلب تثبيت تلقائي. استخدم قائمته إن توفر الخيار.",
-    "offlineFirstLoad": "الملفات جاهزة دون اتصال. أعد التحميل مرة لاستخدام النسخة المتحقق منها؛ سيُحفظ عملك."
+    "offlineFirstLoad": "الملفات جاهزة دون اتصال. أعد التحميل مرة لاستخدام النسخة المتحقق منها؛ سيُحفظ عملك.",
+    "githubProject": "المشروع على GitHub",
+    "githubProjectHelp": "الكود المصدري والإصدارات والمساهمات — يتطلب الاتصال بالإنترنت"
   }
 }

@@ -39,6 +39,7 @@ test('feedback links route FR EN AR on every view without embedding local record
                 for(const method of ['closeChoice','closeInfo','observeHeader','updateConnection','updateSaveStatus','updateToast','syncImportNotice','renderHistoryList','refreshCapacity','enhanceSelects','updateCSVControls'])app[method]=()=>{};
                 for(const method of ['updateHTML','singleHTML','batchHTML','historyHTML','referencesHTML','settingsHTML','toolButton','icon'])app[method]=()=>'';
                 app.render();
+                const github=root.innerHTML.match(/<a class="github-footer-link"([^>]*)>([^<]*)<\/a>/);assert(github);assert.equal(github[2],translations[language].githubProject);assert(github[1].includes('href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator"'));assert(github[1].includes('rel="noopener noreferrer"'));assert(!github[0].includes('FICTIF-NOT-FOR-TALLY'));
                 const links=[...root.innerHTML.matchAll(/<a class="feedback-footer-link"([^>]*)>([^<]*)<\/a>/g)];assert.equal(links.length,1);
                 const [markup,attributes,text]=links[0];assert.equal(text,label);assert.ok(attributes.includes(`href="https://tally.so/r/${id}"`));assert.ok(attributes.includes('target="_blank"'));assert.ok(attributes.includes('rel="noopener noreferrer"'));assert.ok(attributes.includes('title="'));
                 assert.ok(!markup.includes('FICTIF-NOT-FOR-TALLY'));assert.ok(!/[?&]|onclick=|data-action=/.test(markup));assert.equal(JSON.stringify(state),before);
