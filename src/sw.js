@@ -47,14 +47,14 @@ const RELEASE = {
     "js/services/reference-2007.js": "a82fbeac33911ac6d85c86896aebe7127fa4bb1028aaf41e89e13f311f578fe8",
     "js/services/growth-engine.js": "7d595106e89d86cb26e998bedd081a59d31ba21b3376e9ae0a39c5c924553df1",
     "css/legal.css": "327242333fad456650c8ebdc92498f0f5a036fc8da7dee1fd28e8645113e223b",
-    "legal.html": "3c3d96a1ae25e6b0e44de6d107c9dea57ba15cdabc3c47c7465ca1dc9ab09a9a",
-    "legal-en.html": "223ec259e9f2db48f47c0f2f15462a28e00f68bcd292386a74ad44042496cb4e",
-    "legal-ar.html": "58b27a0aace813a3deff4ed7876aae327d1a284b6eb3f22a308f8c025109165a",
-    "data/LICENSE-TIL.txt": "b1148b5fbd10dfdd1efd7625fdb0959887b1e302b1f8b9a015b59468a5a77f39",
+    "legal.html": "b5064b4bfc728a38f25fe25e2682275dd19171059797e07896c263f732e481ef",
+    "legal-en.html": "6128d122a2a4e408526b1a84ae37928a130d920f46ac5e56fab0ddf38ad42aad",
+    "legal-ar.html": "3e99c7b288ca7d74a57c08ce417f288eae368d6f754ae1a762259a3031845e3e",
+    "data/LICENSE-TIL.txt": "60ab90104a6fce406ad678d3b5dc8492dc7f0165912152d013723d4e37cb9b3b",
     "data/who-data-sources.zip": "b1af0334e74603f1825193f2a8d0bd1cffcce285fe0ad422e14541150a760b37",
     "data/who-data-sources.json": "641eb776f3dee5894bb19649c55c79ed38060d1346c61e8e917a65c5bafbd8cc",
-    "data/zscore-sources.zip": "e8e5348e4e8b764166211207d2037126912b76ddc6f6ac5e18652bcdfc1710c0",
-    "data/zscore-sources.json": "feba8c2213bf5e1776016155c0bf2830c56fd203a6dbc51c2dbe0c3482ed1482",
+    "data/zscore-sources.zip": "40df64decd5fb7f5aa1f2e7c26f37045a326c943ac664e91c26afe332ab21400",
+    "data/zscore-sources.json": "fa4ecb37bade22f8414cdbbbaa7e1ba0d1e8e89b2b4a3e239ff4fa2bf9833b9d",
     "vendor/pdf/NOTICE-report.txt": "62737eead55cce21047c84826116418612d79ee09ee686d25ae4279ba528b4e0",
     "vendor/pdf/report-provenance.json": "3772c55fc0cea5d50363d27dcad524f3aa0481c7831a514ff43cbed5e67c8652",
     "js/services/pcima-niger-2025.js": "7b6d69fb8027cd7ca5c0b387de07c34e822ce47a85e4900ad489dc980501a602",
@@ -76,7 +76,7 @@ const RELEASE = {
     "js/services/pcima-niger.js": "ab9dc67095369e1c7b9ca6a374087809fb5354606f9642610db4ca38a66b4d49"
   },
   "workerTemplateSHA256": "da2d6d9d55d729a2fa5d6c8752be882f05a6fb7a6b1882c15be58f803187dfc3",
-  "id": "be4ee7b026aabf2f65c14f2a97c32a18c7183348dfe21e5af45271999b1630b3"
+  "id": "d0a259b623f90ab6a992453784e4d9bc7bfc8821f3fb34e5d21ccc804a88eae2"
 };
 /** Verified release cache. Earlier caches, journals and patient archives are never deleted. */
 const STATIC_CACHE_NAME = 'zscore-release-' + RELEASE.id + '-' + self.registration.scope;

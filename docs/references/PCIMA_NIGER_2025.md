@@ -1,6 +1,6 @@
 # PCIMA Niger — document de mars 2025
 
-CURRENT — sources de développement 5.11.0, moteur combiné 4.7.0. Cadre explicite `niger2025`, aide `Niger-PCIMA-2025-screening-v1`. Préparation locale du 23 novembre 2026 ; pas une annonce de déploiement ni une validation clinique.
+CURRENT — sources 5.11.0, moteur combiné 4.7.0. Cadre explicite `niger2025`, aide `Niger-PCIMA-2025-screening-v1`. Lecture et préparation du 23 novembre 2026, documentation de publication complétée le 24 novembre. La version effectivement servie se vérifie dans le pied de page et le manifeste ; ce document ne revendique pas une validation clinique.
 
 ## Source, rangement et portée
 

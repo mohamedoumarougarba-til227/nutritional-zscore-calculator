@@ -3,8 +3,8 @@
   "version": "5.11.0",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8519898,
-  "sha256": "e8e5348e4e8b764166211207d2037126912b76ddc6f6ac5e18652bcdfc1710c0",
+  "bytes": 8532352,
+  "sha256": "40df64decd5fb7f5aa1f2e7c26f37045a326c943ac664e91c26afe332ab21400",
   "files": [
     {
       "file": ".gitattributes",
@@ -48,13 +48,13 @@
     },
     {
       "file": "NOTICE.md",
-      "bytes": 3586,
-      "sha256": "1755240638ef5f78c6db6f0c67ebacba6827714e8b5a37e81954ead55b44530f"
+      "bytes": 4762,
+      "sha256": "625e59216f71cebed56c1bbf4c249df2c4e326809983e6beeedf9b0336f45843"
     },
     {
       "file": "README.md",
-      "bytes": 11431,
-      "sha256": "ffc7033f08dbf322324fb444346afb5867e11677b75cc48462e5723edcbc0dcb"
+      "bytes": 11597,
+      "sha256": "d3df11acd2d342b59756eed961e50588e0bc6e24ff9e69bb43da394292501b21"
     },
     {
       "file": "SECURITY.md",
@@ -113,8 +113,8 @@
     },
     {
       "file": "docs/maintenance/MISES_A_JOUR.md",
-      "bytes": 45906,
-      "sha256": "06dc691de9f54d5dda2c48eee595aeb84edce855181da5f42054ead8abb79e08"
+      "bytes": 46495,
+      "sha256": "3bebee3e8455a1ce5dfee8b7c6765281044bc0acfa36c86b3e179b4337ebe164"
     },
     {
       "file": "docs/maintenance/PREPARATION_PUBLICATION.md",
@@ -148,8 +148,8 @@
     },
     {
       "file": "docs/references/DISTRIBUTION_GPL.md",
-      "bytes": 5798,
-      "sha256": "e34b04f082efce87c0f5ffd0a5728a7cf86425fc717842b08a4031d81806b0cf"
+      "bytes": 6586,
+      "sha256": "7bd27006cd3e61d76279d0fe0e4900299951bf4339c99be8516148558ffa73a5"
     },
     {
       "file": "docs/references/DROITS_ET_LICENCES.md",
@@ -183,13 +183,13 @@
     },
     {
       "file": "docs/references/PCIMA_NIGER_2023.md",
-      "bytes": 16229,
-      "sha256": "40ba0de5973ece20ec20c9feb6127cf1ad1a8bdb54daaeaeff9856de788cfd03"
+      "bytes": 16382,
+      "sha256": "63c6a77e9a017377de5a3c7301b3c86b10756934c9cad3361614312e042eb79e"
     },
     {
       "file": "docs/references/PCIMA_NIGER_2025.md",
-      "bytes": 16658,
-      "sha256": "f068c00ccf8fda725fe1e16843191207e606d934dc65219604332902ed8a2729"
+      "bytes": 16778,
+      "sha256": "c6d8cced16077e6a403c1e927e3c6da7825ab3c17f651c6d0639081b7811fda2"
     },
     {
       "file": "docs/references/PCIMA_SOURCES.json",
@@ -209,7 +209,7 @@
     {
       "file": "package-lock.json",
       "bytes": 722,
-      "sha256": "639d48e805f9bff766f13f694c028b078e28926c786070a38f32d44a30ed9330"
+      "sha256": "f11f64bd1f38ce45ecec33d9e4d26ff3f6b84ee9c21f08448367e3bdbffa72b6"
     },
     {
       "file": "package.json",
@@ -268,8 +268,8 @@
     },
     {
       "file": "src/data/LICENSE-TIL.txt",
-      "bytes": 35737,
-      "sha256": "b1148b5fbd10dfdd1efd7625fdb0959887b1e302b1f8b9a015b59468a5a77f39"
+      "bytes": 35973,
+      "sha256": "60ab90104a6fce406ad678d3b5dc8492dc7f0165912152d013723d4e37cb9b3b"
     },
     {
       "file": "src/data/LICENSE-anthro.txt",
@@ -548,8 +548,8 @@
     },
     {
       "file": "tools/public-tests/input-offline.test.cjs",
-      "bytes": 17391,
-      "sha256": "ad8a121ff2994e351d4765ae518f15f39ef8d3d42868e19dc13d9668d1427910"
+      "bytes": 18126,
+      "sha256": "7ae3bc886465e1b894fecb07cca71f1f88909f331726cd035076f55b088e5fda"
     },
     {
       "file": "tools/public-tests/intergrowth-routing.test.cjs",
@@ -903,8 +903,8 @@
     },
     {
       "file": "tools/scripts/build-legal.cjs",
-      "bytes": 5230,
-      "sha256": "43cc146b677a4c4537df3506e6c7a1a952d65ec3817d26c9f418c261157d13c9"
+      "bytes": 5193,
+      "sha256": "716cffef0a33eb91b547b28b0d0aa56951ace1fc94bdaada3a857ec7ca62d9ee"
     },
     {
       "file": "tools/scripts/build-pdf-report.cjs",
@@ -963,8 +963,8 @@
     },
     {
       "file": "tools/scripts/legal-content.cjs",
-      "bytes": 31753,
-      "sha256": "a1d61f22f8462fad219c3c490e9060c2b14827fc08e47ef6af0610cedfd174bf"
+      "bytes": 40281,
+      "sha256": "5c2b37810e45d1b7c98a913e9f8e2e3e1dff2718d1d408727e039cf90853ab1b"
     },
     {
       "file": "tools/scripts/offline-assets.json",

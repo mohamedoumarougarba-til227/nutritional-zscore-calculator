@@ -7,7 +7,7 @@ Décision du titulaire exprimée le 20 octobre 2026, mise en œuvre dans l’int
 - `COPYING` contient le texte complet de la GPLv3 ; `NOTICE.md` décrit les attributions et la portée de la décision. Le navigateur reçoit aussi `data/LICENSE-TIL.txt`.
 - `data/zscore-sources.zip` contient le code lisible, les scripts de construction, les adaptations PDF, les références OMS originales, les notices et `SOURCE-README.txt`. Son inventaire SHA-256 est dans `data/zscore-sources.json`.
 - `data/who-data-sources.zip` rassemble séparément les tables LMS d’origine, leurs conversions JSON, les licences et la provenance figée. Son inventaire est publié à côté.
-- Les pages légales FR/EN/AR proposent ces téléchargements depuis le même hébergement que l’application, sans compte ni frais supplémentaires. Ils sont inclus dans le paquet hors ligne.
+- Les pages légales FR/EN/AR donnent accès aux **sources de la version exacte sur GitHub**, avec archive correspondante, instructions et empreintes, sans frais ni obligation d’étoile, de don ou de contribution. Le volet de téléchargement ZIP local a été retiré ; les archives et licences restent incluses dans le paquet hors ligne. L’accès au code reste maintenu conformément à la GPLv3, section 6(d), y compris lorsque le serveur de sources est distinct.
 
 Les archives excluent les dossiers des enfants, les sauvegardes, les documents de terrain, les audits, les secrets, les métadonnées Git et `node_modules`. Une licence logicielle ne donne aucun droit sur les données personnelles saisies. La suite privée reste exclue ; le socle synthétique public et les comparaisons numériques indépendantes sont distribués avec leurs outils. Aucune donnée patient ne les accompagne.
 
@@ -24,6 +24,8 @@ Les archives excluent les dossiers des enfants, les sauvegardes, les documents d
 La variante PDF exclut le MD5 Joseph Myers et l’ancien parseur RGBColor dont les formulations de permission nécessitaient une clarification. Les adaptations couleur et le refus explicite de l’option de chiffrement non proposée sont écrits par TIL. Aucun chiffrement de rapport n’est annoncé. Les fonctions d’images et de HTML inutilisées sont exclues. Le bundle complet historique reste dans les archives locales et dans l’historique antérieur ; il n’est ni servi ni inclus dans les sources de la variante distribuée.
 
 Les valeurs OMS et les moteurs de calcul ne sont pas modifiés par cette opération. Les restrictions de l’ancien logiciel WHO Anthro de bureau et celles de publications OMS ne sont pas appliquées par analogie aux paquets R GPL. Aucun logo OMS ni approbation OMS/UNICEF n’est revendiqué. Les guides de prise en charge et documents PCIMA locaux ne sont pas republiés.
+
+Les règles originales et bornées adaptées des PCIMA Niger 2023/2025 sont sous GPLv3 comme le code TIL. Cela ne change pas les droits des ouvrages examinés : PDF complets, photographies et coordonnées restent privés. Les guides d’adaptation et le manifeste de provenance public permettent d’identifier la copie et les décisions sans republier les ouvrages. Les observations mère–nourrisson restent des données de santé locales ; elles ne deviennent pas libres du fait de la licence du logiciel.
 
 ## Reconstruction et vérification
 

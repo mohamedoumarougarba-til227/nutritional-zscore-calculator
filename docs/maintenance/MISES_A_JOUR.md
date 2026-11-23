@@ -1,10 +1,12 @@
 # Préparer et adopter une mise à jour
 
-## 5.11.0 — préparation locale du cadre PCIMA Niger mars 2025
+## 5.11.0 — cadres PCIMA Niger 2023/2025 et mentions actualisées
 
 Lecture complète du document reçu de 274 pages et de ses 28 annexes. Cadre `niger2025`/`Niger-PCIMA-2025-screening-v1` distinct du cadre 2023 : évaluation mère–nourrisson, PB infantile borné à l’âge exact de six semaines à moins de six mois, WAZ infantile, facteurs positifs de risque MAM et observations professionnelles. Test d’appétit identifié selon l’édition. Contradictions de source documentées, aucune branche « sans risque » ou décision de traitement/sortie inventée.
 
-Interface 5.11.0, moteur combiné 4.7.0 ; tables et calculs LMS inchangés. Résultat schéma 4 et sauvegarde flux v1 conservés ; ancien lecteur sans ce cadre peut refuser les nouvelles visites. Pas de réécriture des visites 2023/OMS. Nouvelles observations ajoutées après la fin CSV 2023, rapports FR/EN/AR et référence d’agrégation distincte. Copies PDF privées, analyse/provenance/code/tests synthétiques publics. Pas une validation clinique ou physique, ni une annonce de mise en production.
+Interface 5.11.0, moteur combiné 4.7.0 ; tables et calculs LMS inchangés. Résultat schéma 4 et sauvegarde flux v1 conservés ; ancien lecteur sans ce cadre peut refuser les nouvelles visites. Pas de réécriture des visites 2023/OMS. Nouvelles observations ajoutées après la fin CSV 2023, rapports FR/EN/AR et référence d’agrégation distincte. Copies PDF privées, analyse/provenance/code/tests synthétiques publics. Préparation et tests réalisés le 23 novembre ; publication autorisée le 24 novembre 2026. La version effectivement en ligne se vérifie dans son manifeste. Pas une validation clinique ou physique.
+
+Mentions FR/EN/AR actualisées : observations mère–nourrisson et confidentialité locale, attributions PCIMA/GIGS, distinction règles originales GPL et ouvrages non redistribués. Suppression du volet ZIP local et du lien ZIP de données dans les mentions ; accès par la release GitHub exacte et archives correspondantes sans obligation de contribution. Archives et licences offline conservées. Version package-lock alignée sans changement de dépendance.
 
 ## 5.10.0 — préparation locale du cadre PCIMA Niger 2023
 

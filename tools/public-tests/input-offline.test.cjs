@@ -112,7 +112,13 @@ test('initial data verification considers pinned application CSS and ignores unr
     assert.equal((await Guard.verifyData(['data/fictif.json'],[new Response(bytes)])).texts[0],'FICTIF-DATA');missing=true;await assert.rejects(Guard.verifyData(['data/fictif.json'],[new Response(bytes)]),/releaseInvalid/);
 });
 
-test('legal sources prioritize GitHub and the matching release while retaining an offline fallback in FR EN AR',()=>{
+test('legal source access points to the exact GitHub release without a local ZIP download control in FR EN AR',()=>{
     const {legalPages}=require('../scripts/build-legal.cjs'),pages=legalPages(),repo='https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator';
-    for(const [file,html]of Object.entries(pages)){assert(html.includes('href="'+repo+'"'));assert(html.includes(repo+'/releases/tag/v'+App.version));const fallback=html.match(/<details><summary>[^<]+<\/summary>([\s\S]*?)<\/details>/);assert(fallback);assert(fallback[1].includes('data/zscore-sources.zip'));assert(fallback[1].includes('data/zscore-sources.json'));assert(html.indexOf(repo)<html.indexOf('data/zscore-sources.zip'));if(file==='legal-ar.html')assert(html.includes('dir="rtl"'));}
+    for(const [file,html]of Object.entries(pages)){assert(html.includes('href="'+repo+'"'));assert(html.includes(repo+'/releases/tag/v'+App.version));assert(!/href="data\/(?:zscore|who-data)-sources\.(?:zip|json)"/.test(html));assert(!html.includes('<details>'));for(const doc of ['PCIMA_NIGER_2023.md','PCIMA_NIGER_2025.md','PCIMA_SOURCES.json'])assert(html.includes(repo+'/blob/v'+App.version+'/docs/references/'+doc));if(file==='legal-ar.html')assert(html.includes('dir="rtl"'));}
+});
+
+test('PCIMA privacy/attribution is explicit in every language and GPL corresponding sources remain distributable offline',()=>{
+    const {content}=require('../scripts/legal-content.cjs');
+    for(const language of ['fr','en','ar']){const sections=content[language].sections;const privacy=sections.find(s=>s[0]==='privacy')[2].join(' '),sources=sections.find(s=>s[0]==='sources')[2].join(' ');assert(privacy.includes('PCIMA'));assert(sources.includes('2023')&&sources.includes('2025'));assert(sources.includes('GIGS'));}
+    const assets=JSON.parse(fs.readFileSync('tools/scripts/offline-assets.json','utf8'));for(const file of ['data/zscore-sources.zip','data/zscore-sources.json','data/who-data-sources.zip'])assert(assets.includes(file));
 });

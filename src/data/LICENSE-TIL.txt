@@ -4,7 +4,10 @@ Copyright (c) 2026 Tout Informatique Lazaret (TIL).
 The original application code is licensed under GNU GPL version 3.
 You may use, study, modify and redistribute it under that licence,
 including for commercial purposes, subject to its conditions.
-The corresponding source is available in data/zscore-sources.zip.
+Corresponding sources and build instructions for each version:
+https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator/releases
+Use the Sources of this version link in the application for the exact release.
+Source archives and notices are also retained in the offline distribution.
 Third-party copyrights, notices and licences remain applicable.
 This software licence does not grant rights over patient records,
 private backups, personal data or third-party trademarks.

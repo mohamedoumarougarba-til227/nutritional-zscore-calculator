@@ -1,6 +1,6 @@
 # PCIMA Niger janvier 2023 : couverture et limites de l’adaptation
 
-CURRENT — sources de travail 5.10.0, moteur combiné 4.6.0. Lot local non publié au moment de sa préparation le 23 novembre 2026. Cette page décrit une aide limitée au dépistage, pas une mise en œuvre intégrale de la prise en charge PCIMA ni une validation clinique.
+REFERENCE CONSERVÉE — cadre janvier 2023 préparé le 23 novembre 2026 dans le lot 5.10.0, puis inclus aux côtés du cadre 2025 dans les sources 5.11.0 / moteur combiné 4.7.0. Cette page décrit une aide limitée au dépistage, pas une mise en œuvre intégrale de la prise en charge PCIMA ni une validation clinique. Le cadre 2023 reste identifié dans les anciennes visites ; voir aussi [PCIMA 2025](PCIMA_NIGER_2025.md).
 
 ## Source et méthode de lecture
 
