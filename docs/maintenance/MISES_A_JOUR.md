@@ -1,5 +1,11 @@
 # Préparer et adopter une mise à jour
 
+## 5.11.0 — préparation locale du cadre PCIMA Niger mars 2025
+
+Lecture complète du document reçu de 274 pages et de ses 28 annexes. Cadre `niger2025`/`Niger-PCIMA-2025-screening-v1` distinct du cadre 2023 : évaluation mère–nourrisson, PB infantile borné à l’âge exact de six semaines à moins de six mois, WAZ infantile, facteurs positifs de risque MAM et observations professionnelles. Test d’appétit identifié selon l’édition. Contradictions de source documentées, aucune branche « sans risque » ou décision de traitement/sortie inventée.
+
+Interface 5.11.0, moteur combiné 4.7.0 ; tables et calculs LMS inchangés. Résultat schéma 4 et sauvegarde flux v1 conservés ; ancien lecteur sans ce cadre peut refuser les nouvelles visites. Pas de réécriture des visites 2023/OMS. Nouvelles observations ajoutées après la fin CSV 2023, rapports FR/EN/AR et référence d’agrégation distincte. Copies PDF privées, analyse/provenance/code/tests synthétiques publics. Pas une validation clinique ou physique, ni une annonce de mise en production.
+
 ## 5.10.0 — préparation locale du cadre PCIMA Niger 2023
 
 Choix par visite d’une aide limitée au dépistage selon le PCIMA janvier 2023, profil de croissance OMS requis. Ajout des observations d’allaitement, alimentation, perte/absence de gain de poids, problème médical/social et forme mixte constatée. Circuit particulier avant six mois ou sous 3 kg, seuils PB pédiatriques non étendus, test d’appétit réussi précisé comme modéré ou bon. Un score calculé avec position supposée ne devient pas un critère national P/T.

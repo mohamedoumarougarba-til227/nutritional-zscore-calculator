@@ -6,7 +6,7 @@ const SupplementaryEngine=typeof module!=='undefined'&&module.exports?require('.
 const GrowthPolicy=typeof module!=='undefined'&&module.exports?require('./growth-profile.js').GrowthProfile:GrowthProfile;
 const GrowthCDC=typeof module!=='undefined'&&module.exports?require('./reference-cdc.js').CDCReference:globalThis.CDCReference;
 class GrowthEngine {
-    static version='4.6.0';
+    static version='4.7.0';
     constructor(young,older,additional,cdc){this.young=new GrowthClinicalCore(young);this.older=new GrowthOlderCore(older);this.data=young;if(additional)this.additional=new SupplementaryEngine(additional);if(cdc)this.cdc=new GrowthCDC(cdc);}
     static normalize(raw){return GrowthClinicalCore.normalize(raw,{extended:true});}
     static applicable(family,age){return GrowthClinicalCore.applicable(family,age);}

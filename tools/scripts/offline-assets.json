@@ -53,6 +53,7 @@
   "data/zscore-sources.json",
   "vendor/pdf/NOTICE-report.txt",
   "vendor/pdf/report-provenance.json",
+  "js/services/pcima-niger-2025.js",
   "js/services/nutrition-assessment.js",
   "js/services/encrypted-backup.js",
   "js/services/reporting-export.js",

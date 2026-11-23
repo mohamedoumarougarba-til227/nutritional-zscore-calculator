@@ -95,6 +95,8 @@ class CSVManager {
         entries.forEach(({child:c,result:r},i)=>{const warnings=r?.warnings||[],assumed=warnings.includes('positionAssumedLength')?'L':warnings.includes('positionAssumedHeight')?'H':'';rows[i].push(warnings.join('|'),assumed||c.position||'',!!assumed,['months','totalMonths'].includes(c.ageMode));});
         header.push(...NutritionCSV.nationalFields,'nutrition_reasons');
         entries.forEach(({child:c,result:r},i)=>rows[i].push(...NutritionCSV.nationalFields.map(k=>c[k]??''),r?.nutrition?.reasons?.join('|')||''));
+        const extra=NutritionCSV.inputFields.filter(k=>!NutritionCSV.legacyInputFields.includes(k)&&!NutritionCSV.nationalFields.includes(k));
+        header.push(...extra);entries.forEach(({child:c},i)=>rows[i].push(...extra.map(k=>c[k]??'')));
         return '\uFEFF' + [header, ...rows].map(row => row.map(CSVManager.cell).join(',')).join('\r\n');
     }
 }

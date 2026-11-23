@@ -36,3 +36,5 @@ Le dossier projet contient le plan, les états de validation et l’ancien READM
 - [Référentiels complémentaires identifiés](references/REFERENTIELS_COMPLEMENTAIRES.md)
 
 - [Présentation publique, captures et réglages GitHub appliqués](maintenance/PRESENTATION_PUBLIQUE.md)
+
+Cadres nationaux : [PCIMA Niger 2025](references/PCIMA_NIGER_2025.md), [2023 conservé](references/PCIMA_NIGER_2023.md), [provenance des copies](references/PCIMA_SOURCES.json). Guides et tests publics ; documents PDF et preuves privés.

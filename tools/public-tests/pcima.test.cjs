@@ -65,7 +65,7 @@ test('mixed malnutrition is a clinician observation, not inferred from a suppres
     for(const extra of [{},{totalAgeMonths:3},{totalAgeMonths:60}])assert.equal(assess({...extra,convulsions:'y'}).orientation,'orientationUrgent');
 });
 test('invalid protocol, non-WHO profile and non-observation values are rejected before calculation',()=>{
-    for(const extra of [{careProtocol:'niger2025'},{careProtocol:'simplified'},{feedingDifficulty:true},{breastfeeding:'yes'},{mixedMalnutrition:1}])assert.throws(()=>engine.calculate(raw(extra)));
+    for(const extra of [{careProtocol:'niger2099'},{careProtocol:'simplified'},{feedingDifficulty:true},{breastfeeding:'yes'},{mixedMalnutrition:1}])assert.throws(()=>engine.calculate(raw(extra)));
     for(const profile of ['us','intergrowth'])assert.throws(()=>N.normalize(raw({growthProfile:profile})),/pcimaProfileRequired/);
     assert.equal(N.normalize(raw({recentWeightLoss:'n'})).recentWeightLoss,'n');
 });
@@ -86,7 +86,7 @@ test('fictitious streamed and encrypted backups retain the selected context and 
 });
 test('CSV preserves old column positions and appends the clinical context/observations; explicit input mapping retains them',()=>{
     const e=engine.calculate(observed({recentWeightLoss:'y'})),rows=[...CSV.rows(CSV.results([e]))],header=rows[0],line=rows[1];assert.equal(line.length,header.length);
-    assert.equal(header[header.indexOf('furtherAssessment')+1],'nutrition_category');assert.equal(header.at(-1),'nutrition_reasons');
+    assert.equal(header[header.indexOf('furtherAssessment')+1],'nutrition_category');assert.equal(header[header.indexOf('mixedMalnutrition')+1],'nutrition_reasons');
     for(const field of P.fields)assert.equal(line[header.indexOf(field)],String(e.child[field]??''));
     const columns=['gender','ageMode','ageTotalMonths','measurementDate','weight','height','position','oedema',...P.fields],input=columns.join(',')+'\n'+columns.map(k=>raw({recentWeightLoss:'y'})[k]??'').join(',');
     const c=CSV.parse(input,{extended:true})[0];assert.equal(c.careProtocol,'niger2023');assert.equal(c.recentWeightLoss,'y');assert.equal(c.feedingDifficulty,'');
@@ -112,7 +112,7 @@ test('all new result/observation labels and compact-table labels exist in FR EN 
 test('browser script order and offline allowlist include the national module, with no network operation in its rules',()=>{
     const html=fs.readFileSync(path.join(root,'src/index.html'),'utf8'),assets=json('tools/scripts/offline-assets.json');assert(html.indexOf('services/pcima-niger.js')<html.indexOf('services/nutrition-assessment.js'));assert(assets.includes('js/services/pcima-niger.js'));
     const context={};context.window=context;context.globalThis=context;vm.createContext(context);
-    for(const file of ['pcima-niger.js','nutrition-assessment.js'])vm.runInContext(fs.readFileSync(path.join(root,'src/js/services',file),'utf8'),context);
+    for(const file of ['pcima-niger.js','pcima-niger-2025.js','nutrition-assessment.js'])vm.runInContext(fs.readFileSync(path.join(root,'src/js/services',file),'utf8'),context);
     assert.equal(context.NutritionAssessment.assess({...observed(),totalAgeMonths:12},{weightForHeight:{zscoreRaw:0,flagged:false}}).reference,P.reference);
     assert(!/\b(?:fetch|XMLHttpRequest|localStorage|indexedDB)\s*[.(]/.test(fs.readFileSync(path.join(root,'src/js/services/pcima-niger.js'),'utf8')));
 });

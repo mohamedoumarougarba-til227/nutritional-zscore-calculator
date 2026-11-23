@@ -3,19 +3,28 @@
  * No prescribing, national admission decision or declaration of recovery.
  */
 const PcimaNutrition=typeof module!=='undefined'&&module.exports?require('./pcima-niger.js').PcimaNiger:globalThis.PcimaNiger;
+const Pcima2025Nutrition=typeof module!=='undefined'&&module.exports?require('./pcima-niger-2025.js').PcimaNiger2025:globalThis.PcimaNiger2025;
 class NutritionAssessment {
     static version = 1;
     static reference = 'WHO-wasting-2023-B1-B2';
     static sources = ['https://www.who.int/publications/i/item/9789240082830', 'https://www.who.int/publications/i/item/9789240122840'];
     static dangerFields = ['cannotDrink','vomitsEverything','convulsions','lethargy'];
     static legacyInputFields = ['muac', ...this.dangerFields, 'acuteProblem','appetite','oedemaGrade','furtherAssessment'];
-    static inputFields = [...this.legacyInputFields, ...PcimaNutrition.fields];
+    static inputFields = [...this.legacyInputFields, ...PcimaNutrition.fields, ...Pcima2025Nutrition.extraObservations];
     static nationalFields = PcimaNutrition.fields;
     static nationalSource = PcimaNutrition.source;
-    static isNational(nutrition) { return nutrition?.reference === PcimaNutrition.reference; }
+    static isNational(nutrition) { return [PcimaNutrition.reference,Pcima2025Nutrition.reference].includes(nutrition?.reference); }
+    static is2025(nutrition) { return nutrition?.reference===Pcima2025Nutrition.reference; }
+    static helpKey(nutrition) { return this.is2025(nutrition)?'pcima2025Help':'pcimaHelp'; }
+    static sourceFor(nutrition) { return this.is2025(nutrition)?Pcima2025Nutrition.source:PcimaNutrition.source; }
+    static observationsFor(child) {
+        if(child.careProtocol!=='niger2025')return child.careProtocol==='niger2023'?PcimaNutrition.observations:[];
+        // Keep every optional observation accessible while age/weight inputs are being edited.
+        return [...PcimaNutrition.observations,...Pcima2025Nutrition.extraObservations];
+    }
     static observationLabel(key,value,national=false) {
         if (!value) return 'unknown';
-        if (key==='appetite') return value==='good'?(national?'pcimaAppetitePassed':'appetiteGood'):value==='poor'?'appetitePoor':'unknown';
+        if (key==='appetite') return value==='good'?(national==='2025'?'pcima2025AppetitePassed':national?'pcimaAppetitePassed':'appetiteGood'):value==='poor'?'appetitePoor':'unknown';
         if (key==='oedemaGrade') return ['1','2','3'].includes(value)?'grade'+value:'unknown';
         if (key==='furtherAssessment') return {n:'assessmentNone',y:'assessmentNeeded',cleared:'assessmentCleared'}[value]||'unknown';
         return value==='y'?'yes':value==='n'?'no':'unknown';
@@ -33,10 +42,10 @@ class NutritionAssessment {
             if (value) values[key] = value;
         }
         if (raw.oedema==='n' && values.oedemaGrade) throw new Error('oedemaConflict');
-        if (!['',undefined,'who2023','niger2023'].includes(raw.careProtocol)) throw new Error('careProtocolInvalid');
-        if (raw.careProtocol === 'niger2023' && !['',undefined,'who'].includes(raw.growthProfile)) throw new Error('pcimaProfileRequired');
+        if (!['',undefined,'who2023','niger2023','niger2025'].includes(raw.careProtocol)) throw new Error('careProtocolInvalid');
+        if (['niger2023','niger2025'].includes(raw.careProtocol) && !['',undefined,'who'].includes(raw.growthProfile)) throw new Error('pcimaProfileRequired');
         if (raw.careProtocol) values.careProtocol = raw.careProtocol;
-        for (const key of PcimaNutrition.observations) {
+        for (const key of [...PcimaNutrition.observations,...Pcima2025Nutrition.extraObservations]) {
             const value = raw[key] ?? '';
             if (!['','n','y'].includes(value)) throw new Error('clinicalInputInvalid');
             if (value) values[key] = value;
@@ -46,6 +55,7 @@ class NutritionAssessment {
     }
     static assess(child, result) {
         const base = this.assessWho(child,result);
+        if(child.careProtocol==='niger2025')return Pcima2025Nutrition.assess(child,result,base);
         return child.careProtocol === 'niger2023' ? PcimaNutrition.assess(child,result,base) : base;
     }
     static assessWho(child, result) {

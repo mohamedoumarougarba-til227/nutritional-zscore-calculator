@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "reviewDate": "2026-11-23",
+  "scope": "Source identification and bounded screening; no clinical certification",
+  "documents": [
+    {
+      "edition": "2023-01",
+      "title": "PCIMA Niger janvier 2023",
+      "pages": 215,
+      "bytes": 5725815,
+      "sha256": "91f5fffc055e99bf9de2dbda16e3dad6c6252d255912d4b6252710bc8edf48fc",
+      "reference": "Niger-PCIMA-2023-screening-v1",
+      "guide": "PCIMA_NIGER_2023.md",
+      "publicSource": "https://reliefweb.int/report/niger/protocole-national-de-prise-en-charge-integree-de-la-malnutrition-aigue-janvier-2023",
+      "localCopy": ".local/references/pcima/niger/2023-01/PCIMA-Niger-2023-01.pdf",
+      "pdfRedistributed": false
+    },
+    {
+      "edition": "2025-03",
+      "title": "Protocole national de prevention et de prise en charge integree de la malnutrition aigue - version validee en mars 2025",
+      "pages": 274,
+      "bytes": 5667851,
+      "sha256": "e407dbe2b6b1cba3dde3108f367eb66ea4e5d529ecc9015a1c0ae85147e66d98",
+      "reference": "Niger-PCIMA-2025-screening-v1",
+      "guide": "PCIMA_NIGER_2025.md",
+      "source": "Complete document supplied by the maintainer; independent national implementation confirmation pending",
+      "localCopy": ".local/references/pcima/niger/2025-03/PCIMA-Niger-2025-03.pdf",
+      "pdfRedistributed": false,
+      "redistributionLicense": "Not established for the complete PDF; no relicensing under GPL",
+      "clinicalValidation": false
+    }
+  ]
+}

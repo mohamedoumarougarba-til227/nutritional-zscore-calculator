@@ -51,8 +51,8 @@ class PDFManager {
             if(c.muac!==undefined&&c.muac!=='')measures.push(field('muac',number(c.muac,1)+' mm'));
             if(r?.nutrition)notes.push(t(r.nutrition.category),...(r.nutrition.criteria||[]).map(t),t(r.nutrition.muac),t(r.nutrition.orientation),...r.nutrition.reasons.map(t),t('clinicalReference')+' : '+r.nutrition.reference+' v'+r.nutrition.version,...(r.nutrition.missing.length?[t('assessmentMissing')+' : '+r.nutrition.missing.map(t).join(', ')]:[]));
             if(NutritionPDF.isNational(r?.nutrition)){
-                notes.push(t('pcimaHelp'));
-                for(const key of NutritionPDF.inputFields.filter(k=>!['muac','careProtocol'].includes(k))) if(c[key]) measures.push(field(key,t(NutritionPDF.observationLabel(key,c[key],true))));
+                notes.push(t(NutritionPDF.helpKey(r.nutrition)));
+                for(const key of NutritionPDF.inputFields.filter(k=>!['muac','careProtocol'].includes(k))) if(c[key]) measures.push(field(key,t(NutritionPDF.observationLabel(key,c[key],NutritionPDF.is2025(r.nutrition)?'2025':true))));
             }
             let provenance=null;
             if (!r) notes.push(t('pdfUncalculated'));
