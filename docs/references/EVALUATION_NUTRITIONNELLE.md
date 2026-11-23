@@ -1,6 +1,10 @@
 # PB et aide à l’orientation
 
-Application 5.0.0 ; règles `WHO-wasting-2023-B1-B2`, version 1.
+Sources de l’interface 5.10.0 ; moteur combiné 4.6.0. Le cadre général conserve les règles `WHO-wasting-2023-B1-B2`, version 1.
+
+Le cadre facultatif **PCIMA Niger janvier 2023** est désormais proposé par visite avec le profil de croissance OMS. Il porte l’identifiant `Niger-PCIMA-2023-screening-v1` et ajoute les observations d’alimentation, allaitement, trajectoire pondérale, problème médical/social et forme mixte constatée. Les nourrissons de moins de six mois et les enfants de moins de 3 kg ont un circuit d’évaluation particulier ; les seuils PB des 6–59 mois ne leur sont pas appliqués dans ce cadre. L’aide reste limitée au dépistage et à la discussion d’orientation : ni traitement, ni admission, ni guérison automatiques. Voir la [matrice complète des chapitres et des 28 annexes](PCIMA_NIGER_2023.md), y compris les divergences et exclusions.
+
+Les paragraphes suivants décrivent le cadre général OMS. Les anciennes visites conservent ce cadre : sélectionner PCIMA pour une nouvelle visite ne modifie aucun résultat antérieur. L’édition nationale actuellement applicable et les amendements ultérieurs restent à confirmer par une autorité ou un professionnel compétent.
 
 Les courbes de croissance OMS 2006/2007 sont distinctes des recommandations de soins. Le PB est facultatif, en millimètres. Pour les 6 à moins de 60 mois moyens OMS : moins de 115 mm fournit un critère sévère ; 115 à moins de 125 un critère modéré. PB ≥ 125 ne suffit pas à exclure les autres critères. Hors de ce groupe, la mesure reste enregistrée sans ces seuils. Les bornes de saisie 50–400 mm repèrent notamment les erreurs d’unité ; ce ne sont pas des seuils cliniques.
 

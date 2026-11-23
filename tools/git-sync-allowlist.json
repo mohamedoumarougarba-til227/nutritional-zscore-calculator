@@ -212,6 +212,10 @@
     "tools/public-tests/batch-correction.test.cjs",
     "tools/public-tests/version-preview.test.cjs",
     "tools/public-tests/rescue-export.test.cjs",
-    "tools/public-tests/input-offline.test.cjs"
+    "tools/public-tests/input-offline.test.cjs",
+    "src/js/services/pcima-niger.js",
+    "docs/references/PCIMA_NIGER_2023.md",
+    "tools/public-tests/pcima.test.cjs",
+    "tools/verification/nutrition-who-v1.json"
   ]
 }

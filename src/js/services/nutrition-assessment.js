@@ -2,12 +2,24 @@
  * Independently written implementation of WHO 2023 recommendations B1/B2.
  * No prescribing, national admission decision or declaration of recovery.
  */
+const PcimaNutrition=typeof module!=='undefined'&&module.exports?require('./pcima-niger.js').PcimaNiger:globalThis.PcimaNiger;
 class NutritionAssessment {
     static version = 1;
     static reference = 'WHO-wasting-2023-B1-B2';
     static sources = ['https://www.who.int/publications/i/item/9789240082830', 'https://www.who.int/publications/i/item/9789240122840'];
     static dangerFields = ['cannotDrink','vomitsEverything','convulsions','lethargy'];
-    static inputFields = ['muac', ...this.dangerFields, 'acuteProblem','appetite','oedemaGrade','furtherAssessment'];
+    static legacyInputFields = ['muac', ...this.dangerFields, 'acuteProblem','appetite','oedemaGrade','furtherAssessment'];
+    static inputFields = [...this.legacyInputFields, ...PcimaNutrition.fields];
+    static nationalFields = PcimaNutrition.fields;
+    static nationalSource = PcimaNutrition.source;
+    static isNational(nutrition) { return nutrition?.reference === PcimaNutrition.reference; }
+    static observationLabel(key,value,national=false) {
+        if (!value) return 'unknown';
+        if (key==='appetite') return value==='good'?(national?'pcimaAppetitePassed':'appetiteGood'):value==='poor'?'appetitePoor':'unknown';
+        if (key==='oedemaGrade') return ['1','2','3'].includes(value)?'grade'+value:'unknown';
+        if (key==='furtherAssessment') return {n:'assessmentNone',y:'assessmentNeeded',cleared:'assessmentCleared'}[value]||'unknown';
+        return value==='y'?'yes':value==='n'?'no':'unknown';
+    }
     static normalize(raw) {
         const values = {};
         if (raw.muac !== undefined && raw.muac !== null && raw.muac !== '') {
@@ -21,9 +33,22 @@ class NutritionAssessment {
             if (value) values[key] = value;
         }
         if (raw.oedema==='n' && values.oedemaGrade) throw new Error('oedemaConflict');
+        if (!['',undefined,'who2023','niger2023'].includes(raw.careProtocol)) throw new Error('careProtocolInvalid');
+        if (raw.careProtocol === 'niger2023' && !['',undefined,'who'].includes(raw.growthProfile)) throw new Error('pcimaProfileRequired');
+        if (raw.careProtocol) values.careProtocol = raw.careProtocol;
+        for (const key of PcimaNutrition.observations) {
+            const value = raw[key] ?? '';
+            if (!['','n','y'].includes(value)) throw new Error('clinicalInputInvalid');
+            if (value) values[key] = value;
+        }
+        if (raw.mixedMalnutrition==='y' && raw.oedema==='n') throw new Error('pcimaMixedConflict');
         return values;
     }
     static assess(child, result) {
+        const base = this.assessWho(child,result);
+        return child.careProtocol === 'niger2023' ? PcimaNutrition.assess(child,result,base) : base;
+    }
+    static assessWho(child, result) {
         const age=child.totalAgeMonths, eligible=child.growthProfile!=='intergrowth'&&age>=6&&age<60;
         if(child.growthProfile==='intergrowth')return {version:this.version,reference:'INTERGROWTH2015-postnatal-context',muacMm:typeof child.muac==='number'?child.muac:null,muac:'muacAgeUnsupported',category:'intergrowthNoScreening',orientation:this.dangerFields.some(key=>child[key]==='y')?'orientationUrgent':'intergrowthClinicalReview',criteria:[],reasons:this.dangerFields.some(key=>child[key]==='y')?['dangerPresent']:[],missing:[]};
         const pb=typeof child.muac==='number'?child.muac:null;

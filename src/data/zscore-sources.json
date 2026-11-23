@@ -1,10 +1,10 @@
 {
   "format": 1,
-  "version": "5.9.1",
+  "version": "5.10.0",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8391392,
-  "sha256": "a0595e97d501bfd45f4cfd1a42b61dc70da647921cd23e21ee05d66510ccde67",
+  "bytes": 8459545,
+  "sha256": "ad5a2b13ce40d0cccfe8c257fabfd3e766b0df4a7c1fee98dd5a24158b7bb51e",
   "files": [
     {
       "file": ".gitattributes",
@@ -33,8 +33,8 @@
     },
     {
       "file": ".gitignore",
-      "bytes": 10007,
-      "sha256": "133c6c13b7b4f1938485dea8ba78155d2c125c86e0b67e83374407fc357c03d8"
+      "bytes": 10225,
+      "sha256": "2aef5b726f3fa74f75a32d880bdd3e0f873d0c490a2326103f87c650da75b4ff"
     },
     {
       "file": "CONTRIBUTING.md",
@@ -53,8 +53,8 @@
     },
     {
       "file": "README.md",
-      "bytes": 10686,
-      "sha256": "d8a3008a63d9f4942a531c5bdcbff9928242b8db7a719acfd8012673e0885e67"
+      "bytes": 11130,
+      "sha256": "d11d7ccd06f3b39dde23119317e1b58413dc8184254327f5929f56a10557cdd2"
     },
     {
       "file": "SECURITY.md",
@@ -68,8 +68,8 @@
     },
     {
       "file": "docs/README.md",
-      "bytes": 3162,
-      "sha256": "8ec0b1543c5cdab3588bac2c13d2f99387515876cbbaccff969e3b4e5469770c"
+      "bytes": 3340,
+      "sha256": "ba58483fa1cae7f5545aef44d7feef08bc9c5be1a0321c4b5338e269aa3b29ba"
     },
     {
       "file": "docs/assets/individual-fr.jpg",
@@ -113,8 +113,8 @@
     },
     {
       "file": "docs/maintenance/MISES_A_JOUR.md",
-      "bytes": 43020,
-      "sha256": "e3ffbc06a29db6dee82e62908380f706f93793d68fa74d7a0c4f7251ad6867a3"
+      "bytes": 44829,
+      "sha256": "495bb974f6c14509ae84c0f61330132b32c9a309404cbd55a45269c6a0d28319"
     },
     {
       "file": "docs/maintenance/PREPARATION_PUBLICATION.md",
@@ -158,8 +158,8 @@
     },
     {
       "file": "docs/references/EVALUATION_NUTRITIONNELLE.md",
-      "bytes": 3336,
-      "sha256": "72ee2f4436edacbcab51e8331d029ab8589995d0d1b0b740453e31125c6171ff"
+      "bytes": 4496,
+      "sha256": "431a8e5a087abbb7355e757225c8b5cb9d52a74993f577d76b4054aeed2c512d"
     },
     {
       "file": "docs/references/FORMAT_SAUVEGARDE.md",
@@ -182,9 +182,14 @@
       "sha256": "ffa573559108f582b31def9de9a32a87ce57e4162740b7e9ce4100ad4d7cb2e6"
     },
     {
+      "file": "docs/references/PCIMA_NIGER_2023.md",
+      "bytes": 16229,
+      "sha256": "40ba0de5973ece20ec20c9feb6127cf1ad1a8bdb54daaeaeff9856de788cfd03"
+    },
+    {
       "file": "docs/references/REFERENCES_NATIONALES.md",
-      "bytes": 6186,
-      "sha256": "0c80222426cfee54ec7a41f83456699d8097c8028eb8cc7201c97100c7296732"
+      "bytes": 7898,
+      "sha256": "50b14ee4eecfb39a327cf5edd5ca23c16e96e01b1bc851972376ecf04f28146a"
     },
     {
       "file": "docs/references/REFERENTIELS_COMPLEMENTAIRES.md",
@@ -193,13 +198,13 @@
     },
     {
       "file": "package-lock.json",
-      "bytes": 720,
-      "sha256": "16f5c5bb135eff83e4a6b2c24c0d00e0644296a7d4281d5433cfe1b8d7213f87"
+      "bytes": 722,
+      "sha256": "639d48e805f9bff766f13f694c028b078e28926c786070a38f32d44a30ed9330"
     },
     {
       "file": "package.json",
-      "bytes": 983,
-      "sha256": "a362e0e365de8371b370e25c65a500a6dbc8d019883428237d34dc1454c8e908"
+      "bytes": 984,
+      "sha256": "f317ee9c3217a83d8ccb89ee75de2c0014386974ea9b27cf050845e0aa2f9318"
     },
     {
       "file": "src/assets/icons/icon-128.png",
@@ -278,8 +283,8 @@
     },
     {
       "file": "src/data/interface-translations.json",
-      "bytes": 183418,
-      "sha256": "ebded59da118e43611ab8767d0459f3fd74a77d2e20006259772265b73ce7848"
+      "bytes": 196290,
+      "sha256": "14f8a1da526c06c3539e22551d800df6e60cc923ffe250eb1886cb47450c3b4f"
     },
     {
       "file": "src/data/who-2007-manifest.json",
@@ -313,8 +318,8 @@
     },
     {
       "file": "src/index.html",
-      "bytes": 4539,
-      "sha256": "7b858519d10360cc1deeb41fe3d1b1119f6bc406e49e021f3f0b9c8dca8c30b3"
+      "bytes": 4618,
+      "sha256": "8bbda0e07c032fcc7b84e68bb9d50e0f1b64b1120ea655a126de2fb94f7c7586"
     },
     {
       "file": "src/js/components/growth-chart.js",
@@ -338,8 +343,8 @@
     },
     {
       "file": "src/js/services/csv-manager.js",
-      "bytes": 13874,
-      "sha256": "6e4351a54d7edcab07414690ca9404798a3ea97b5cbab3f62481c59073f3ab59"
+      "bytes": 14108,
+      "sha256": "d17ac62f0030d5369454d64aec0c2393a67e7b92ada3e62191dd880eaa7c17f5"
     },
     {
       "file": "src/js/services/encrypted-backup.js",
@@ -349,7 +354,7 @@
     {
       "file": "src/js/services/growth-engine.js",
       "bytes": 5346,
-      "sha256": "d8cf31b57a4e7946d667065a031dec2a5bcad3c30c999a9cc2eeedc7b3a80bd1"
+      "sha256": "1517cecf0b965d970c077502834134f9e7e6024e369a23678308f06e54823d7c"
     },
     {
       "file": "src/js/services/growth-profile.js",
@@ -378,13 +383,18 @@
     },
     {
       "file": "src/js/services/nutrition-assessment.js",
-      "bytes": 5558,
-      "sha256": "2bcac1c201130151aac7d6a5e279c586526d9c58904e8e63c3211f4b133c885b"
+      "bytes": 7365,
+      "sha256": "860b5be0f16bf6a82834ec6b2bda454cfc27bdec0ecfcaea61ea9187e4b18896"
+    },
+    {
+      "file": "src/js/services/pcima-niger.js",
+      "bytes": 5216,
+      "sha256": "ab9dc67095369e1c7b9ca6a374087809fb5354606f9642610db4ca38a66b4d49"
     },
     {
       "file": "src/js/services/pdf-manager.js",
-      "bytes": 21887,
-      "sha256": "3fd904e6194588bae01827187bc84e8ef2076b5746ccc7c62042d7ff8e9cd384"
+      "bytes": 22347,
+      "sha256": "9d090a74cdd64bb2cec39518911018ab21c022097b7cec09ef04966cdd718deb"
     },
     {
       "file": "src/js/services/percentile-display.js",
@@ -408,8 +418,8 @@
     },
     {
       "file": "src/js/services/reporting-export.js",
-      "bytes": 4575,
-      "sha256": "cd883354e58a9b062bf2245c2c01fe79889996105742a5de557246b58eae6344"
+      "bytes": 5482,
+      "sha256": "23293b23123815d923e1414d3ba42c415bc4ee6dbf2521b5734d32a0063258fc"
     },
     {
       "file": "src/js/services/storage-manager.js",
@@ -428,8 +438,8 @@
     },
     {
       "file": "src/js/workspace-app.js",
-      "bytes": 145652,
-      "sha256": "06b47768e374ec6f69abd0ef225156e720a7e9b325e04bad9497bf1a799782da"
+      "bytes": 147436,
+      "sha256": "f62f2d488782a4fd23348531d41809fe59967201509d910e55f766cfc3293ac5"
     },
     {
       "file": "src/js/workspace-bootstrap.js",
@@ -508,8 +518,8 @@
     },
     {
       "file": "tools/git-sync-allowlist.json",
-      "bytes": 9307,
-      "sha256": "133496be217bd37e582f028d66302f93a0179dcf0c8fd4d998952737b9337e18"
+      "bytes": 9477,
+      "sha256": "97ff0e85caffebdf5849b45d02bde13631a5dc337363c0538cc2d199f7ede3d0"
     },
     {
       "file": "tools/public-tests/batch-correction.test.cjs",
@@ -545,6 +555,11 @@
       "file": "tools/public-tests/lot-quality.test.cjs",
       "bytes": 10767,
       "sha256": "0f56e76e337fefd522f09c8945aa68ad6f73c1a009276d5d4b9b41139810096c"
+    },
+    {
+      "file": "tools/public-tests/pcima.test.cjs",
+      "bytes": 14565,
+      "sha256": "5885f5b24e2f81cb17b97abdbcb70d606ac03687b3a776733634571688270afe"
     },
     {
       "file": "tools/public-tests/profiles.test.cjs",
@@ -933,8 +948,8 @@
     },
     {
       "file": "tools/scripts/offline-assets.json",
-      "bytes": 2180,
-      "sha256": "a688a7440a7691886170a1c8def331186c004418b2b65c1e8530b1313b47efef"
+      "bytes": 2212,
+      "sha256": "d7d7d69e414e8838ff890dbe41db74ed6388d823f53414bbda4c66f49d95a88c"
     },
     {
       "file": "tools/scripts/prepare-public.cjs",
@@ -985,6 +1000,11 @@
       "file": "tools/verification/normal-cdf.csv",
       "bytes": 146398,
       "sha256": "7d1a3dfe2314a54d8d67351102944f105b2654bd97c509a5b3ef99b91eabc83b"
+    },
+    {
+      "file": "tools/verification/nutrition-who-v1.json",
+      "bytes": 7694,
+      "sha256": "37c80694e03c923cd89ed9fadb9d2b533f7df0be426b62053ecf87bfa130c3e7"
     },
     {
       "file": "tools/verification/provenance.json",

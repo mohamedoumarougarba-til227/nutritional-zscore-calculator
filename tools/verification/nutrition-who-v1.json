@@ -1,0 +1,330 @@
+{
+  "provenance": "Synthetic WHO assessment v1 snapshots from signed main ebf5ef959d65bd3cee94cc3e3025990bd582d54c; not clinical validation.",
+  "cases": [
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n"
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": null,
+        "muac": "muacMissing",
+        "category": "nutritionIncomplete",
+        "orientation": "orientationCompleteAssessment",
+        "criteria": [],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment",
+          "muac"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n",
+        "muac": 114
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": 114,
+        "muac": "muacSevere",
+        "category": "nutritionSevere",
+        "orientation": "orientationSevereAssessment",
+        "criteria": [
+          "criterionMuacSevere"
+        ],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n",
+        "muac": 115
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": 115,
+        "muac": "muacModerate",
+        "category": "nutritionModerateCriteria",
+        "orientation": "orientationNutritionAssessment",
+        "criteria": [
+          "criterionMuacModerate"
+        ],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n",
+        "muac": 125
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": 125,
+        "muac": "muacNotLow",
+        "category": "nutritionNoCriteria",
+        "orientation": "orientationCompleteAssessment",
+        "criteria": [],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "y",
+        "oedemaGrade": "3"
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": null,
+        "muac": "muacMissing",
+        "category": "nutritionSevere",
+        "orientation": "orientationInpatient",
+        "criteria": [
+          "criterionOedema"
+        ],
+        "reasons": [
+          "oedemaSevere"
+        ],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment",
+          "muac"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "",
+        "oedema": ""
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": null,
+        "muac": "muacMissing",
+        "category": "nutritionIncomplete",
+        "orientation": "orientationCompleteAssessment",
+        "criteria": [],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment",
+          "oedema",
+          "position",
+          "muac"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 3,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n"
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": null,
+        "muac": "muacMissing",
+        "category": "nutritionAgeUnsupported",
+        "orientation": "orientationAgeSpecific",
+        "criteria": [],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 60,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n"
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": null,
+        "muac": "muacMissing",
+        "category": "nutritionAgeUnsupported",
+        "orientation": "orientationAgeSpecific",
+        "criteria": [],
+        "reasons": [],
+        "missing": [
+          "cannotDrink",
+          "vomitsEverything",
+          "convulsions",
+          "lethargy",
+          "acuteProblem",
+          "appetite",
+          "furtherAssessment"
+        ]
+      }
+    },
+    {
+      "child": {
+        "totalAgeMonths": 12,
+        "weight": 8500,
+        "height": 75,
+        "position": "L",
+        "oedema": "n",
+        "muac": 114,
+        "cannotDrink": "n",
+        "vomitsEverything": "n",
+        "convulsions": "n",
+        "lethargy": "n",
+        "acuteProblem": "n",
+        "appetite": "good",
+        "furtherAssessment": "n"
+      },
+      "result": {
+        "weightForHeight": {
+          "zscoreRaw": -1.37,
+          "flagged": false
+        }
+      },
+      "expected": {
+        "version": 1,
+        "reference": "WHO-wasting-2023-B1-B2",
+        "muacMm": 114,
+        "muac": "muacSevere",
+        "category": "nutritionSevere",
+        "orientation": "orientationOutpatientReview",
+        "criteria": [
+          "criterionMuacSevere"
+        ],
+        "reasons": [],
+        "missing": []
+      }
+    }
+  ]
+}

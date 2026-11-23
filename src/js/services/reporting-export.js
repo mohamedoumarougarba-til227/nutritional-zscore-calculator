@@ -15,6 +15,7 @@ class ReportingExport {
         const counts=report.counts;
         if(!counts||typeof counts!=='object'||Array.isArray(counts)||JSON.stringify(Object.keys(counts).sort())!==JSON.stringify(this.metrics.slice().sort()))fail();
         if([...Object.values(counts),report.excluded,report.unassessed].some(n=>!Number.isSafeInteger(n)||n<0))fail();
+        if(report.assessmentReferences!==undefined&&(!Array.isArray(report.assessmentReferences)||!report.assessmentReferences.length||report.assessmentReferences.length>8||new Set(report.assessmentReferences).size!==report.assessmentReferences.length||report.assessmentReferences.some(v=>typeof v!=='string'||!/^[-A-Za-z0-9.]{1,100}$/.test(v))))fail();
         if(counts.eligible6to59>counts.rows||counts.dangerPresent>counts.rows||report.unassessed>counts.rows)fail();
         for(const group of [['muacMissing','muacSevere','muacModerate','muacNotLow'],['nutritionSevere','nutritionModerateCriteria','nutritionIncomplete']]){
             if(group.reduce((sum,key)=>sum+counts[key],0)>counts.eligible6to59)fail();
@@ -24,13 +25,14 @@ class ReportingExport {
     static aggregate(entries,period) {
         if(!this.validPeriod(period))throw new Error('reportPeriodInvalid');
         const counts=Object.fromEntries(this.metrics.map(k=>[k,0]));
-        let excluded=0,unassessed=0;
+        let excluded=0,unassessed=0;const assessmentReferences=new Set();
         for(const {child:c,result:r}of entries){
             if(this.measurementPeriod(c?.measurementDate)!==period){excluded++;continue;}
             counts.rows++;
             const eligible=c.growthProfile!=='intergrowth'&&Number.isFinite(c.totalAgeMonths)&&c.totalAgeMonths>=6&&c.totalAgeMonths<60;
             if(eligible)counts.eligible6to59++;
             const n=r?.nutrition;
+            if(n?.reference)assessmentReferences.add(n.reference);
             if(n?.version!==1){unassessed++;if(eligible){counts.nutritionIncomplete++;if(c.muac===undefined||c.muac==='')counts.muacMissing++;}continue;}
             if(n.reasons.includes('dangerPresent'))counts.dangerPresent++;
             if(!eligible)continue;
@@ -38,12 +40,15 @@ class ReportingExport {
             if(['nutritionSevere','nutritionModerateCriteria','nutritionIncomplete'].includes(n.category))counts[n.category]++;
         }
         const report={format:'zscore-measurement-aggregate',version:1,period,unit:'measurement-rows',counts,excluded,unassessed};
+        // Keep legacy reports unchanged; new national contexts must retain their provenance.
+        if(assessmentReferences.has('Niger-PCIMA-2023-screening-v1'))report.assessmentReferences=[...assessmentReferences].sort();
         this.checkReport(report);return report;
     }
     static dhis2(report,profile) {
         this.checkReport(report);
         const uid=value=>typeof value==='string'&&/^[A-Za-z][A-Za-z0-9]{10}$/.test(value);
         if(!profile||profile.format!=='zscore-dhis2-mapping'||profile.version!==1||profile.unit!=='measurement-rows'||!uid(profile.orgUnit)||!uid(profile.dataSet)||!Array.isArray(profile.mappings)||!profile.mappings.length||profile.mappings.length>this.metrics.length)throw new Error('reportMappingInvalid');
+        if(report.assessmentReferences?.includes('Niger-PCIMA-2023-screening-v1')&&JSON.stringify(profile.assessmentReferences)!==JSON.stringify(report.assessmentReferences))throw new Error('reportProtocolMappingRequired');
         const seen=new Set(),metrics=new Set();
         const dataValues=profile.mappings.map(m=>{
             if(!this.metrics.includes(m.metric)||!uid(m.dataElement)||!uid(m.categoryOptionCombo)||metrics.has(m.metric))throw new Error('reportMappingInvalid');

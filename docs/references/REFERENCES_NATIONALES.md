@@ -1,5 +1,15 @@
 # Références scientifiques et contexte nigérien
 
+## État courant — 23 novembre 2026
+
+L’utilisateur a choisi le PCIMA Niger **janvier 2023 comme base de travail**, sans attendre son rendez-vous. Une copie complète de 215 pages a été lue, avec contrôle visuel des pages images et des tableaux/schémas déterminants. La source est recoupée par [Epicentre/MSF](https://epicentre.msf.org/essai-randomise-de-non-inferiorite-evaluant-le-garin-yara-une-farine-enrichie-produite-localement), qui cite le ministère et le protocole 2023 en octobre 2026. La [matrice PCIMA](PCIMA_NIGER_2023.md) conserve l’empreinte, les pages, les règles intégrées, les ambiguïtés et les parties non automatisées. Le PDF et les preuves restent privés.
+
+Les sources de développement 5.10.0 proposent un cadre explicite limité, distinct du calcul LMS. Cette adoption de projet **ne certifie pas que 2023 reste l’édition nationale en vigueur**. Une copie intitulée « Version validée en MARS 2025 » est visible sur [Scribd](https://fr.scribd.com/document/962555243/Protocole-Pcima-Mise-en-Forme-Mars-2025), dépôt tiers ; un [support de formation de 18 diapositives](https://www.slideshare.net/slideshow/comprehensive-pcima-protocol-for-acute-malnutrition-management-in-niger/289536122) n’est pas le protocole complet. Aucun accès payant contourné, aucune règle 2025 supposée authentique. Faire confirmer l’édition et les amendements par la Direction de la Nutrition ou un professionnel disposant du texte officiel.
+
+## Historique de recherche — 14 octobre 2026
+
+Les paragraphes suivants sont conservés comme état historique, antérieur à la récupération du document complet. Ils ne décrivent pas les vérifications effectuées le 23 novembre.
+
 État du 14 octobre 2026. Séparer les normes de croissance utilisées par le moteur, les recommandations de prise en charge et l'édition nationale applicable. Aucune règle de traitement PCIMA n'a été ajoutée à partir d'un document non authentifié.
 
 | Source | Ce qui est établi | Limite / action restante |

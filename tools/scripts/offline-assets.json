@@ -67,5 +67,6 @@
   "js/services/reference-intergrowth.js",
   "js/services/intergrowth-visit.js",
   "js/services/intergrowth-result.js",
-  "js/services/lot-quality.js"
+  "js/services/lot-quality.js",
+  "js/services/pcima-niger.js"
 ]
