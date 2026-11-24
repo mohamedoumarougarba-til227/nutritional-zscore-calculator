@@ -67,7 +67,9 @@ test('clinical details, long identity, age modes and many visits fit the A4 expo
         visit(0,{ageMode:'totalMonths',ageTotalMonths:14.5}),
         visit(0,{ageMode:'dates',birthDate:'2024-10-10'})
     ];
-    for(const entry of scenarios)for(const language of ['fr','en','ar'])assert.equal(build(entry,{language}).pages,1);
+    for(const [index,entry] of scenarios.entries())for(const language of ['fr','en','ar']){
+        assert.equal(build(entry,{language}).pages,1,'Scenario '+(index+1)+' / '+language);
+    }
     assert.ok(Math.abs(scenarios[1].result.correctedHeight-scenarios[1].child.height-.7)<1e-8);
     assert.equal(scenarios[1].result.nutrition.orientation,'orientationUrgent');
     const visits=Array.from({length:45},(_,i)=>visit(i*3));

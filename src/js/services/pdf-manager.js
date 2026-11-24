@@ -198,9 +198,10 @@ class PDFManager {
         const number=(value,digits=0)=>Number.isFinite(value)?new Intl.NumberFormat(language,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value):'—';
         const field=(key,value)=>t(key)+': '+(value||t('unknown'));
         const unit=(value,digits,label)=>Number.isFinite(value)?number(value,digits)+' '+label:'—';
-        const place=(value,x,y,{size=10,bold=false,align=rtl?'right':'left'}={})=>{
+        const place=(value,x,y,{size=10,bold=false,align=rtl?'right':'left',fieldLabel=false}={})=>{
             doc.setFont(font,bold?'bold':'normal').setFontSize(size).setTextColor(24);
-            doc.text(safe(value),x,y,{align});
+            const text=safe(value);
+            doc.text(rtl&&fieldLabel?'\u200F'+text+'\u200F':text,x,y,{align});
         };
         let y=23,title,sectionReference='';
         const pages=new Map(),pageReferences=new Map(),at=()=>doc.internal.getCurrentPageInfo().pageNumber;
@@ -240,8 +241,11 @@ class PDFManager {
             let offset=0;
             const cells=pairs.map(([label,value],i)=>{
                 const w=usable*weights[i]/total,x=rtl?right-offset:margin+offset;offset+=w+gap;
-                const prefix=safe(label+': '),v=safe(value||t('unknown'));
-                doc.setFont(font,'normal').setFontSize(size);const labelWidth=doc.getTextWidth(prefix);
+                const prefix=safe(label+':'),v=safe(value||t('unknown'));
+                doc.setFont(font,'normal').setFontSize(size);
+                // Base Helvetica can underestimate the width of the French ligature.
+                const measuredPrefix=font==='helvetica'?prefix.replace(/Œ/g,'OE').replace(/œ/g,'oe'):prefix;
+                const labelWidth=doc.getTextWidth(measuredPrefix)+1.5;
                 doc.setFont(font,'bold').setFontSize(size);const valueWidth=doc.getTextWidth(v);
                 const inline=labelWidth+valueWidth<=w&&!v.includes('\n');
                 const values=inline?[v]:doc.splitTextToSize(v,w);
@@ -252,17 +256,17 @@ class PDFManager {
             ensure(height);
             for(const c of cells){
                 const align=rtl?'right':'left';
-                c.prefixes.forEach((v,i)=>place(v,c.x,y+i*step,{size,align}));
+                c.prefixes.forEach((v,i)=>place(v,c.x,y+i*step,{size,align,fieldLabel:true}));
                 const valueX=c.inline?c.x+(rtl?-c.labelWidth:c.labelWidth):c.x;
                 c.values.forEach((v,i)=>place(v,valueX,y+(c.inline?0:c.prefixes.length+i)*step,{size,bold:true,align}));
             }
             y+=height;
         };
-        const note=(value,kind='info',shaded=false)=>{
+        const note=(value,kind='info',shaded=false,compact=false)=>{
             const size=9.1,step=3.85,iconSpace=7;
             doc.setFont(font,'normal').setFontSize(size);
             const lines=doc.splitTextToSize(safe(value),width-iconSpace-4);
-            const height=lines.length*step+2.5;
+            const height=Math.max(5.5,lines.length*step+(compact?.95:2.5));
             ensure(height);
             const top=y-3,ix=rtl?right-3.2:margin+3.2;
             if(shaded)doc.setFillColor(247).rect(margin,top,width,height,'F');
@@ -286,13 +290,15 @@ class PDFManager {
             autoTable(doc,{startY:y-2,theme:'plain',head:[rtl?[...head].reverse():head],
                 body:rtl?body.map(r=>[...r].reverse()):body,
                 margin:{top:22,bottom:297-bottom,left:margin,right:margin},rowPageBreak:'avoid',
-                styles:{font,fontSize:9.7,cellPadding:{top:1.05,right:1.25,bottom:1.05,left:1.25},overflow:'linebreak',textColor:24,halign:rtl?'right':'left',lineWidth:{bottom:.16},lineColor:175},
+                styles:{font,fontSize:9.7,cellPadding:{top:highlightLast?1.05:.75,right:1.25,bottom:highlightLast?1.05:.75,left:1.25},overflow:'linebreak',textColor:24,halign:rtl?'right':'left',lineWidth:{bottom:.16},lineColor:175},
                 headStyles:{fontStyle:'bold',textColor:18,fillColor:false},
                 columnStyles:highlightLast?Object.fromEntries(head.map((_,i)=>[rtl?head.length-1-i:i,i===0?{cellWidth:25}:i===1?{cellWidth:15,halign:'center'}:{halign:'center'}])):
                     Object.fromEntries((head.length===4?[70,20,18,78]:[55,28,18,15,70]).map((cellWidth,i)=>[rtl?head.length-1-i:i,{cellWidth,...(i>0&&i<head.length-1?{halign:'center'}:{})}])),
                 willDrawPage:()=>{if(!pages.has(at()))header();},
-                didParseCell:({cell,row:r,section})=>{
+                didParseCell:({cell,row:r,section,column})=>{
                     cell.text=cell.text.map(safe);
+                    const index=rtl?head.length-1-column.index:column.index;
+                    if(section==='head'&&index>0&&(highlightLast||index<head.length-1))cell.styles.halign='center';
                     if(section==='body'&&(highlightLast?r.index===body.length-1:cell.raw==='—'||/^(?:[<>]\s*)?[−-]?\d[\d\s.,]*(?:\s(?:cm|mm|kg|g|kg\/m²))?$/.test(String(cell.raw))))cell.styles.fontStyle='bold';
                 }});
             y=doc.lastAutoTable.finalY+5;
@@ -369,7 +375,7 @@ class PDFManager {
                 assessment?.missing?.length?field('pdfToRecord',assessment.missing.map(t).join(', ')):'',
                 observed.join('  |  '),...(result?.warnings||[]).map(t),age?t('intergrowthNoScreening'):'',
                 result?.referenceFamily==='CDC2000'?t('cdcInterpretation'):''].filter(Boolean);
-            if(vigilance.length){heading(labels.vigilance,'04');for(const value of new Set(vigilance))note(value,'info',true);}
+            if(vigilance.length){heading(labels.vigilance,'04');for(const value of new Set(vigilance))note(value,'info',true,vigilance.length>=4);}
             if(result){
                 heading(t('pdfReferences'),'05',labels.calc+': '+timestamp(row.calculatedAt));
                 fields([[t('pdfRefShort'),result.referenceVersion],...(result.additionalGrowth&&result.additionalGrowth.referenceVersion!==result.referenceVersion?[[t('pdfExtraShort'),result.additionalGrowth.referenceVersion]]:[])],undefined,8.5);
@@ -545,7 +551,11 @@ class PDFManager {
         doc.setFont('Amiri','normal'); doc.setLineHeightFactor(1.15);
         // Stored strings are logical Unicode. AutoTable must use the same Bidi options as headings.
         const drawText=doc.text.bind(doc),bidi=new jsPDF.__bidiEngine__({isInputVisual:false,isOutputVisual:true,isOutputRtl:false,isSymmetricSwapping:true});
-        const visual=value=>bidi.doBidiReorder(doc.processArabic(value)).replace(/\u200E/g,'');
+        const visual=value=>{
+            const ltr=rtl&&!batch&&/^(?:[<>]\s*)?[+−-]?\d[\d\s.,]*(?:\s(?:cm|mm|kg|g|kg\/m²))?$/.test(value);
+            const logical=ltr?'\u200E'+value+'\u200E':value;
+            return bidi.doBidiReorder(doc.processArabic(logical)).replace(/[\u200E\u200F]/g,'');
+        };
         doc.text=(value,x,y,options={})=>drawText(Array.isArray(value)?value.map(visual):visual(value),x,y,{...options,isInputVisual:true,isOutputVisual:true,isOutputRtl:false});
         // Display unsupported characters explicitly rather than silently losing identity text.
         const glyph = doc.getFont().metadata.characterToGlyph.bind(doc.getFont().metadata);
