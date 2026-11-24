@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "purpose": "Inventaire public explicite ; préserver les fichiers privés et vérifier la sélection avant tout commit.",
+  "purpose": "Inventaire public explicite ; prÃ©server les fichiers privÃ©s et vÃ©rifier la sÃ©lection avant tout commit.",
   "files": [
     ".gitattributes",
     ".gitignore",
@@ -212,6 +212,14 @@
     "tools/public-tests/batch-correction.test.cjs",
     "tools/public-tests/version-preview.test.cjs",
     "tools/public-tests/rescue-export.test.cjs",
-    "tools/public-tests/input-offline.test.cjs"
+    "tools/public-tests/input-offline.test.cjs",
+    "src/js/services/pcima-niger.js",
+    "docs/references/PCIMA_NIGER_2023.md",
+    "tools/public-tests/pcima.test.cjs",
+    "tools/verification/nutrition-who-v1.json",
+    "src/js/services/pcima-niger-2025.js",
+    "tools/public-tests/pcima-2025.test.cjs",
+    "docs/references/PCIMA_NIGER_2025.md",
+    "docs/references/PCIMA_SOURCES.json"
   ]
 }

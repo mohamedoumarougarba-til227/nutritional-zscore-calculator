@@ -1,5 +1,15 @@
 # Références scientifiques et contexte nigérien
 
+## État courant — 23 novembre 2026
+
+L’utilisateur a choisi le PCIMA Niger **janvier 2023 comme base de travail**, sans attendre son rendez-vous. Une copie complète de 215 pages a été lue, avec contrôle visuel des pages images et des tableaux/schémas déterminants. La source est recoupée par [Epicentre/MSF](https://epicentre.msf.org/essai-randomise-de-non-inferiorite-evaluant-le-garin-yara-une-farine-enrichie-produite-localement), qui cite le ministère et le protocole 2023 en octobre 2026. La [matrice PCIMA](PCIMA_NIGER_2023.md) conserve l’empreinte, les pages, les règles intégrées, les ambiguïtés et les parties non automatisées. Le PDF et les preuves restent privés.
+
+Le document complet de mars 2025 a ensuite été reçu et lu : 274 pages, annexes comprises. Le [guide PCIMA 2025](PCIMA_NIGER_2025.md) et l’[inventaire des deux sources](PCIMA_SOURCES.json) identifient les copies par empreinte et distinguent les règles, contradictions et limites. Les sources 5.11.0 ajoutent le cadre explicite `niger2025`, tout en conservant celui de 2023 et les résultats historiques. Les PDF originaux restent privés ; les analyses, règles originales et tests synthétiques sont publics. La mention de validation portée par la copie reçue ne remplace pas une confirmation indépendante de l’édition appliquée dans un service ni une revue clinique.
+
+## Historique de recherche — 14 octobre 2026
+
+Les paragraphes suivants sont conservés comme état historique, antérieur à la récupération du document complet. Ils ne décrivent pas les vérifications effectuées le 23 novembre.
+
 État du 14 octobre 2026. Séparer les normes de croissance utilisées par le moteur, les recommandations de prise en charge et l'édition nationale applicable. Aucune règle de traitement PCIMA n'a été ajoutée à partir d'un document non authentifié.
 
 | Source | Ce qui est établi | Limite / action restante |

@@ -1,6 +1,7 @@
 /** Local reports of stored results. Never recalculate, write history or parse patient text as HTML. */
 const SupplementaryPDF=typeof module!=='undefined'&&module.exports?require('./supplementary-growth.js').SupplementaryGrowth:SupplementaryGrowth;
 const CentilePDF=typeof module!=='undefined'&&module.exports?require('./percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
+const NutritionPDF=typeof module!=='undefined'&&module.exports?require('./nutrition-assessment.js').NutritionAssessment:globalThis.NutritionAssessment;
 class PDFManager {
     static fontPaths = ['vendor/pdf/Amiri-Regular.ttf', 'vendor/pdf/Amiri-Bold.ttf'];
     static async loadFonts(fetcher = fetch, pins = JSON.parse(document.querySelector('meta[name="zscore-data-integrity"]')?.content || '{}')) {
@@ -49,6 +50,10 @@ class PDFManager {
             if(r?.additionalGrowth){notes.push(t('additionalResults')+' · '+r.additionalGrowth.referenceVersion);for(const [key,v] of Object.entries(r.additionalGrowth.indicators)){const centile=CentilePDF.text(v);const score=Number.isFinite(v.zscore)?'Z = '+number(v.zscore,2)+(centile===null?'':' | P '+centile)+' | '+t(v.classification||'intergrowthDescriptive'):t(v.error);notes.push(t(key)+' : '+number(v.measure,1)+' '+v.unit+' | '+score+(v.flagged?' | '+t('flagged'):''));}}
             if(c.muac!==undefined&&c.muac!=='')measures.push(field('muac',number(c.muac,1)+' mm'));
             if(r?.nutrition)notes.push(t(r.nutrition.category),...(r.nutrition.criteria||[]).map(t),t(r.nutrition.muac),t(r.nutrition.orientation),...r.nutrition.reasons.map(t),t('clinicalReference')+' : '+r.nutrition.reference+' v'+r.nutrition.version,...(r.nutrition.missing.length?[t('assessmentMissing')+' : '+r.nutrition.missing.map(t).join(', ')]:[]));
+            if(NutritionPDF.isNational(r?.nutrition)){
+                notes.push(t(NutritionPDF.helpKey(r.nutrition)));
+                for(const key of NutritionPDF.inputFields.filter(k=>!['muac','careProtocol'].includes(k))) if(c[key]) measures.push(field(key,t(NutritionPDF.observationLabel(key,c[key],NutritionPDF.is2025(r.nutrition)?'2025':true))));
+            }
             let provenance=null;
             if (!r) notes.push(t('pdfUncalculated'));
             else {

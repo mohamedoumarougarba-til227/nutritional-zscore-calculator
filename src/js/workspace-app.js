@@ -8,7 +8,7 @@ const PretermUI=typeof module!=='undefined'&&module.exports?require('./services/
 const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/lot-quality.js').LotQuality:globalThis.LotQuality;
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 class WorkspaceApp {
-    static version = '5.9.1';
+    static version = '5.11.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
     static draftForProfile(draft,profile) {
         ProfileUI.read({growthProfile:profile});
@@ -464,7 +464,7 @@ class WorkspaceApp {
             ${field('measurementDate','date',`max="${ClinicalEngine.today()}"`)}
             ${measurement('weight','g','kg','weightMeasure')}${measurement('height','cm','m','heightMeasure')}${ig?field('headCircumference','number','min="0" step="any" inputmode="decimal"'):''}
             ${select('gender',[['','choose'],['M','male'],['F','female']])}${select('oedema',[['','unknown'],['n','no'],['y','yes']])}${select('position',(ig?[['','choose'],['L','lying']]:[['','choose'],['L','lying'],['H','standing']]),positionHelp)}
-            </div><details class="reference-profile"><summary>${this.t(ig?'profileINTERGROWTH':data.growthProfile==='us'?'profileUS':'profileWHO')}</summary><p class="hint">${this.t('growthProfileVisitHelp')}</p>${select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']])}</details><details class="clinical-fields"${NutritionUI.inputFields.some(k=>data[k]!==undefined&&data[k]!=='')?' open':''}><summary>${this.t('clinicalSection')}</summary><p class="hint">${this.t(ig?'intergrowthNoScreening':'clinicalHelp')}</p><div class="form-grid">${field('muac','number','min="50" max="400" step="0.1" inputmode="decimal"','muacHelp')}${select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])}${NutritionUI.dangerFields.map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}${select('acuteProblem',[['','unknown'],['n','no'],['y','yes']])}${select('appetite',[['','unknown'],['good','appetiteGood'],['poor','appetitePoor']])}${select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])}</div></details>${this.additionalFormHTML(prefix,data,ig,field)}<div id="${prefix}-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>`;
+            </div><details class="reference-profile"><summary>${this.t(ig?'profileINTERGROWTH':data.growthProfile==='us'?'profileUS':'profileWHO')}</summary><p class="hint">${this.t('growthProfileVisitHelp')}</p>${select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']])}</details><details class="clinical-fields"${NutritionUI.inputFields.some(k=>data[k]!==undefined&&data[k]!=='')?' open':''}><summary>${this.t('clinicalSection')}</summary>${select('careProtocol',[['','careWHO'],['niger2025','careNiger2025'],['niger2023','careNiger2023']])}<p class="hint">${this.t(data.careProtocol==='niger2025'?'pcima2025Help':data.careProtocol==='niger2023'?'pcimaHelp':ig?'intergrowthNoScreening':'clinicalHelp')}</p><div class="form-grid">${field('muac','number','min="50" max="400" step="0.1" inputmode="decimal"',data.careProtocol==='niger2025'?'pcima2025MuacHelp':data.careProtocol==='niger2023'?'pcimaMuacHelp':'muacHelp')}${select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])}${NutritionUI.dangerFields.map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}${select('acuteProblem',[['','unknown'],['n','no'],['y','yes']])}${select('appetite',[['','unknown'],['good',data.careProtocol==='niger2025'?'pcima2025AppetitePassed':data.careProtocol==='niger2023'?'pcimaAppetitePassed':'appetiteGood'],['poor','appetitePoor']])}${select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])}${NutritionUI.observationsFor(data).map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}</div></details>${this.additionalFormHTML(prefix,data,ig,field)}<div id="${prefix}-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>`;
     }
     singleHTML() {
         const hasResult=!!this.state.single?.result, dashboard=hasResult&&!this.singleEditing;
@@ -497,7 +497,10 @@ class WorkspaceApp {
     nutritionHTML(child,result) {
         if(result?.referenceFamily==='INTERGROWTH2015')return `<section class="nutrition-result"><h3>${this.t('profileINTERGROWTH')}</h3><p>${this.t('intergrowthNoScreening')}</p>${result.nutrition?.reasons.includes('dangerPresent')?`<p class="notice warn">${this.t('orientationUrgent')}</p>`:''}</section>`;
         const n=result?.nutrition;if(!n)return '';const label=key=>this.esc(this.t(key));
-        return `<section class="nutrition-result ${n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation)?'clinical-urgent':''}" aria-label="${label('clinicalSection')}"><h3>${label(result.referenceFamily==='CDC2000'?'screeningTitleWho':'screeningTitle')}</h3><strong>${label(n.category)}</strong>${n.criteria?.length?`<p>${n.criteria.map(label).join(' · ')}</p>`:''}<p><b>${label('orientationTitle')}</b> — ${label(n.orientation)}</p>${n.reasons.length?`<p>${n.reasons.map(k=>label(k)).join(' · ')}</p>`:''}<details class="screening-details"><summary title="${label('assessmentDetails')}">${label('detailsShort')}</summary><p>${label('muac')} : ${n.muacMm===null?this.t('unknown'):this.number(n.muacMm,1)+' mm'} · ${label(n.muac)}</p><p>${label('clinicalHelp')}</p>${n.missing.length?`<p>${label('assessmentMissing')} : ${n.missing.map(k=>label(k)).join(', ')}</p>`:''}<p>${label('clinicalReference')} : ${this.esc(n.reference)} · v${n.version}</p><a href="https://www.who.int/publications/i/item/9789240082830" target="_blank" rel="noopener noreferrer">OMS 2023</a> · <a href="https://www.who.int/publications/i/item/9789240122840" target="_blank" rel="noopener noreferrer">OMS / UNICEF 2026</a></details></section>`;
+        const national=NutritionUI.isNational(n),help=national?NutritionUI.helpKey(n):'clinicalHelp';
+        const sources=national?`<a href="${NutritionUI.sourceFor(n)}" target="_blank" rel="noopener noreferrer">PCIMA Niger · ${NutritionUI.is2025(n)?'2025':'2023'}</a>`:`<a href="https://www.who.int/publications/i/item/9789240082830" target="_blank" rel="noopener noreferrer">OMS 2023</a> · <a href="https://www.who.int/publications/i/item/9789240122840" target="_blank" rel="noopener noreferrer">OMS / UNICEF 2026</a>`;
+        const observations=national?`<dl>${NutritionUI.inputFields.filter(k=>!['muac','careProtocol'].includes(k)&&child[k]).map(k=>`<div><dt>${label(k)}</dt><dd>${label(NutritionUI.observationLabel(k,child[k],NutritionUI.is2025(n)?'2025':true))}</dd></div>`).join('')}</dl>`:'';
+        return `<section class="nutrition-result ${n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation)?'clinical-urgent':''}" aria-label="${label('clinicalSection')}"><h3>${label(NutritionUI.is2025(n)?'screeningTitlePcima2025':national?'screeningTitlePcima':result.referenceFamily==='CDC2000'?'screeningTitleWho':'screeningTitle')}</h3><strong>${label(n.category)}</strong>${n.criteria?.length?`<p>${n.criteria.map(label).join(' · ')}</p>`:''}<p><b>${label('orientationTitle')}</b> — ${label(n.orientation)}</p>${n.reasons.length?`<p>${n.reasons.map(k=>label(k)).join(' · ')}</p>`:''}<details class="screening-details"><summary title="${label('assessmentDetails')}">${label('detailsShort')}</summary><p>${label('muac')} : ${n.muacMm===null?this.t('unknown'):this.number(n.muacMm,1)+' mm'} · ${label(n.muac)}</p><p>${label(help)}</p>${n.missing.length?`<p>${label('assessmentMissing')} : ${n.missing.map(k=>label(k)).join(', ')}</p>`:''}<p>${label('clinicalReference')} : ${this.esc(n.reference)} · v${n.version}</p>${observations}${sources}</details></section>`;
     }
     lotModels(){
         if(!this.engine?.older)return [LotAnalysis.build(this.state.batch,this.engine?.data.referenceVersion)];
@@ -555,10 +558,10 @@ class WorkspaceApp {
         form.addEventListener('submit',event=>{event.preventDefault();this.saveBatchCorrection();});
         form.addEventListener('input',event=>{if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);this.readBatchCorrection();});
         form.addEventListener('change',event=>{
-            if(!['ageMode','growthProfile'].includes(event.target.name))return;
+            if(!['ageMode','growthProfile','careProtocol'].includes(event.target.name))return;
             this.readBatchCorrection();
-            context.draft=event.target.name==='growthProfile'?WorkspaceApp.draftForProfile(context.draft,event.target.value):WorkspaceApp.draftForAgeMode(context.draft,event.target.value);
-            this.renderBatchCorrection('correction-'+event.target.name);
+            if(event.target.name!=='careProtocol')context.draft=event.target.name==='growthProfile'?WorkspaceApp.draftForProfile(context.draft,event.target.value):WorkspaceApp.draftForAgeMode(context.draft,event.target.value);
+            this.renderBatchCorrection('correction-'+event.target.name+(event.target.name==='careProtocol'?'-picker':''));
         });
         document.getElementById(focus)?.focus();
     }
@@ -725,6 +728,9 @@ class WorkspaceApp {
                 const key=prefix==='single'?'draft':'batchDraft';
                 this.state[key]=WorkspaceApp.draftForProfile(this.state[key],event.target.value);
                 this.render(prefix+'-growthProfile');this.scheduleSave();
+            } else if (event.target.name === 'careProtocol') {
+                this.readForms();const prefix=event.target.closest('form').id==='single-form'?'single':'batch';
+                this.render(prefix+'-careProtocol-picker');this.scheduleSave();
             } else if (event.target.id === 'backup-file') {
                 const file = event.target.files[0]; if (file) await this.previewImport(file); event.target.value = '';
             } else if (event.target.id === 'csv-file') {
@@ -867,7 +873,7 @@ class WorkspaceApp {
         else if(action==='new-visit'){
             const child = this.state.single?.child;if(!child?.caseId)return;
             await this.saveImmediate('beforeNew');this.state=this.emptyWorkspace();this.singleEditing=false;
-            Object.assign(this.state.draft,{caseId:child.caseId,name:child.name,gender:child.gender,birthDate:child.birthDate || '',ageMode:child.birthDate?'dates':child.ageMode || 'months',growthProfile:child.growthProfile||'who'});
+            Object.assign(this.state.draft,{caseId:child.caseId,name:child.name,gender:child.gender,birthDate:child.birthDate || '',ageMode:child.birthDate?'dates':child.ageMode || 'months',growthProfile:child.growthProfile||'who',careProtocol:child.careProtocol||''});
             if(child.growthProfile==='intergrowth')Object.assign(this.state.draft,{gestationalAgeWeeks:child.gestationalAgeWeeks,gestationalAgeDays:child.gestationalAgeDays,postmenstrualDays:'',ageDays:''});
             this.page='single';await this.saveImmediate('automatic');this.render('single-caseId');
         }
@@ -1077,7 +1083,14 @@ class WorkspaceApp {
         const ageFields = draft.ageMode === 'dates' ? ['birthDate'] : draft.ageMode === 'days' ? ['ageDays'] : draft.ageMode==='totalMonths'?['ageTotalMonths']:['ageYears','ageMonths'];
         const fields=['caseId','name','ageMode',...ageFields,'measurementDate','weight','weightUnit','height','heightUnit','gender','position','oedema','growthProfile','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...NutritionUI.inputFields,...SupplementaryUI.fields];
         const labels = { gender:{M:'male',F:'female'}, position:{L:'lying',H:'standing'}, oedema:{n:'no',y:'yes'} };
-        const value = key => key === 'growthProfile' ? this.t(draft[key]==='intergrowth'?'profileINTERGROWTH':draft[key]==='us'?'profileUS':'profileWHO') : key === 'ageMode' ? this.t(draft[key]) : labels[key]?.[draft[key]] ? this.t(labels[key][draft[key]]) : draft[key];
+        const value = key => {
+            if(key==='careProtocol')return draft[key]==='niger2025'?this.t('careNiger2025'):draft[key]==='niger2023'?this.t('careNiger2023'):draft[key]==='who2023'?this.t('careWHO'):draft[key];
+            if(NutritionUI.inputFields.includes(key)&&key!=='muac'){
+                const label=NutritionUI.observationLabel(key,draft[key],draft.careProtocol==='niger2025'?'2025':draft.careProtocol==='niger2023');
+                return label==='unknown'?draft[key]:this.t(label);
+            }
+            return key === 'growthProfile' ? this.t(draft[key]==='intergrowth'?'profileINTERGROWTH':draft[key]==='us'?'profileUS':'profileWHO') : key === 'ageMode' ? this.t(draft[key]) : labels[key]?.[draft[key]] ? this.t(labels[key][draft[key]]) : draft[key];
+        };
         return `<h3>${this.t('draft')} · ${this.t(mode)}</h3><div class="preview-grid">${fields.filter(k=>draft[k]!==''&&draft[k]!==undefined&&draft[k]!==null).map(k=>`<dl><dt>${this.t(k==='weight'&&draft.weightUnit?'weightMeasure':k==='height'&&draft.heightUnit?'heightMeasure':k)}</dt><dd>${this.esc(value(k))}</dd></dl>`).join('')}</div>`;
     }
     async restore(session){

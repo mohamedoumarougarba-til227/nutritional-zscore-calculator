@@ -1,5 +1,23 @@
 # Préparer et adopter une mise à jour
 
+## 5.11.0 — cadres PCIMA Niger 2023/2025 et mentions actualisées
+
+Lecture complète du document reçu de 274 pages et de ses 28 annexes. Cadre `niger2025`/`Niger-PCIMA-2025-screening-v1` distinct du cadre 2023 : évaluation mère–nourrisson, PB infantile borné à l’âge exact de six semaines à moins de six mois, WAZ infantile, facteurs positifs de risque MAM et observations professionnelles. Test d’appétit identifié selon l’édition. Contradictions de source documentées, aucune branche « sans risque » ou décision de traitement/sortie inventée.
+
+Interface 5.11.0, moteur combiné 4.7.0 ; tables et calculs LMS inchangés. Résultat schéma 4 et sauvegarde flux v1 conservés ; ancien lecteur sans ce cadre peut refuser les nouvelles visites. Pas de réécriture des visites 2023/OMS. Nouvelles observations ajoutées après la fin CSV 2023, rapports FR/EN/AR et référence d’agrégation distincte. Copies PDF privées, analyse/provenance/code/tests synthétiques publics. Préparation et tests réalisés le 23 novembre ; publication autorisée le 24 novembre 2026. La version effectivement en ligne se vérifie dans son manifeste. Pas une validation clinique ou physique.
+
+Mentions FR/EN/AR actualisées : observations mère–nourrisson et confidentialité locale, attributions PCIMA/GIGS, distinction règles originales GPL et ouvrages non redistribués. Suppression du volet ZIP local et du lien ZIP de données dans les mentions ; accès par la release GitHub exacte et archives correspondantes sans obligation de contribution. Archives et licences offline conservées. Version package-lock alignée sans changement de dépendance.
+
+## 5.10.0 — préparation locale du cadre PCIMA Niger 2023
+
+Choix par visite d’une aide limitée au dépistage selon le PCIMA janvier 2023, profil de croissance OMS requis. Ajout des observations d’allaitement, alimentation, perte/absence de gain de poids, problème médical/social et forme mixte constatée. Circuit particulier avant six mois ou sous 3 kg, seuils PB pédiatriques non étendus, test d’appétit réussi précisé comme modéré ou bon. Un score calculé avec position supposée ne devient pas un critère national P/T.
+
+Moteur combiné 4.6.0, calculs LMS/tables inchangés ; règle nationale identifiée séparément. Les résultats WHO v1 antérieurs restent lisibles et inchangés. La structure du flux de sauvegarde reste version 1 et le résultat schéma 4 : les nouvelles visites nationales nécessitent un lecteur connaissant leur référence ; un ancien lecteur peut les refuser. Aucun résultat ancien réécrit, aucune conversion destructrice. Les colonnes CSV précédentes gardent leur ordre ; cadre/observations/motifs sont ajoutés en fin. PDF et interface FR/EN/AR présentent le cadre et ses limites.
+
+Les agrégats contenant ce nouveau cadre conservent leurs références d’évaluation. Leur mapping DHIS2 doit reconnaître explicitement ces références ; les comptes restent des mesures, jamais des admissions/guérisons ou enfants uniques. Aucune intégration nationale DHIS2 revendiquée.
+
+Lecture documentée des 215 pages et 28 annexes ; désaccords du document consignés. Aucun dosage, prescription, admission, sortie de programme ni protocole simplifié d’urgence activés. Voir [couverture et limites PCIMA](../references/PCIMA_NIGER_2023.md). Lot non publié à ce stade ; les contrôles techniques et l’avis clinique restent des preuves distinctes.
+
 ## 5.9.1 — démarrage Chrome et accès GitHub
 
 Le contrôle de démarrage traitait tout échec de script ou de feuille de style comme une incohérence du paquet. Un script blob ajouté à la page et bloqué par CSP pouvait ainsi empêcher un calculateur intact de démarrer ; réparer les fichiers ne supprimait pas ce déclencheur extérieur. Le contrôle vise désormais les ressources locales munies de l’empreinte de release. Les scripts ajoutés par le navigateur ne sont pas autorisés à exécuter du code par cette correction : CSP reste inchangée. Les contrôles SRI, données et CSS de l’application restent bloquants.

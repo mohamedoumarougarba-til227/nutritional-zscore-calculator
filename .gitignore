@@ -289,3 +289,15 @@
 !/tools/public-tests/version-preview.test.cjs
 !/tools/public-tests/rescue-export.test.cjs
 !/src/js/services/percentile-display.js
+
+# Bounded PCIMA adaptation and independent public synthetic checks
+!/src/js/services/pcima-niger.js
+!/docs/references/PCIMA_NIGER_2023.md
+!/tools/public-tests/pcima.test.cjs
+!/tools/verification/nutrition-who-v1.json
+
+# PCIMA 2025 original bounded adapter, provenance and public synthetic tests
+!/src/js/services/pcima-niger-2025.js
+!/tools/public-tests/pcima-2025.test.cjs
+!/docs/references/PCIMA_NIGER_2025.md
+!/docs/references/PCIMA_SOURCES.json
