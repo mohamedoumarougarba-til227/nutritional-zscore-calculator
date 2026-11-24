@@ -193,7 +193,7 @@ class PDFManager {
         const font=options.individualFont||'Amiri';
         const labels={fr:{year:'an',years:'ans',month:'mois',vigilance:'Évaluation clinique et vigilance',engine:'Moteur Z-score',calc:'Calcul',notice:'Repères de croissance selon la référence utilisée. Ne remplacent pas une évaluation clinique. Aucun diagnostic ni prescription automatique.'},en:{year:'year',years:'years',month:'months',vigilance:'Clinical assessment and cautions',engine:'Z-score engine',calc:'Calculated',notice:'Growth indicators use the stated reference. They do not replace clinical assessment. No automatic diagnosis or prescription.'},ar:{year:'سنة',years:'سنوات',month:'شهر',vigilance:'التقييم السريري والتنبيهات',engine:'محرك Z',calc:'الحساب',notice:'مؤشرات النمو حسب المرجع المستخدم. لا تحل محل التقييم السريري. لا تشخيص أو وصفة تلقائية.'}}[language];
         const date=value=>language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
-        const timestamp=value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value||'')?date(value.slice(0,10))+' '+value.slice(11,19)+' UTC':value;
+        const timestamp=value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value||'')?date(value.slice(0,10))+' '+value.slice(11,-1)+' UTC':value;
         const centile=value=>language==='fr'?String(value??'—').replace(/(\d)\.(\d)/g,'$1,$2'):String(value??'—');
         const number=(value,digits=0)=>Number.isFinite(value)?new Intl.NumberFormat(language,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value):'—';
         const field=(key,value)=>t(key)+': '+(value||t('unknown'));
@@ -288,11 +288,12 @@ class PDFManager {
                 margin:{top:22,bottom:297-bottom,left:margin,right:margin},rowPageBreak:'avoid',
                 styles:{font,fontSize:9.7,cellPadding:{top:1.05,right:1.25,bottom:1.05,left:1.25},overflow:'linebreak',textColor:24,halign:rtl?'right':'left',lineWidth:{bottom:.16},lineColor:175},
                 headStyles:{fontStyle:'bold',textColor:18,fillColor:false},
-                columnStyles:highlightLast?{[rtl?head.length-1:0]:{cellWidth:25},[rtl?head.length-2:1]:{cellWidth:15}}:{},
+                columnStyles:highlightLast?Object.fromEntries(head.map((_,i)=>[rtl?head.length-1-i:i,i===0?{cellWidth:25}:i===1?{cellWidth:15,halign:'center'}:{halign:'center'}])):
+                    Object.fromEntries((head.length===4?[70,20,18,78]:[55,28,18,15,70]).map((cellWidth,i)=>[rtl?head.length-1-i:i,{cellWidth,...(i>0&&i<head.length-1?{halign:'center'}:{})}])),
                 willDrawPage:()=>{if(!pages.has(at()))header();},
                 didParseCell:({cell,row:r,section})=>{
                     cell.text=cell.text.map(safe);
-                    if(section==='body'&&(highlightLast?r.index===body.length-1:cell.raw==='—'||/^[−-]?\d[\d\s.,]*([ ](?:cm|mm|kg|g|kg\/m²))?$/.test(String(cell.raw))))cell.styles.fontStyle='bold';
+                    if(section==='body'&&(highlightLast?r.index===body.length-1:cell.raw==='—'||/^(?:[<>]\s*)?[−-]?\d[\d\s.,]*(?:\s(?:cm|mm|kg|g|kg\/m²))?$/.test(String(cell.raw))))cell.styles.fontStyle='bold';
                 }});
             y=doc.lastAutoTable.finalY+5;
         };
@@ -391,7 +392,8 @@ class PDFManager {
             else if(key===active[0]){sectionReference=sharedReference;header();if(sectionReference)y=26;identity();}
             else if(pages.get(at())!==key){heading(t(key));if(sharedReference)line(sharedReference,{size:8.5});}
             title=key;sectionReference=sharedReference;
-            if(references.length>1)for(const [index,ref] of references.entries())line('R'+(index+1)+' · '+ref,{size:8.5});
+            const referenceList=()=>{if(references.length>1)for(const [index,ref] of references.entries())line('R'+(index+1)+' · '+ref,{size:8.5});};
+            referenceList();
             const legend=()=>{
                 const labels=['pdfVisitMark','pdfMedianMark','pdfTwoMark','pdfThreeMark'].map(t);
                 const segments=[[],[],[1.4,.8],[.35,.85]];
@@ -410,7 +412,7 @@ class PDFManager {
                 const required=panelHeight+(i+2>=panels.length?13:0);
                 const nextPage=y+required>bottom;
                 ensure(required);
-                if(nextPage)identity();
+                if(nextPage){identity();referenceList();}
                 const panelWidth=pair.length===1?width:(width-gap)/2;
                 pair.forEach((panel,index)=>this.drawReportChart(doc,panel,margin+(rtl?pair.length-1-index:index)*(panelWidth+gap),y,panelWidth,{place,t,number,rtl,referenceCode:references.length>1?'R'+(references.indexOf(panel.reference)+1):'',date}));
                 y+=panelHeight;
@@ -425,9 +427,7 @@ class PDFManager {
             // Split wide histories by reference and indicator to keep every column readable.
             for(let i=0;i<panels.length;i+=4){
                 const subset=panels.slice(i,i+4),values=indexed.slice(i,i+4);
-                const references=[...new Set(subset.map(p=>p.reference))];
                 const indexedReferences=references.length>1;
-                if(indexedReferences)line(references.map((ref,i)=>'R'+(i+1)+' '+ref).join('  |  '),{size:8.5});
                 table([t('measurementDate'),t('ageDays'),...subset.map(p=>t(p.key)+(p.growth?' · '+this.chartUnit(p.key):' · Z')+
                     (indexedReferences?' · R'+(references.indexOf(p.reference)+1):''))],
                     recent.map(({visit,i:index})=>[date(visit.child.measurementDate),number(visit.child.ageDays),...values.map((column,j)=>column.has(index)?number(column.get(index),subset[j].growth?1:2):'—')]),true);
@@ -453,7 +453,7 @@ class PDFManager {
         return SupplementaryPDF.definitions[key]?.unit||{weightForAge:'kg',heightForAge:'cm',bmiForAge:'kg/m²'}[key]||'';
     }
     static drawReportChart(doc,panel,left,top,width,{place,t,number,rtl,referenceCode='',date=value=>value}) {
-        const axisLeft=left+12,axisRight=left+width-(panel.growth?10:4),axisTop=top+8,axisBottom=top+49;
+        const axisLeft=left+12,axisRight=left+width-(panel.growth?10:4),axisTop=top+10,axisBottom=top+49;
         let {xMin,xMax,min,max}=panel;
         if(panel.growth&&panel.points.length>1){
             const month=panel.ig?28:30.4375;
@@ -469,7 +469,9 @@ class PDFManager {
         const x=day=>axisLeft+(day-xMin)/(xMax-xMin||1)*(axisRight-axisLeft);
         const y=value=>axisBottom-(value-min)/(max-min)*(axisBottom-axisTop);
         const unit=panel.growth?this.chartUnit(panel.key):'Z';
-        place(t(panel.key)+' · '+unit+(referenceCode?' · '+referenceCode:''),rtl?left+width:left,top+2,{size:10,bold:true});
+        const chartTitle=t(panel.key)+' · '+unit+(referenceCode?' · '+referenceCode:'');
+        doc.setFontSize(9.5);const titleLines=doc.splitTextToSize(chartTitle,width-2);
+        titleLines.forEach((label,i)=>place(label,rtl?left+width:left,top+2+i*3.6,{size:9.5,bold:true}));
         const zLevels=[-3,-2,0,2,3];
         const grid=panel.growth?Array.from({length:4},(_,i)=>min+(max-min)*i/3):zLevels;
         const dash=z=>Math.abs(z)===3?[.35,.85]:Math.abs(z)===2?[1.4,.8]:[];
