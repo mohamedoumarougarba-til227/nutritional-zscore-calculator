@@ -395,3 +395,14 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 .row-correction{display:inline-flex;align-items:center;gap:6px;min-height:40px;margin-block-start:8px;padding:6px 10px;font-size:13px}.row-correction .ui-icon{width:18px;height:18px;flex-shrink:0}
 @media print{.row-correction{display:none!important}}
 .measurement-entry{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:6px;align-items:start}.measurement-entry>*{min-width:0}.measurement-entry .choice-control{width:100%}
+
+/* Settings: equal visual rhythm, responsive two-column layout, no unused oversized installation panel. */
+.settings-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start;max-width:1320px;margin-inline:auto}
+.settings-layout .settings-card{max-width:none;min-width:0}.settings-layout .card{padding:22px;border-radius:12px;margin:0;min-width:0}
+.settings-layout h2{display:flex;align-items:center;gap:9px}.settings-layout h2 .ui-icon{width:20px;height:20px;color:var(--accent);flex-shrink:0}
+.settings-layout .hint{font-size:13px;line-height:1.55;margin:9px 0 16px}.settings-layout .settings-grid{gap:16px}.settings-layout .setting-row{min-width:0}.settings-layout .choice-trigger{height:auto;min-height:44px;padding:9px 11px}.settings-layout .choice-value{white-space:normal;overflow-wrap:anywhere}.settings-layout .choice-trigger>.ui-icon{flex-shrink:0}
+.settings-clinical{border-block-start:1px solid var(--line);margin-block-start:22px;padding-block-start:18px}.settings-clinical h3{margin:0 0 14px;font-size:15px}.settings-clinical .hint:last-child{margin-block-end:0}
+.settings-device{display:grid;gap:16px;min-width:0}.settings-version{font-weight:650;margin:14px 0 0}.settings-device .card p:last-child{margin-bottom:0}.settings-device .btn{min-height:40px}
+.workspace-topbar .connection-badge[data-connection="offline"]{color:var(--danger);font-weight:650}.workspace-topbar .connection-badge[data-connection="offline"] .dot{background:var(--danger)}
+@media(max-width:1050px){.settings-layout{grid-template-columns:minmax(0,1fr)}.settings-device{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.settings-layout .card{padding:16px}.settings-layout .settings-grid,.settings-device{grid-template-columns:minmax(0,1fr)}.settings-layout{gap:12px}.settings-device{gap:12px}}

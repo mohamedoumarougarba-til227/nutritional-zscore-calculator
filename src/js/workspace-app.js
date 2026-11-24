@@ -41,9 +41,11 @@ class WorkspaceApp {
         if (!['fr', 'en', 'ar'].includes(this.prefs.language)) this.prefs.language = 'fr';
         this.prefs.navCollapsed = prefs.navCollapsed === true;
         this.prefs.growthProfile = ['us','intergrowth'].includes(prefs.growthProfile)?prefs.growthProfile:'who';
+        this.prefs.careProtocol=WorkspaceApp.defaultCareProtocol(this.prefs.growthProfile,prefs.careProtocol);
         this.state = this.emptyWorkspace();
     }
-    emptyDraft(growthProfile=this.prefs?.growthProfile||'who') { return { caseId: '', name: '', ageMode: growthProfile==='intergrowth'?'days':'months', postmenstrualDays:'', gestationalAgeWeeks:'', gestationalAgeDays:'', ageYears: '', ageMonths: '', ageTotalMonths:'', weightUnit:'g',heightUnit:'cm', ageDays: '', birthDate: '', measurementDate: ClinicalEngine.today(), weight: '', height: '', gender: '', position: '', oedema: '', growthProfile }; }
+    static defaultCareProtocol(profile,protocol){return profile==='who'&&['niger2023','niger2025'].includes(protocol)?protocol:'';}
+    emptyDraft(growthProfile=this.prefs?.growthProfile||'who') { return { caseId: '', name: '', ageMode: growthProfile==='intergrowth'?'days':'months', postmenstrualDays:'', gestationalAgeWeeks:'', gestationalAgeDays:'', ageYears: '', ageMonths: '', ageTotalMonths:'', weightUnit:'g',heightUnit:'cm', ageDays: '', birthDate: '', measurementDate: ClinicalEngine.today(), weight: '', height: '', gender: '', position: '', oedema: '', growthProfile, careProtocol:WorkspaceApp.defaultCareProtocol(growthProfile,this.prefs?.careProtocol) }; }
     emptyWorkspace() { return { version: 1, draft: this.emptyDraft(), batchDraft: this.emptyDraft(), single: null, batch: [], paste: '', mode: 'single', stale: false }; }
     t(key) { const own=table=>table&&Object.hasOwn(table,key)&&typeof table[key]==='string'?table[key]:'';return own(this.translations?.[this.prefs.language])||own(this.translations?.fr)||String(key??''); }
     esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -247,7 +249,7 @@ class WorkspaceApp {
         if(buttons)Array.from(buttons).find(b=>b.getClientRects().length)?.focus({preventScroll:true});
     }
     openHeaderPanel(kind) {
-        if (!['language','theme','growthProfile','menu'].includes(kind)) return;
+        if (!['language','theme','growthProfile','careProtocol','menu'].includes(kind)) return;
         if(kind!=='menu'){this.openChoice(kind+'-button',kind);return;}
         this.closeInfo();this.closeChoice();
         const d = document.getElementById('header-dialog');
@@ -273,10 +275,25 @@ class WorkspaceApp {
         document.getElementById('mobile-actions-button')?.setAttribute('aria-expanded','true');d.showModal();
     }
     setPreference(kind, value) {
-        const allowed = {language:['fr','en','ar'],theme:['system','light','dark'],growthProfile:['who','us','intergrowth']};
+        const allowed = {language:['fr','en','ar'],theme:['system','light','dark'],growthProfile:['who','us','intergrowth'],careProtocol:['','niger2023','niger2025']};
         if (!Object.hasOwn(allowed,kind) || !allowed[kind].includes(value)) return;
-        this.readForms(); this.prefs[kind] = value; this.persistPreferences(); this.applyPreferences();
-        if(kind==='growthProfile')for(const key of ['draft','batchDraft'])if(!HistoryManager.hasWork({draft:this.state[key]}))this.state[key]=this.emptyDraft(value);
+        if(kind==='careProtocol'&&value&&this.prefs.growthProfile!=='who'){this.toast('pcimaProfileRequired',true);return;}
+        this.readForms(); this.prefs[kind] = value;
+        if(kind==='growthProfile')this.prefs.careProtocol=WorkspaceApp.defaultCareProtocol(value,this.prefs.careProtocol);
+        this.persistPreferences(); this.applyPreferences();
+        // Only blank drafts may inherit a preference. Existing visits and entered measurements are never changed.
+        if(['growthProfile','careProtocol'].includes(kind))for(const key of ['draft','batchDraft']){
+            const draft=this.state[key];if(!draft)continue;
+            if(key==='draft'&&this.state.single)continue;
+            const probe={...draft};
+            // A preference alone is not a clinical observation; keep all other fields in the work check.
+            delete probe.careProtocol;
+            if(probe.growthProfile==='intergrowth'&&probe.ageMode==='days')probe.ageMode='months';
+            if(!HistoryManager.hasWork({draft:probe})){
+                if(kind==='growthProfile')this.state[key]=this.emptyDraft(value);
+                else this.state[key]={...draft,careProtocol:WorkspaceApp.defaultCareProtocol(draft.growthProfile||'who',value)};
+            }
+        }
         document.getElementById('header-dialog').close(); this.render(kind + '-button');
     }
     enhanceSelects() {
@@ -315,11 +332,11 @@ class WorkspaceApp {
         this.closeChoice();
         const button=document.getElementById(buttonId);if(!button)return;
         const select=selectId?document.getElementById(selectId):null;
-        if(!select&&!['language','theme','growthProfile'].includes(kind))return;
+        if(!select&&!['language','theme','growthProfile','careProtocol'].includes(kind))return;
         const names={fr:'Français',en:'English',ar:'العربية'};
-        const options=select?[...select.options].map(o=>({value:o.value,label:o.textContent,disabled:o.disabled})):(kind==='language'?['fr','en','ar']:kind==='growthProfile'?['who','us','intergrowth']:['system','light','dark']).map(value=>({value,label:kind==='language'?names[value]:this.t(kind==='growthProfile'?value==='intergrowth'?'profileINTERGROWTH':value==='us'?'profileUS':'profileWHO':value)}));
+        const options=select?[...select.options].map(o=>({value:o.value,label:o.textContent,disabled:o.disabled})):(kind==='language'?['fr','en','ar']:kind==='growthProfile'?['who','us','intergrowth']:kind==='careProtocol'?['','niger2025','niger2023']:['system','light','dark']).map(value=>({value,label:kind==='language'?names[value]:this.t(kind==='growthProfile'?value==='intergrowth'?'profileINTERGROWTH':value==='us'?'profileUS':'profileWHO':kind==='careProtocol'?value==='niger2025'?'careNiger2025':value==='niger2023'?'careNiger2023':'careWHO':value),disabled:kind==='careProtocol'&&!!value&&this.prefs.growthProfile!=='who'}));
         const current=select?select.value:this.prefs[kind],popup=this.choicePopup();
-        popup.dir=document.documentElement.dir||'ltr';popup.setAttribute('aria-label',select?(document.getElementById(select.id+'-label')?.textContent||''):this.t(kind));
+        popup.dir=document.documentElement.dir||'ltr';popup.setAttribute('aria-label',select?(document.getElementById(select.id+'-label')?.textContent||''):this.t(kind==='careProtocol'?'careProtocolDefault':kind==='growthProfile'?'growthProfileDefault':kind));
         popup.innerHTML=options.map(o=>`<button type="button" role="option" aria-selected="${o.value===current}" tabindex="${o.value===current?'0':'-1'}" data-action="choice-value" data-value="${this.esc(o.value)}" ${o.disabled?'disabled':''}>${kind==='theme'?this.icon(o.value):''}<span${kind==='language'?` lang="${o.value}" dir="auto"`:''}>${this.esc(o.label)}</span>${o.value===current?this.icon('check'):''}</button>`).join('');
         this.activeChoice={buttonId,kind,selectId};button.setAttribute('aria-expanded','true');button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-controls','choice-popup');
         const rect=button.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight,width=Math.min(Math.max(rect.width,180),Math.max(0,vw-16));
@@ -412,7 +429,10 @@ class WorkspaceApp {
     }
     settingsHTML() {
         const names={fr:'Français',en:'English',ar:'العربية'};
-        return `<section class="card settings-card" aria-label="${this.esc(this.t('settings'))}"><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${['language','theme','growthProfile'].map(kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(kind==='growthProfile'?'growthProfileDefault':kind)}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='language'||kind==='growthProfile'?'language':this.prefs.theme)}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':this.prefs.theme))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`).join('')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p></section><div id="install-status">${this.installHTML()}</div>`;
+        const label=kind=>kind==='growthProfile'?'growthProfileDefault':kind==='careProtocol'?'careProtocolDefault':kind;
+        const value=kind=>kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':kind==='careProtocol'?this.prefs.careProtocol==='niger2025'?'careNiger2025':this.prefs.careProtocol==='niger2023'?'careNiger2023':'careWHO':this.prefs.theme);
+        const picker=kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(label(kind))}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='theme'?this.prefs.theme:kind==='careProtocol'?'references':'language')}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(value(kind))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
+        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}</div><div class="settings-clinical"><h3>${this.t('settingsClinical')}</h3><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></div></section><div class="settings-device"><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><button class="btn" data-action="check-update" ${this.offlineRegistration&&!this.updateChecking?'':'disabled'}>${this.t(this.updateChecking?'settingsChecking':'updateCheck')}</button></section><div id="install-status">${this.installHTML()}</div></div></div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -1164,7 +1184,7 @@ class WorkspaceApp {
             if(entry.result){entry.result.id='result_'+crypto.randomUUID();entry.result.childId=entry.child.id;}
         }
         if(workspace.single && !Object.keys(workspace.draft||{}).length)workspace.draft={...workspace.single.child};
-        workspace.draft={...this.emptyDraft('who'),...workspace.draft};workspace.batchDraft={...this.emptyDraft('who'),...workspace.batchDraft};
+        workspace.draft={...this.emptyDraft('who'),careProtocol:'',...workspace.draft};workspace.batchDraft={...this.emptyDraft('who'),careProtocol:'',...workspace.batchDraft};
         if(workspace.single?.child?.visitId && !workspace.draft.visitId)workspace.draft.visitId=workspace.single.child.visitId;
         delete workspace.draft.id;delete workspace.batchDraft.id;
         // Save the restored copy before changing any live fields.
@@ -1211,18 +1231,22 @@ class WorkspaceApp {
         if(visits&&child.caseId)visits.innerHTML=identityConflict?`<p class="notice warn">${this.t('followupIdentityWarning')}</p>`:'';
         if(charts)charts.innerHTML=this.chartsHTML(entries.length?entries:[entry]);
     }
-    updateConnection(){const badge=document.getElementById('connection');if(badge)badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(navigator.onLine?'online':'offline')}`;}
+    updateConnection(){const badge=document.getElementById('connection');if(badge){const online=navigator.onLine;badge.dataset.connection=online?'online':'offline';badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(online?'online':'offline')}`;}}
     updateOfflineStatus(){document.querySelectorAll('[data-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState);});this.updateInstallStatus();}
     updateHTML(){
         if(!this.offlineRegistration?.waiting&&!this.reloadAvailable&&!this.updateError)return '';
         const available=!!this.offlineRegistration?.waiting||this.reloadAvailable;
         return `<div class="notice ${this.updateError?'warn':'recovery'}" role="status"><div><strong>${this.t(available?'updateReady':'updateFailed')}</strong><p>${this.t(available?'updateHelp':'updateFailedHelp')}</p>${this.updateError&&(available||this.updateError!=='updateFailedHelp')?`<p>${this.esc(this.t(this.updateError))}</p>`:''}</div><button class="btn" data-action="${available?'apply-update':'check-update'}" ${this.updateApplying?'disabled':''}>${this.t(this.updateApplying?'updateSaving':available?'updateApply':'updateRetry')}</button></div>`;
     }
-    updateUpdateStatus(){const el=document.getElementById('update-notice');if(el)el.innerHTML=this.updateHTML();}
+    updateUpdateStatus(){const el=document.getElementById('update-notice');if(el)el.innerHTML=this.updateHTML();document.querySelectorAll('#page-content [data-action="check-update"]').forEach(button=>{button.disabled=!this.offlineRegistration||!!this.updateChecking;button.textContent=this.t(this.updateChecking?'settingsChecking':'updateCheck');});}
     async checkUpdate(){
+        if(this.updateChecking)return;
+        if(!navigator.onLine){this.toast('settingsUpdateOffline',true);return;}
         if(!this.offlineRegistration){this.toast('offlineFailed',true);return;}
-        try{await this.offlineRegistration.update();this.updateError=null;this.updateUpdateStatus();this.toast('updateChecked');}
-        catch(_){this.updateError='updateFailedHelp';this.updateUpdateStatus();}
+        this.updateChecking=true;this.updateUpdateStatus();
+        try{await this.offlineRegistration.update();this.updateError=null;this.toast('updateChecked');}
+        catch(_){this.updateError='updateFailedHelp';}
+        finally{this.updateChecking=false;this.updateUpdateStatus();}
     }
     activateWaitingWorker(worker){
         return new Promise((resolve,reject)=>{

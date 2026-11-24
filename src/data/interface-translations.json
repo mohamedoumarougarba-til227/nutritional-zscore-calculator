@@ -802,7 +802,15 @@
     "pcima2025ReasonNotRecovering": "Absence de récupération après interventions constatée · PCIMA 2025",
     "pcima2025ReasonComorbidity": "Comorbidité constatée par le soignant · PCIMA 2025",
     "pcima2025ReasonHighRiskContext": "Contexte humanitaire ou environnemental à haut risque confirmé · PCIMA 2025",
-    "screeningTitlePcima2025": "Dépistage · PCIMA Niger 2025"
+    "screeningTitlePcima2025": "Dépistage · PCIMA Niger 2025",
+    "settingsPreferences": "Préférences générales",
+    "settingsClinical": "Référentiels et dépistage",
+    "careProtocolDefault": "Cadre de dépistage par défaut",
+    "careProtocolDefaultHelp": "Ce choix concerne uniquement les nouveaux formulaires vides. Les cadres PCIMA Niger nécessitent le référentiel OMS 2006 / 2007. Les visites existantes conservent leur cadre.",
+    "settingsUpdates": "Mises à jour",
+    "settingsUpdateHelp": "Vérifiez si une nouvelle version est disponible. Votre travail est sauvegardé avant toute mise à jour.",
+    "settingsChecking": "Vérification en cours…",
+    "settingsUpdateOffline": "Connectez-vous à Internet pour vérifier les mises à jour."
   },
   "en": {
     "pdfOedemaSuspended": "Withheld (oedema)",
@@ -1607,7 +1615,15 @@
     "pcima2025ReasonNotRecovering": "Observed lack of recovery after interventions · PCIMA 2025",
     "pcima2025ReasonComorbidity": "Comorbidity observed by the clinician · PCIMA 2025",
     "pcima2025ReasonHighRiskContext": "Confirmed high-risk humanitarian or environmental context · PCIMA 2025",
-    "screeningTitlePcima2025": "Screening · Niger PCIMA 2025"
+    "screeningTitlePcima2025": "Screening · Niger PCIMA 2025",
+    "settingsPreferences": "General preferences",
+    "settingsClinical": "Growth references and screening",
+    "careProtocolDefault": "Default screening context",
+    "careProtocolDefaultHelp": "Applies only to new empty forms. Niger PCIMA contexts require the WHO 2006 / 2007 growth reference. Existing visits retain their context.",
+    "settingsUpdates": "Updates",
+    "settingsUpdateHelp": "Check whether a new version is available. Your work is saved before applying any update.",
+    "settingsChecking": "Checking for updates…",
+    "settingsUpdateOffline": "Connect to the internet to check for updates."
   },
   "ar": {
     "pdfOedemaSuspended": "معلّق (الوذمة)",
@@ -2412,6 +2428,14 @@
     "pcima2025ReasonNotRecovering": "عدم التعافي بعد التدخلات وفق تقييم المهني · PCIMA 2025",
     "pcima2025ReasonComorbidity": "مرض مصاحب وفق تقييم المهني · PCIMA 2025",
     "pcima2025ReasonHighRiskContext": "سياق إنساني أو بيئي عالي الخطورة مؤكد · PCIMA 2025",
-    "screeningTitlePcima2025": "التحري · بروتوكول النيجر PCIMA 2025"
+    "screeningTitlePcima2025": "التحري · بروتوكول النيجر PCIMA 2025",
+    "settingsPreferences": "التفضيلات العامة",
+    "settingsClinical": "مراجع النمو والتحري",
+    "careProtocolDefault": "إطار التحري الافتراضي",
+    "careProtocolDefaultHelp": "ينطبق على النماذج الجديدة الفارغة فقط. تتطلب أطر PCIMA النيجر مرجع منظمة الصحة العالمية 2006 / 2007. تحتفظ الزيارات السابقة بإطارها.",
+    "settingsUpdates": "التحديثات",
+    "settingsUpdateHelp": "تحقق من توفر إصدار جديد. يُحفظ عملك قبل تطبيق أي تحديث.",
+    "settingsChecking": "جارٍ التحقق من التحديثات…",
+    "settingsUpdateOffline": "اتصل بالإنترنت للتحقق من التحديثات."
   }
 }

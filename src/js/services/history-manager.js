@@ -17,7 +17,7 @@ class HistoryManager {
     static hasWork(workspace) {
         const meaningfulDraft = draft => draft && (
             ['caseId', 'name', 'ageYears', 'ageMonths', 'ageTotalMonths', 'ageDays', 'birthDate', 'weight', 'height', 'gender', 'position','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...SupplementaryHistory.fields].some(k => draft[k] !== '' && draft[k] !== undefined && draft[k] !== null)
-            || NutritionHistory.inputFields.some(k=>draft[k]!==undefined&&draft[k]!==null&&draft[k]!=='') || draft.oedema === 'y' || ['days', 'dates'].includes(draft.ageMode)
+            || NutritionHistory.inputFields.some(k=>k!=='careProtocol'&&draft[k]!==undefined&&draft[k]!==null&&draft[k]!=='') || draft.oedema === 'y' || ['days', 'dates'].includes(draft.ageMode)
             || !!draft.measurementDate && draft.measurementDate !== ClinicalEngine.today()
         );
         return meaningfulDraft(workspace.draft)

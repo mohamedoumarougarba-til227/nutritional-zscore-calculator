@@ -162,6 +162,9 @@ test('Settings growth profile selector reaches popup through header action',asyn
         const settings=app.settingsHTML(),form=app.formHTML('single',app.emptyDraft('who'));
         assert.ok(settings.includes(app.t('growthProfileDefault')));
         assert.ok(settings.includes(app.t('growthProfileDefaultHelp')));
+        assert.ok(settings.includes(app.t('careProtocolDefault')));
+        assert.ok(settings.includes('data-action="check-update"'));
+        assert.ok(settings.includes('settings-layout'));
         assert.ok(form.includes(app.t('growthProfileVisit')));
         assert.ok(form.includes(app.t('growthProfileVisitHelp')));
         assert.ok(!form.includes('name=\"growthProfile\" disabled'));
@@ -260,4 +263,18 @@ test('PDF supplementary centiles use the same bounds and omit flagged or unavail
         if(expected)assert.ok(note.includes(expected));else assert.ok(!note.includes(' | P '));
         assert.equal(JSON.stringify(copy),before);
     }
+});
+
+
+test('screening preference applies to new drafts only and PCIMA is restricted to WHO',t=>{
+    const previous=global.document;t.after(()=>{global.document=previous;});global.document={getElementById:()=>({close(){}})};
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',theme:'dark',growthProfile:'who',careProtocol:''},page:'settings',readForms(){},persistPreferences(){},applyPreferences(){},render(){},toast(){}});
+    app.state=app.emptyWorkspace();app.state.draft.name='FICTIF';const before=JSON.stringify(app.state.draft);
+    app.setPreference('careProtocol','niger2025');assert.equal(app.prefs.careProtocol,'niger2025');assert.equal(JSON.stringify(app.state.draft),before);
+    assert.equal(app.emptyDraft().careProtocol,'niger2025');assert.equal(app.state.batchDraft.careProtocol,'niger2025');
+    app.setPreference('careProtocol','niger2023');assert.equal(app.state.batchDraft.careProtocol,'niger2023');
+    app.setPreference('growthProfile','us');assert.equal(app.prefs.careProtocol,'');assert.equal(app.emptyDraft().careProtocol,'');assert.equal(app.state.batchDraft.careProtocol,'');
+    app.setPreference('careProtocol','niger2025');assert.equal(app.prefs.careProtocol,'');assert.equal(JSON.stringify(app.state.draft),before);
+    assert.equal(WorkspaceApp.defaultCareProtocol('intergrowth','niger2023'),'');
+    assert.equal(WorkspaceApp.defaultCareProtocol('who','unknown'),'');
 });
