@@ -75,3 +75,38 @@ test('clinical details, long identity, age modes and many visits fit the A4 expo
     assert.equal(charts.sections.chartTitle.find(panel=>panel.key==='weightForAge').points.length,visits.length);
     assert.ok(build(visits.at(-1),{charts,sections:PDFManager.reportSections}).pages>=3);
 });
+
+test('individual layout preserves identity, localised age and dates, and numeric emphasis',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entry=visit(0,{name:'',caseId:'DEMO-REPORT',ageMode:'months',ageYears:1,ageMonths:6,ageDays:548});
+    const seen=[];
+    function TrackingPDF(options){
+        const doc=new jsPDF(options),draw=doc.text.bind(doc);
+        doc.text=(value,...args)=>{
+            for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),style:doc.getFont().fontStyle,font:doc.getFont().fontName});
+            return draw(value,...args);
+        };
+        return doc;
+    }
+    TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+    const render=options=>PDFManager.build([entry],{language:'fr',translations,...options},{jsPDF:TrackingPDF,autoTable,fonts,now:new Date('2026-11-24T18:00:00Z')});
+    assert.equal(render({}).pages,1);
+    assert.ok(seen.some(item=>item.text.includes('Nom/pseudo')));
+    assert.ok(seen.some(item=>item.text.includes('Non renseigné')));
+    assert.ok(seen.some(item=>item.text.includes('ID dossier')));
+    assert.ok(seen.some(item=>item.text.includes('DEMO-REPORT')&&item.style==='bold'));
+    assert.ok(seen.some(item=>item.text.includes('1 an 6 mois')&&item.style==='bold'));
+    assert.ok(seen.some(item=>item.text.includes('03/01/2026')));
+    assert.ok(seen.some(item=>item.text.includes('Calcul:')));
+    assert.ok(seen.some(item=>item.text.includes('Moteur Z-score')));
+    assert.ok(seen.some(item=>item.font==='helvetica'));
+    const before=JSON.stringify(entry);
+    seen.length=0;
+    const charts=PDFManager.reportCharts([entry],engines);
+    const growth=render({charts,sections:['pdfGrowthReport']});
+    assert.ok(growth.pages>=1);
+    const reference=entry.result.referenceVersion;
+    assert.equal(seen.filter(item=>item.text.includes(reference)).length,growth.pages);
+    assert.ok(seen.some(item=>item.text==='+3'));
+    assert.equal(JSON.stringify(entry),before);
+});
