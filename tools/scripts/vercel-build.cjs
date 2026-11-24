@@ -16,6 +16,8 @@ if(require.main===module){try{
     if(process.env.VERCEL==='1'&&process.env.VERCEL_ENV==='preview'&&process.env.VERCEL_GIT_COMMIT_REF==='fix/settings-ui-20261125'){
         const {execFileSync}=require('node:child_process');
         execFileSync(process.execPath,[path.join(__dirname,'build-release.cjs')],{stdio:'inherit'});
+        execFileSync(process.execPath,[path.join(__dirname,'test-public.cjs')],{stdio:'inherit'});
+        execFileSync(process.execPath,[path.join(__dirname,'../verification/verify.cjs')],{stdio:'inherit'});
     }
     console.log(JSON.stringify(build(),null,2));
 }catch(e){console.error(e.message);process.exitCode=1;}}

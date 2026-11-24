@@ -278,3 +278,19 @@ test('screening preference applies to new drafts only and PCIMA is restricted to
     assert.equal(WorkspaceApp.defaultCareProtocol('intergrowth','niger2023'),'');
     assert.equal(WorkspaceApp.defaultCareProtocol('who','unknown'),'');
 });
+
+
+test('clinical workspace visual tabs preserve fields and original filtered lot indices',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'}});
+        const draft=app.emptyDraft();const html=app.formHTML('single',draft);
+        for(const field of ['caseId','name','ageMode','measurementDate','weight','height','gender','position','oedema','muac','careProtocol','growthProfile','appetite'])assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
+        const first=engine.calculate(input({name:'FICTIF A',caseId:'A'})),second=engine.calculate(input({name:'FICTIF B',caseId:'B'}));
+        app.state={...app.emptyWorkspace(),batch:[first,second]};app.batchSearch='FICTIF B';const before=JSON.stringify(app.state);
+        const view=app.batchDisplayView();assert.deepEqual(view.indices,[1]);assert.equal(view.entries[0],second);
+        const table=app.tableHTML(view.entries,{compact:true,editable:true,indices:view.indices});assert.ok(table.includes('data-action="batch-correct" data-index="1"'));assert.ok(table.includes('data-action="quality-view" data-index="1"'));
+        const result=app.resultsHTML(first);for(const key of ['summary','charts','history','details'])assert.ok(result.includes('id="single-view-'+key+'"'));
+        assert.equal(JSON.stringify(app.state),before);
+    }
+});

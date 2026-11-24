@@ -810,7 +810,18 @@
     "settingsUpdates": "Mises à jour",
     "settingsUpdateHelp": "Vérifiez si une nouvelle version est disponible. Votre travail est sauvegardé avant toute mise à jour.",
     "settingsChecking": "Vérification en cours…",
-    "settingsUpdateOffline": "Connectez-vous à Internet pour vérifier les mises à jour."
+    "settingsUpdateOffline": "Connectez-vous à Internet pour vérifier les mises à jour.",
+    "uiIdentity": "Identification",
+    "uiAgeSex": "Âge et sexe",
+    "uiAnthropometry": "Mesures anthropométriques",
+    "uiSummary": "Synthèse",
+    "uiEntry": "Saisie des enfants",
+    "uiStatistics": "Statistiques",
+    "uiSearchLot": "Rechercher dans le lot",
+    "uiScreeningFilter": "Filtrer le dépistage",
+    "uiAll": "Toutes les fiches",
+    "uiNoMatch": "Aucune fiche ne correspond à la recherche.",
+    "uiScreening": "Dépistage"
   },
   "en": {
     "pdfOedemaSuspended": "Withheld (oedema)",
@@ -1623,7 +1634,18 @@
     "settingsUpdates": "Updates",
     "settingsUpdateHelp": "Check whether a new version is available. Your work is saved before applying any update.",
     "settingsChecking": "Checking for updates…",
-    "settingsUpdateOffline": "Connect to the internet to check for updates."
+    "settingsUpdateOffline": "Connect to the internet to check for updates.",
+    "uiIdentity": "Identification",
+    "uiAgeSex": "Age and sex",
+    "uiAnthropometry": "Anthropometric measurements",
+    "uiSummary": "Summary",
+    "uiEntry": "Enter children",
+    "uiStatistics": "Statistics",
+    "uiSearchLot": "Search the batch",
+    "uiScreeningFilter": "Screening filter",
+    "uiAll": "All records",
+    "uiNoMatch": "No matching records.",
+    "uiScreening": "Screening"
   },
   "ar": {
     "pdfOedemaSuspended": "معلّق (الوذمة)",
@@ -2436,6 +2458,17 @@
     "settingsUpdates": "التحديثات",
     "settingsUpdateHelp": "تحقق من توفر إصدار جديد. يُحفظ عملك قبل تطبيق أي تحديث.",
     "settingsChecking": "جارٍ التحقق من التحديثات…",
-    "settingsUpdateOffline": "اتصل بالإنترنت للتحقق من التحديثات."
+    "settingsUpdateOffline": "اتصل بالإنترنت للتحقق من التحديثات.",
+    "uiIdentity": "التعريف",
+    "uiAgeSex": "العمر والجنس",
+    "uiAnthropometry": "القياسات الجسمية",
+    "uiSummary": "الملخص",
+    "uiEntry": "إدخال بيانات الأطفال",
+    "uiStatistics": "الإحصاءات",
+    "uiSearchLot": "البحث في المجموعة",
+    "uiScreeningFilter": "تصفية التحري",
+    "uiAll": "جميع السجلات",
+    "uiNoMatch": "لا توجد سجلات مطابقة.",
+    "uiScreening": "التحري"
   }
 }
