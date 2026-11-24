@@ -299,5 +299,6 @@
 # PCIMA 2025 original bounded adapter, provenance and public synthetic tests
 !/src/js/services/pcima-niger-2025.js
 !/tools/public-tests/pcima-2025.test.cjs
+!/tools/public-tests/individual-report.test.cjs
 !/docs/references/PCIMA_NIGER_2025.md
 !/docs/references/PCIMA_SOURCES.json

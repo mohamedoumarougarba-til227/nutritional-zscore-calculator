@@ -1,5 +1,11 @@
 # Préparer et adopter une mise à jour
 
+## 5.12.0 — fiche PDF et suivi longitudinal
+
+Fiche individuelle A4 compacte et monochrome, avec des mesures et avertissements affichés selon les données disponibles. Impression et export PDF partagent la sélection des sections. Les annexes vectorielles utilisent les visites enregistrées et les références de chaque résultat. Le filtre de dates limite le rapport à la période choisie. L’évolution exige deux dates comparables pour chaque indicateur. Les résultats manquants ou incompatibles interrompent le tracé.
+
+PDF FR/EN/AR avec mise en page RTL. Moteur 4.7.0, seuils, versions de sauvegarde et fichiers CSV inchangés. Les PDF du traitement par lots conservent leurs dispositions.
+
 ## 5.11.0 — cadres PCIMA Niger 2023/2025 et mentions actualisées
 
 Lecture complète du document reçu de 274 pages et de ses 28 annexes. Cadre `niger2025`/`Niger-PCIMA-2025-screening-v1` distinct du cadre 2023 : évaluation mère–nourrisson, PB infantile borné à l’âge exact de six semaines à moins de six mois, WAZ infantile, facteurs positifs de risque MAM et observations professionnelles. Test d’appétit identifié selon l’édition. Contradictions de source documentées, aucune branche « sans risque » ou décision de traitement/sortie inventée.

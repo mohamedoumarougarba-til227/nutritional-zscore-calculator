@@ -370,6 +370,12 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 
 #workspace-dialog.csv-mapping-dialog{width:min(920px,calc(100vw - 24px));max-width:calc(100vw - 24px)}
 .csv-mapping-dialog .form-grid{margin-block:16px;gap:12px 20px}.csv-mapping-dialog .table-scroll{max-height:180px;overflow:auto}.csv-mapping-dialog select{width:100%;min-width:0}.csv-mapping-dialog .dialog-top{position:sticky;top:0;background:var(--surface);z-index:1}
+.report-period{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin-block:.75rem}
+.report-choices{margin:0;padding:.65rem .85rem;border:1px solid var(--line);border-radius:8px;min-inline-size:0}
+.report-choices label{display:inline-flex;align-items:center;gap:.6rem;min-block-size:36px}
+.report-choices input{inline-size:1.2rem;block-size:1.2rem;min-height:0;flex:none;accent-color:var(--accent)}
+.report-choices small{display:block;margin-inline-start:1.8rem;margin-block-end:.45rem}
+@media(max-width:420px){.report-period{grid-template-columns:1fr}}
 
 /* Keep the original labels and icon order in the mobile Actions sheet. */
 .format-desktop-label{display:none}

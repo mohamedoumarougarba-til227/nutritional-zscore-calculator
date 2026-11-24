@@ -8,7 +8,7 @@ const PretermUI=typeof module!=='undefined'&&module.exports?require('./services/
 const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/lot-quality.js').LotQuality:globalThis.LotQuality;
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 class WorkspaceApp {
-    static version = '5.11.0';
+    static version = '5.12.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
     static draftForProfile(draft,profile) {
         ProfileUI.read({growthProfile:profile});
@@ -909,8 +909,9 @@ class WorkspaceApp {
         else if(action==='download-dhis2')this.downloadReport(true);
         else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+ClinicalEngine.today()+'.csv','text/csv');}
         else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats.csv','text/csv'); }
-        else if(action==='print')window.print();
-        else if(action==='export-pdf')await this.exportPDF(button.dataset.layout);
+        else if(action==='print'){if(this.page==='single')await this.individualReportDialog(true);else window.print();}
+        else if(action==='export-pdf'){if(this.page==='single')await this.individualReportDialog(false);else await this.exportPDF(button.dataset.layout);}
+        else if(action==='individual-report-confirm')await this.confirmIndividualReport();
         else if(action==='password-export')this.passwordDialog();
         else if(action==='confirm-encrypted-export')await this.passwordOperation(false,button);
         else if(action==='unlock-backup')await this.passwordOperation(true,button);
@@ -983,19 +984,79 @@ class WorkspaceApp {
             if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();}
         }finally{this.transferBusy=false;this.transferStatus();document.querySelectorAll('[data-action="export-backup"],[data-action="password-export"]').forEach(b=>{b.disabled=false;});}
     }
-    async exportPDF(layout='detailed'){
+    async individualReportDialog(print){
+        const entry=this.state.single;
+        if(!entry?.result||this.pdfBusy)return;
+        const refresh=async()=>{
+            const child=entry.child;
+            const history=child.caseId?await this.history.caseVisits(child.caseId,child.gender,child.birthDate):{entries:[]};
+            if(this.state.single!==entry||this.page!=='single')return;
+            // Use the visible result for its visit, even before an autosave completes.
+            const visitKey=HistoryManager.visitKey(entry);
+            const birthDates=new Set([child.birthDate,...history.entries.map(visit=>visit.child.birthDate)].filter(Boolean));
+            const identityConflict=history.identityConflict||birthDates.size>1;
+            const saved=identityConflict?[]:history.entries.filter(visit=>HistoryManager.visitKey(visit)!==visitKey);
+            const visits=[...saved,entry];
+            const engines=[...this.chartEngines(visits),this.engine.additional].filter(Boolean);
+            const context={entry,visits,engines,print};
+            this.individualReport=context;
+            this.dialog('pdfReportOptions',`${identityConflict?`<p class="notice warn">${this.t('followupIdentityWarning')}</p>`:''}
+                <div class="report-period">
+                    <label>${this.t('pdfPeriodFrom')} <input type="date" id="report-from"></label>
+                    <label>${this.t('pdfPeriodTo')} <input type="date" id="report-to"></label>
+                </div>
+                <fieldset class="report-choices"><legend>${this.t('pdfContent')}</legend><div id="report-sections"></div></fieldset>
+                <p id="report-status" role="status"></p>`,`<button class="btn primary" data-action="individual-report-confirm">${this.t(print?'print':'exportPDF')}</button>`);
+            const dialog=document.getElementById('workspace-dialog');
+            const update=()=>{
+                const from=dialog.querySelector('#report-from').value,to=dialog.querySelector('#report-to').value;
+                const previous=dialog.querySelector('#report-sections');
+                const choices=new Map([...previous.querySelectorAll('input')].map(input=>[input.value,input.checked]));
+                const invalid=from&&to&&from>to;
+                context.charts=PDFManager.reportCharts(invalid?[]:visits.filter(e=>(!from||e.child.measurementDate>=from)&&(!to||e.child.measurementDate<=to)),engines);
+                previous.innerHTML=PDFManager.reportSections.map((key,index)=>{
+                    const available=!index||context.charts.sections[key].length;
+                    const hint=available?'':this.t(index===2||index===4?'pdfTrendUnavailable':'pdfGrowthUnavailable');
+                    return `<div><label><input type="checkbox" value="${key}" ${available?'':`disabled aria-describedby="report-hint-${index}"`} ${available&&(choices.get(key)??!index)?'checked':''}> ${this.t(key)}</label>${hint?` <small id="report-hint-${index}">${hint}</small>`:''}</div>`;
+                }).join('');
+                dialog.querySelector('#report-status').textContent=invalid?this.t('pdfPeriodInvalid'):'';
+                dialog.querySelector('[data-action="individual-report-confirm"]').disabled=!!invalid;
+            };
+            dialog.querySelectorAll('input[type="date"]').forEach(input=>input.addEventListener('change',update));
+            update();
+        };
+        try{await refresh();}catch(_){this.toast('pdfUnavailable',true);}
+    }
+    async confirmIndividualReport(){
+        const report=this.individualReport;
+        if(!report||this.state.single!==report.entry||this.page!=='single'||this.pdfBusy)return;
+        const sections=[...document.querySelectorAll('#report-sections input:checked:not(:disabled)')].map(input=>input.value);
+        const status=document.getElementById('report-status');
+        if(!sections.length){status.textContent=this.t('pdfSelectSection');return;}
+        const printWindow=report.print?window.open('about:blank','_blank'):null;
+        if(report.print&&!printWindow){status.textContent=this.t('pdfPrintPopup');return;}
+        if(printWindow){printWindow.opener=null;printWindow.document.body.textContent=this.t('pdfPreparing');}
+        document.getElementById('workspace-dialog').close();
+        await this.exportPDF('detailed',{sections,charts:report.charts,printWindow});
+    }
+    async exportPDF(layout='detailed',report={}){
         if(this.pdfBusy)return;
         const mode=this.page==='batch'?'batch':'single',entries=HistoryManager.clone(mode==='batch'?this.state.batch:this.state.single?[this.state.single]:[]);
-        const options={mode,layout,language:this.prefs.language,translations:this.translations,stale:mode==='single'&&this.state.stale};
+        const options={mode,layout,language:this.prefs.language,translations:this.translations,stale:mode==='single'&&this.state.stale,
+            sections:report.sections,charts:report.charts,print:!!report.printWindow};
         if(!entries.length)throw new Error('pdfInvalid');
         this.pdfBusy=true;this.toast('pdfPreparing');
         document.querySelectorAll('[data-action="export-pdf"]').forEach(button=>{button.disabled=true;});
         try{
             const fonts=this.pdfFonts||await PDFManager.loadFonts();this.pdfFonts=fonts;
             const result=PDFManager.build(entries,options,{jsPDF:window.jspdf?.jsPDF,autoTable:window.autoTable,fonts});
-            this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.pdf','application/pdf');
+            if(report.printWindow){
+                const url=URL.createObjectURL(new Blob([result.bytes],{type:'application/pdf'}));
+                report.printWindow.location.replace(url);
+                setTimeout(()=>URL.revokeObjectURL(url),60000);
+            }else this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.pdf','application/pdf');
             this.toast('pdfReady');
-        }catch(error){this.toast(error.message==='pdfInvalid'?'pdfInvalid':'pdfUnavailable',true);}
+        }catch(error){report.printWindow?.close();this.toast(error.message==='pdfInvalid'?'pdfInvalid':'pdfUnavailable',true);}
         finally{this.pdfBusy=false;document.querySelectorAll('[data-action="export-pdf"]').forEach(button=>{button.disabled=this.page==='batch'&&!this.state.batch.length;});}
     }
     updateCSVControls(){
@@ -1129,7 +1190,18 @@ class WorkspaceApp {
         }catch(error){if(prepared?.format==='stream')this.transfers().release(prepared);if(request!==this.importRequest)return;this.preparedImport=null;this.toast(error instanceof SyntaxError||error instanceof TypeError?'importInvalid':error.message,true);}
         finally{if(request===this.importRequest)this.transferStatus();}
     }
-    chartsHTML(entries){let engines=this.engine.older?[this.engine.young,this.engine.older,this.engine.cdc].filter(Boolean).filter(engine=>entries.some(e=>e.result?.referenceVersion===engine.data.referenceVersion)):[this.engine];if(entries.some(e=>e.result?.referenceFamily==='INTERGROWTH2015'))engines.push({data:{referenceVersion:'INTERGROWTH2015-postnatal-gigs-fb58fe6596d4'}});if(!engines.length)engines=[this.engine.young||this.engine];const additional=entries.filter(e=>e.result?.additionalGrowth?.referenceVersion.startsWith('WHO-child-additional-'));return engines.map(engine=>GrowthChart.referenceHTML(entries.filter(e=>e.result?.referenceVersion===engine.data.referenceVersion),engine,this)+GrowthChart.html(entries,engine.data.referenceVersion,this)).join('')+(this.engine.additional&&additional.length?GrowthChart.referenceHTML(additional,this.engine.additional,this)+GrowthChart.html(additional,this.engine.additional.data.referenceVersion,this):'');}
+    chartEngines(entries){
+        const engines=this.engine.older?[this.engine.young,this.engine.older,this.engine.cdc].filter(Boolean)
+            .filter(engine=>entries.some(e=>e.result?.referenceVersion===engine.data.referenceVersion)):[this.engine];
+        const intergrowth=entries.find(e=>e.result?.referenceFamily==='INTERGROWTH2015');
+        if(intergrowth)engines.push({data:{referenceVersion:intergrowth.result.referenceVersion}});
+        return engines.length?engines:[this.engine.young||this.engine];
+    }
+    chartsHTML(entries){
+        const additional=entries.filter(e=>e.result?.additionalGrowth?.referenceVersion.startsWith('WHO-child-additional-'));
+        return this.chartEngines(entries).map(engine=>GrowthChart.referenceHTML(entries.filter(e=>e.result?.referenceVersion===engine.data.referenceVersion),engine,this)+GrowthChart.html(entries,engine.data.referenceVersion,this)).join('')
+            +(this.engine.additional&&additional.length?GrowthChart.referenceHTML(additional,this.engine.additional,this)+GrowthChart.html(additional,this.engine.additional.data.referenceVersion,this):'');
+    }
     async renderFollowup(){
         const entry=this.state.single,child=entry?.child,epoch=this.renderEpoch;if(!entry?.result)return;
         const {entries,identityConflict}=child.caseId?await this.history.caseVisits(child.caseId,child.gender,child.birthDate):{entries:[entry],identityConflict:false};
