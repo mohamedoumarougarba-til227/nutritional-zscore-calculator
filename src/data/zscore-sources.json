@@ -1,10 +1,10 @@
 {
   "format": 1,
-  "version": "5.12.0",
+  "version": "5.12.1",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8573923,
-  "sha256": "dd2327166112828f4ed2b2e0ce0754411e72a2cfa30cc8adbb07f3bd80b6fe5d",
+  "bytes": 8585687,
+  "sha256": "8bc8b8be79337bb96482fd71238bd19b95101e55d108a4b1ef1b47cabcf7a305",
   "files": [
     {
       "file": ".gitattributes",
@@ -54,7 +54,7 @@
     {
       "file": "README.md",
       "bytes": 11597,
-      "sha256": "1a97a7868494c69cffaca20f56f4430e23dcbf0e160665c6a9d17054c3236824"
+      "sha256": "9a1715c5f4228d4f1053c9d1524215ffcc677f12c024776c3430f00105bcc4ac"
     },
     {
       "file": "SECURITY.md",
@@ -209,12 +209,12 @@
     {
       "file": "package-lock.json",
       "bytes": 722,
-      "sha256": "9df055f54d61d8343911dc439873c69c908f692c86ffd39a3f2ae90988f450ca"
+      "sha256": "036b643bbe66c97d8fd66caa1bcb18f898abbfb5c8489771c7e152b3e67fda24"
     },
     {
       "file": "package.json",
       "bytes": 984,
-      "sha256": "2945d3c8b5a2663510d8de766bfafa1e8e3605502843a95dbf66c6398c3f8ba5"
+      "sha256": "ed1e797ecd582949859cbc3235c87c30b7e1be828f1ec670115fc215c5aa00d4"
     },
     {
       "file": "src/assets/icons/icon-128.png",
@@ -408,8 +408,8 @@
     },
     {
       "file": "src/js/services/pdf-manager.js",
-      "bytes": 44958,
-      "sha256": "fd1023ae7cafb279ad15fbdd6da2bd533c4733a6fccad8d967bee8324751bf8c"
+      "bytes": 54668,
+      "sha256": "70702019616013a2d07801f1d88a4eb3afccd29b2a8da0a0c95c626dbbbe8f61"
     },
     {
       "file": "src/js/services/percentile-display.js",
@@ -454,7 +454,7 @@
     {
       "file": "src/js/workspace-app.js",
       "bytes": 152893,
-      "sha256": "727b11741c912d81116b0fe244a04170eb98713ec8a1340626bd8ad529a52ac5"
+      "sha256": "848c375af3557aafcc1dffc5883394420e92597f5ee57d5d9419a2a1924dd0c8"
     },
     {
       "file": "src/js/workspace-bootstrap.js",
@@ -548,8 +548,8 @@
     },
     {
       "file": "tools/public-tests/individual-report.test.cjs",
-      "bytes": 5154,
-      "sha256": "1a2e15da83d6f58157d5382a092ce3e0c6a7bbdc7fccd025ffd1f3c307aaac72"
+      "bytes": 7208,
+      "sha256": "afbd4a86357731bae26d838b859b86dcb549cddec3430b553b7a1e5778f43a39"
     },
     {
       "file": "tools/public-tests/input-offline.test.cjs",
