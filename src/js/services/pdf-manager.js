@@ -109,7 +109,8 @@ class PDFManager {
             if(r?.schemaVersion===4 && typeof r.bmi==='number' && Number.isFinite(r.bmi))briefMeasures.push(field('bmi',number(r.bmi,2)+' kg/m²'));
             if(c.muac!==undefined&&c.muac!==''){const pb=field('muac',number(c.muac,1)+' mm');compactMeasures.push(pb);briefMeasures.push(pb);}
             if(!r)for(const key of SupplementaryPDF.fields)if(SupplementaryPDF.present(c[key]))briefMeasures.push(field(key,number(c[key],1)));
-            return {index:i+1,identity,measures,compactMeasures,briefMeasures,briefIdentity:[this.clean(c.name||t('unknown')),this.clean(c.caseId||t('unknown'))],measurementDate:this.clean(c.measurementDate||t('unknown')),scores,percentiles,notes:[...new Set(notes.filter(Boolean))],provenance,calculatedAt:this.clean(r?.calculatedAt||t('unknown'))};
+            const screening=!r?t('notCalculated'):r.nutrition?t(r.nutrition.category+'Short')===r.nutrition.category+'Short'?t(r.nutrition.category):t(r.nutrition.category+'Short'):r.referenceFamily==='INTERGROWTH2015'?t('pdfScreeningNA'):t('unknown');
+            return {index:i+1,screening,identity,measures,compactMeasures,briefMeasures,briefIdentity:[this.clean(c.name||t('unknown')),this.clean(c.caseId||t('unknown'))],measurementDate:this.clean(c.measurementDate||t('unknown')),scores,percentiles,notes:[...new Set(notes.filter(Boolean))],provenance,calculatedAt:this.clean(r?.calculatedAt||t('unknown'))};
         });
         const hasPercentiles=rows.some(row=>row.percentiles.some(Boolean))||entries.some(entry=>Object.values(entry.result?.additionalGrowth?.indicators||{}).some(value=>CentilePDF.text(value)!==null));
         return {language, t, indicators, rows, stale, provenances,hasPercentiles,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
@@ -119,7 +120,7 @@ class PDFManager {
         const code=(values,text,prefix)=>{if(!text)return '';let index=values.indexOf(text);if(index<0){index=values.length;values.push(text);}return prefix+(index+1);};
         const body=model.rows.map(row=>[String(row.index),row.briefIdentity.join('\n'),row.measurementDate,row.briefMeasures.join('\n'),
             ...row.scores.map((score,i)=>{const lines=score.split('\n'),numeric=lines[0].startsWith('Z = ');return (numeric?lines[0].slice(4):'--')+'\n'+code(categories,(numeric?lines.slice(1):lines).join('\n'),'C')+(row.percentiles[i]?'\n'+row.percentiles[i]:'');}),
-            [row.provenance||'',row.calculatedAt,code(notes,row.notes.join('\n'),'N')].filter(Boolean).join('\n')]);
+            [row.provenance||'',code(notes,model.t('calculatedAt')+' : '+row.calculatedAt,'N'),row.notes.map(note=>code(notes,note,'N')).filter(Boolean).join(' ')].filter(Boolean).join('\n')]);
         return {body,legend:[...categories.map((text,i)=>['C'+(i+1),text]),...notes.map((text,i)=>['N'+(i+1),text])]};
     }
     static scoreWithPercentile(row,index) {
@@ -630,13 +631,13 @@ class PDFManager {
             y=doc.lastAutoTable.finalY+5;
         };
         const reduced=compact?this.compact(model):null;
-        const count=model.indicators.length,scoreWidth=(usable-(compact?8+39+23+57+29:9+47+56+25))/Math.max(1,count);
+        const count=model.indicators.length,scoreWidth=(usable-(compact?8+34+22+48+26+34:9+40+48+27+20))/Math.max(1,count);
         const shortMeasures=r=>r.briefMeasures.filter(line=>line!==t('approximateAge')).join('\n');
         if(compact){
-            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>row.map((cell,j)=>j===3?shortMeasures(rows[i]):cell)),[8,39,23,57,...model.indicators.map(()=>scoreWidth),29],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
+            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,3),shortMeasures(rows[i]),rows[i].screening,...row.slice(4)]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
-            const body=rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),shortMeasures(r),...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),r.provenance||t('notCalculated')]);
-            table(['pdfNumber','pdfIdentity','pdfMeasures',...model.indicators,'pdfRefShort'].map(t),body,[9,47,56,...model.indicators.map(()=>scoreWidth),25],{recordRows:true});
+            const body=rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),shortMeasures(r),r.screening,...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),r.provenance||t('notCalculated')]);
+            table(['pdfNumber','pdfIdentity','pdfMeasures','uiScreening',...model.indicators,'pdfRefShort'].map(t),body,[9,40,48,27,...model.indicators.map(()=>scoreWidth),20],{recordRows:true});
         }
         if(model.provenances.length){
             section('pdfReferences');

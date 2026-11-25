@@ -127,3 +127,17 @@ test('batch reports use a wide list and traceable annex, keep pending results, a
     }
     assert.equal(JSON.stringify(entries),before);
 });
+
+test('compact report codes retain every distinct clinical note and deduplicate repeat explanations',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entries=[visit(),visit(31),visit(60,{oedema:'y'})];
+    const model=PDFManager.model(entries,{language:'fr',translations});
+    const compact=PDFManager.compact(model),legend=new Map(compact.legend);
+    for(let i=0;i<model.rows.length;i++){
+        const row=model.rows[i],codes=compact.body[i].at(-1).match(/N\d+/g)||[];
+        const decoded=codes.map(code=>legend.get(code));
+        for(const note of row.notes)assert.ok(decoded.includes(note));
+        assert.ok(decoded.includes(model.t('calculatedAt')+' : '+row.calculatedAt));
+    }
+    assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
+});

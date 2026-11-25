@@ -28,7 +28,8 @@ class HistoryManager {
     static signature(workspace) {
         // Compare content, not navigation or optional empty controls populated by the DOM.
         // Never strip identifiers, result timestamps, reference versions or real observations.
-        const draft=value=>!HistoryManager.hasDraftWork(value)?null:Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined&&v!==null&&v!=='').sort(([a],[b])=>a<b?-1:a>b?1:0));
+        const numericControls=new Set(['ageYears','ageMonths','ageTotalMonths','ageDays','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays','weight','height','muac',...SupplementaryHistory.fields]);
+        const draft=value=>!HistoryManager.hasDraftWork(value)?null:Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>[k,numericControls.has(k)&&typeof v==='number'&&Number.isFinite(v)?String(v):v]).sort(([a],[b])=>a<b?-1:a>b?1:0));
         const {mode,draft:singleDraft,batchDraft,...rest}=workspace;
         return JSON.stringify({...Object.fromEntries(Object.entries(rest).sort(([a],[b])=>a<b?-1:a>b?1:0)),draft:draft(singleDraft),batchDraft:draft(batchDraft)});
     }

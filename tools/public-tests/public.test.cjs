@@ -345,3 +345,15 @@ test('parallel unchanged saves serialize and restored durable content does not c
  app.readForms();assert.equal(JSON.stringify(work),before);assert.equal(await history.save(work,'automatic'),null);
  assert.equal(store.records.sessions.length,0);
  });
+
+test('numeric draft controls restored as strings do not create a duplicate archive',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    work.batchDraft={name:'FICTIF-DRAFT',weight:8500,height:77.5,ageYears:2,ageMonths:0,muac:120};
+    await history.resumeSaved(work);
+    const restored=HistoryManager.clone(work);
+    for(const k of ['weight','height','ageYears','ageMonths','muac'])restored.batchDraft[k]=String(restored.batchDraft[k]);
+    assert.equal(HistoryManager.signature(work),HistoryManager.signature(restored));
+    assert.equal(await history.save(restored,'automatic'),null);
+    restored.batchDraft.muac='121';assert.ok(await history.save(restored,'automatic'));
+    assert.equal(store.records.sessions.length,1);
+});

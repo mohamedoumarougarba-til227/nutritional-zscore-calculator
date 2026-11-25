@@ -766,3 +766,8 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  @keyframes record-dialog-enter{from{opacity:.72;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 }
 @media print{.record-preview .summary-print-help{display:block!important}}
+
+@media screen{
+ [data-workspace-panel]{scroll-margin-block-start:calc(var(--workspace-header-height,64px) + 68px)}
+ .record-preview .indicator-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+}

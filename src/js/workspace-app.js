@@ -514,6 +514,15 @@ class WorkspaceApp {
         if(scope==='single')this.singleView=view;else this.batchPane=view;
         for(const panel of document.querySelectorAll('[data-workspace-panel="'+scope+'"]'))panel.hidden=panel.dataset.view!==view;
         for(const button of document.querySelectorAll('[data-action="workspace-view"][data-scope="'+scope+'"]'))button.setAttribute('aria-pressed',String(button.dataset.view===view));
+        const active=document.querySelector?.('#'+scope+'-view-'+view);
+        const header=document.querySelector?.('.workspace-topbar'),nav=document.querySelector?.('.workspace-view-nav');
+        if(active?.getBoundingClientRect&&header?.getBoundingClientRect&&nav?.getBoundingClientRect){
+            const top=Math.max(header.getBoundingClientRect().bottom,nav.getBoundingClientRect().bottom);
+            if(active.getBoundingClientRect().top<top-4){
+                const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+                active.scrollIntoView?.({block:'start',behavior:reduced?'instant':'smooth'});
+            }
+        }
     }
     singleHTML() {
         const hasResult=!!this.state.single?.result, dashboard=hasResult&&!this.singleEditing;
@@ -1003,7 +1012,7 @@ class WorkspaceApp {
         else if(action==='save-batch-correction')await this.saveBatchCorrection();
         else if(action==='quality-view'){
             const index=Number(button.dataset.index),entry=this.state.batch[index];
-            if(Number.isInteger(index)&&index>=0&&entry)this.dialog('qualityRecord',`<p>${this.t('qualityRecord')} ${this.number(index+1,0)} · ${this.t('qualityReadOnly')}</p>${entry.result?this.resultsHTML(entry,false,true):this.previewDraft(entry.child,'batch')+`<p class="notice">${this.t('pdfUncalculated')}</p>`}`,`<button class="btn" data-action="batch-correct" data-index="${index}">${this.icon('edit')}${this.t('batchCorrectionEdit')}</button>`);
+            if(Number.isInteger(index)&&index>=0&&entry)this.dialog('qualityRecord',`<p>${this.t('qualityRecord')} ${this.number(index+1,0)} · ${this.t('qualityReadOnly')}</p>${entry.result?this.resultsHTML(entry,false,true):this.previewDraft({...entry.child,ageTotalMonths:entry.child.ageTotalMonths??entry.child.totalAgeMonths,weightUnit:'g',heightUnit:'cm'},'batch','measurementSummary')+`<p class="notice">${this.t('pdfUncalculated')}</p>`}`,`<button class="btn" data-action="batch-correct" data-index="${index}">${this.icon('edit')}${this.t('batchCorrectionEdit')}</button>`);
         }
         else if(action==='quality-csv'||action==='analysis-csv')this.downloadQuality(action==='analysis-csv');
         else if(action==='reporting')this.reportingDialog();
@@ -1249,7 +1258,7 @@ class WorkspaceApp {
         this.dialog('preview',`<p class="lede">${this.t('previewHelp')}</p><p class="meta">${this.date(session.createdAt)}</p><p class="meta">${this.t(w.mode === 'batch' ? 'batch' : 'single')}</p>${this.previewDraft(w.draft,'single')}${this.previewDraft(w.batchDraft,'batch')}${w.paste?`<p class="hint">CSV</p><pre>${this.esc(w.paste)}</pre>`:''}${view.total?`<div class="table-scroll">${this.tableHTML(view.entries)}</div>${this.paginationHTML(view,{action:'preview-page',label:'previewPages'})}`:''}${w.single?this.resultsHTML(w.single,w.stale,true):''}`,`<button class="btn primary" data-action="restore" data-id="${this.esc(session.id)}">${this.t('restore')}</button>`);
         if(focus)this.focusPagination('preview-page');
     }
-    previewDraft(draft, mode) {
+    previewDraft(draft, mode, titleKey='draft') {
         if (!draft || !HistoryManager.hasWork({[mode === 'batch' ? 'batchDraft' : 'draft']:draft})) return '';
         const ageFields = draft.ageMode === 'dates' ? ['birthDate'] : draft.ageMode === 'days' ? ['ageDays'] : draft.ageMode==='totalMonths'?['ageTotalMonths']:['ageYears','ageMonths'];
         const fields=['caseId','name','ageMode',...ageFields,'measurementDate','weight','weightUnit','height','heightUnit','gender','position','oedema','growthProfile','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...NutritionUI.inputFields,...SupplementaryUI.fields];
@@ -1262,7 +1271,7 @@ class WorkspaceApp {
             }
             return key === 'growthProfile' ? this.t(draft[key]==='intergrowth'?'profileINTERGROWTH':draft[key]==='us'?'profileUS':'profileWHO') : key === 'ageMode' ? this.t(draft[key]) : labels[key]?.[draft[key]] ? this.t(labels[key][draft[key]]) : draft[key];
         };
-        return `<h3>${this.t('draft')} · ${this.t(mode)}</h3><div class="preview-grid">${fields.filter(k=>draft[k]!==''&&draft[k]!==undefined&&draft[k]!==null).map(k=>`<dl><dt>${this.t(k==='weight'&&draft.weightUnit?'weightMeasure':k==='height'&&draft.heightUnit?'heightMeasure':k)}</dt><dd>${this.esc(value(k))}</dd></dl>`).join('')}</div>`;
+        return `<h3>${this.t(titleKey)}${titleKey==='draft'?' · '+this.t(mode):''}</h3><div class="preview-grid">${fields.filter(k=>draft[k]!==''&&draft[k]!==undefined&&draft[k]!==null).map(k=>`<dl><dt>${this.t(k==='weight'&&draft.weightUnit?'weightMeasure':k==='height'&&draft.heightUnit?'heightMeasure':k)}</dt><dd>${this.esc(value(k))}</dd></dl>`).join('')}</div>`;
     }
     async restore(session){
         if(!session?.metadata?.workspace)return;
