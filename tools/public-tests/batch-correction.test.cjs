@@ -216,8 +216,13 @@ test('specialized other-fields dialog omits inline values, retains conditional f
  const row=app.batchRecordsHTML([original],[0]);assert.ok(!row.includes('data-action="quality-view"'));assert.ok(row.includes('data-action="batch-correct"'));assert.ok(row.includes('Poids (kg)'));
 });
 test('unchanged other-fields dialog saves display units only and keeps historical scores',async()=>{
- const original=engine.calculate(input()),state=workspace([original]),h=ui(state,{...original.child});
+ const original=engine.calculate(input({muac:120})),state=workspace([original]),h=ui(state,{...original.child});
  h.app.batchCorrection.initialDraft=structuredClone(h.app.batchCorrection.draft);h.app.batchCorrection.units={weight:'kg',height:'m'};
+ h.app.batchCorrection.draft.muac='١٢٠,٠';
+ assert.equal(WorkspaceApp.sameBatchField('weight','8.4','8,400'),true);
+ assert.equal(WorkspaceApp.sameBatchField('caseId','120','120.0'),false);
+ assert.equal(WorkspaceApp.sameBatchField('muac',120,'120.1'),false);
+ assert.equal(WorkspaceApp.sameBatchField('muac','',0),false);
  try{await h.app.saveBatchCorrection();assert.equal(h.store.writes,0);assert.equal(h.app.state,state);assert.equal(h.app.state.batch[0].result,original.result);assert.equal(h.app.batchUnit('height',original.child),'m');assert.equal(h.app.notice.key,'batchDisplaySaved');}finally{h.restore();}
 });
 

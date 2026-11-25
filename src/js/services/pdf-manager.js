@@ -116,12 +116,16 @@ class PDFManager {
         return {language, t, indicators, rows, stale, provenances,hasPercentiles,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
     }
     static compact(model) {
-        const categories=[],notes=[];
-        const code=(values,text,prefix)=>{if(!text)return '';let index=values.indexOf(text);if(index<0){index=values.length;values.push(text);}return prefix+(index+1);};
+        const categories=new Map(),notes=new Map();
+        const code=(values,text,prefix)=>{
+            if(!text)return '';
+            if(!values.has(text))values.set(text,prefix+(values.size+1));
+            return values.get(text);
+        };
         const body=model.rows.map(row=>[String(row.index),row.briefIdentity.join('\n'),row.measurementDate,row.briefMeasures.join('\n'),
             ...row.scores.map((score,i)=>{const lines=score.split('\n'),numeric=lines[0].startsWith('Z = ');return (numeric?lines[0].slice(4):'--')+'\n'+code(categories,(numeric?lines.slice(1):lines).join('\n'),'C')+(row.percentiles[i]?'\n'+row.percentiles[i]:'');}),
-            [row.provenance||'',code(notes,model.t('calculatedAt')+' : '+row.calculatedAt,'N'),row.notes.map(note=>code(notes,note,'N')).filter(Boolean).join(' ')].filter(Boolean).join('\n')]);
-        return {body,legend:[...categories.map((text,i)=>['C'+(i+1),text]),...notes.map((text,i)=>['N'+(i+1),text])]};
+            [row.provenance||'',row.notes.map(note=>code(notes,note,'N')).filter(Boolean).join(' '),model.t('calculatedAt')+' : '+row.calculatedAt].filter(Boolean).join('\n')]);
+        return {body,legend:[...categories,...notes].map(([text,key])=>[key,text])};
     }
     static scoreWithPercentile(row,index) {
         const score=row.scores[index],p=row.percentiles[index];

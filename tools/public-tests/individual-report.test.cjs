@@ -137,7 +137,8 @@ test('compact report codes retain every distinct clinical note and deduplicate r
         const row=model.rows[i],codes=compact.body[i].at(-1).match(/N\d+/g)||[];
         const decoded=codes.map(code=>legend.get(code));
         for(const note of row.notes)assert.ok(decoded.includes(note));
-        assert.ok(decoded.includes(model.t('calculatedAt')+' : '+row.calculatedAt));
+        assert.ok(compact.body[i].at(-1).includes(model.t('calculatedAt')+' : '+row.calculatedAt));
+        assert.ok(!decoded.some(note=>note.includes(row.calculatedAt)));
     }
     assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
 });

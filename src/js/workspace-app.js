@@ -8,7 +8,7 @@ const PretermUI=typeof module!=='undefined'&&module.exports?require('./services/
 const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/lot-quality.js').LotQuality:globalThis.LotQuality;
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 class WorkspaceApp {
-    static version = '5.12.1';
+    static version = '5.13.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
     static draftForProfile(draft,profile) {
         ProfileUI.read({growthProfile:profile});
@@ -607,6 +607,12 @@ class WorkspaceApp {
         return '<label class="batch-unit-picker">'+this.esc(label)+' <select id="batch-unit-'+scope+'-'+key+'" data-batch-unit="'+key+'" aria-label="'+this.esc(label+' · '+this.t('batchDisplayUnit'))+'">'+(key==='weight'?['g','kg']:['cm','m']).map(u=>'<option value="'+u+'"'+(u===unit?' selected':'')+'>'+u+'</option>').join('')+'</select></label>';
     }
     static inlineBatchFields=['weight','height','muac','headCircumference','tricepsSkinfold','subscapularSkinfold','name','caseId','birthDate','measurementDate','gender','position','oedema','ageDays','ageTotalMonths','ageYears','ageMonths','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays'];
+    static sameBatchField(key,original,edited){
+        if(String(original??'')===String(edited??''))return true;
+        if(!['weight','height','muac',...SupplementaryUI.fields,'ageTotalMonths'].includes(key))return false;
+        try{return ClinicalEngine.decimal(original)===ClinicalEngine.decimal(edited);}
+        catch(_){return false;}
+    }
     static inlineCorrectedBatch(workspace,index,key,value,unit,engine){
         const entry=workspace?.batch?.[index];
         if(!Number.isInteger(index)||index<0||!entry||!this.inlineBatchFields.includes(key))throw Error('batchCorrectionChanged');
@@ -647,7 +653,7 @@ class WorkspaceApp {
         const ctx=this.batchInlineEdit;if(!ctx||ctx.busy)return;
         const current=()=>this.batchInlineEdit===ctx&&this.state===ctx.workspace&&this.state.batch[ctx.index]===ctx.entry&&this.page==='batch';
         if(!current()){this.batchInlineEdit=null;this.toast('batchCorrectionChanged',true);return;}
-        if(ctx.value===ctx.initial){this.cancelBatchInline();return;}
+        if(WorkspaceApp.sameBatchField(ctx.key,ctx.initial,ctx.value)){this.cancelBatchInline();return;}
         ctx.busy=true;ctx.error='';this.refreshBatchBrowser();
         try{
             const next=WorkspaceApp.inlineCorrectedBatch(ctx.workspace,ctx.index,ctx.key,ctx.value,ctx.unit,this.engine);
@@ -678,7 +684,7 @@ class WorkspaceApp {
             const extraScores=Object.entries(result?.additionalGrowth?.indicators||{}).map(([key,v])=>score(key,v,true)).join('');
             const notes=[...(result?.imported?['importedResult']:[]),...(result?.warnings||[])];
             const noteHTML=notes.length?'<div class="batch-record-notes">'+[...new Set(notes)].map(k=>'<p>'+t(k)+'</p>').join('')+'</div>':'';
-            
+
             const heightLabel=this.prefs.language==='fr'?'Longueur /\ntaille ('+this.batchUnit('height',child)+')':this.t('pdfHeightShort')+' ('+this.batchUnit('height',child)+')';
             return '<article class="batch-record" role="listitem"><div class="batch-record-identity"><div class="batch-record-select"><input type="checkbox" data-batch-select="'+index+'" aria-label="'+t('batchSelectRow')+' '+this.esc(num(index+1))+'"'+(this.batchSelectionSet().has(index)?' checked':'')+'><span class="batch-record-index">'+this.esc(num(index+1))+'</span></div><div class="batch-record-person">'+edit('name',child.name||this.t('unknown'))+'<div class="batch-record-id-date">'+edit('caseId',child.caseId||this.t('unknown'))+'<span aria-hidden="true">·</span>'+edit('measurementDate',date(child.measurementDate))+'</div></div><div class="batch-record-tools"><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+t('batchOtherFields')+'</button>'+this.toolButton('batchDeleteRow','trash','batch-delete-row',{attrs:'data-index="'+index+'" id="batch-delete-'+index+'"'})+'</div>'+noteHTML+'</div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight',child)+')',this.batchMeasureHTML(child,index,'weight'))+field(heightLabel,this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+scores.map(k=>score(k,result?.[k])).join('')+extraScores+(result?field(this.t('uiScreening'),screening):'')+'</div></div></article>';
         }).join('')+'</div>';
@@ -819,9 +825,8 @@ class WorkspaceApp {
     }
     static otherFieldsChanged(context){
         if(!context.initialDraft)return true;
-        const comparable=(draft,key)=>String(draft[key]??'');
         const keys=new Set([...Object.keys(context.initialDraft),...Object.keys(context.draft)]);
-        return [...keys].some(key=>comparable(context.initialDraft,key)!==comparable(context.draft,key));
+        return [...keys].some(key=>!this.sameBatchField(key,context.initialDraft[key],context.draft[key]));
     }
     openBatchCorrection(index) {
         if(this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy)return;
@@ -1020,7 +1025,7 @@ class WorkspaceApp {
     referencesHTML() {
         const links = [['sourceClinical2023','https://www.who.int/publications/i/item/9789240082830'],['sourceClinical2026','https://www.who.int/publications/i/item/9789240122840'],['sourceWHO','https://www.who.int/tools/child-growth-standards/standards'],['sourceAnthro','https://www.who.int/toolkits/child-growth-standards/software'],['sourceClassification','https://www.who.int/data/nutrition/nlis/info/malnutrition-in-children/'],['sourceCode','https://github.com/WorldHealthOrganization/anthro/tree/'+this.engine.data.sourceCommit+'/data-raw/growthstandards'],['sourceLicense','data/LICENSE-anthro.txt'],['sourceWHO2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],['sourceLicense2007','data/LICENSE-anthroplus.txt'],['sourceCDC','https://www.cdc.gov/growthcharts/cdc-data-files.htm'],['sourceCDC2022','https://www.cdc.gov/growthcharts/extended-bmi-data-files.htm'],['sourceIntergrowth','https://intergrowth21.com/tools-resources/postnatal-growth-preterm-infants'],['sourceIntergrowthUse','https://globalhealthtrainingcentre.tghn.org/preterm-infant-feeding-and-growth-monitoring-implementation-intergrowth-21st-protocol/faqs/'],['sourceIntergrowthCode','https://github.com/ropensci/gigs/blob/fb58fe6596d4b289d5362c5efe00f882984d3186/R/ig_png.R']];
         const sourceGroups=[[['referenceCare',links.slice(0,2)],['referencePreterm',links.slice(11)],['referenceCDC',links.slice(9,11)]],[['referenceWHO',links.slice(2,9)]]];
-        const helpCard=([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`; 
+        const helpCard=([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`;
         return `<div class="reference-grid">${this.quickGuideHTML()}<section class="card full"><span class="eyebrow">OMS / WHO · 2006 / 2007 · CDC 2000 / 2022 · INTERGROWTH</span><h2>${this.t('references')}</h2><div class="source-groups">${sourceGroups.map(column=>`<div class="source-column">${column.map(([title,items])=>`<section class="source-group"><h3>${this.t(title)}</h3><ul class="source-links">${items.map(([k,url])=>`<li><a href="${url}" target="_blank" rel="noopener noreferrer">${this.t(k)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul></section>`).join('')}</div>`).join('')}</div><details class="reference-integrity"><summary>${this.t('referenceBoth')}</summary><p class="meta">${this.esc(this.manifest.referenceVersion)}<br>SHA-256 : ${this.manifest.sha256}</p>${this.olderManifest?`<p class="meta">${this.esc(this.olderManifest.referenceVersion)}<br>SHA-256 : ${this.olderManifest.sha256}</p>`:''}${this.cdcManifest?`<p class="meta">${this.esc(this.cdcManifest.referenceVersion)}<br>SHA-256 : ${this.cdcManifest.sha256}</p>`:''}<p class="meta">${this.esc(PretermUI.reference)} · ${this.esc(PretermUI.version)}</p></details></section><div class="reference-help-column">${[['scope','scopeText'],['measurementHelp','measurementHelpText'],['validationTitle','validationText']].map(helpCard).join('')}</div><div class="reference-help-column">${[['method','methodText'],['privacyTitle','privacyText']].map(helpCard).join('')}<section class="card"><h2>${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</h2><button class="btn" data-action="check-update" ${this.offlineRegistration?'':'disabled'}>${this.t('updateCheck')}</button></section></div></div>`;
     }
     events() {
@@ -1075,9 +1080,9 @@ class WorkspaceApp {
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
             if(event.target.id==='batch-search'){if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state){event.target.value=this.batchSearch||'';return;}this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
-            if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
+            const displayOnly=['weightUnit','heightUnit'].includes(event.target.name)&&this.changeMeasureUnit(event.target);
             if (event.target.closest('#single-form,#batch-form') || event.target.id === 'paste-data') {
-                this.readForms(); if (event.target.closest('#single-form') && this.state.single) { this.state.stale = true; const target=document.getElementById('single-results'); if(target&&!target.querySelector('[data-stale-notice]')){const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');target.querySelector('.dashboard-toolbar')?.after(notice);} }
+                this.readForms(); if (!displayOnly&&event.target.closest('#single-form') && this.state.single) { this.state.stale = true; const target=document.getElementById('single-results'); if(target&&!target.querySelector('[data-stale-notice]')){const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');target.querySelector('.dashboard-toolbar')?.after(notice);} }
                 this.scheduleSave();
             }
         });
@@ -1139,9 +1144,17 @@ class WorkspaceApp {
         const form=select.closest('form');if(!form)return;
         const draft=form.id==='correction-form'?this.batchCorrection?.draft:this.state[form.id==='single-form'?'draft':'batchDraft'];
         if(!draft)return;const key=select.name==='weightUnit'?'weight':'height',old=draft[select.name]||(key==='weight'?'g':'cm'),next=select.value;
-        const input=form.querySelector('[name="'+key+'"]');if(!input||old===next||!input.value.trim())return;
-        try{const places=u=>u==='kg'?3:u==='m'?2:0;input.value=String(ClinicalEngine.shiftDecimal(ClinicalEngine.decimal(input.value,'measureUnitInvalid'),places(old)-places(next)));}
-        catch(_){/* Keep invalid text for explicit validation; never erase an unfinished input. */}
+        const input=form.querySelector('[name="'+key+'"]');if(!input)return false;
+        const allowed=key==='weight'?['g','kg']:['cm','m'];
+        if(!allowed.includes(old)||!allowed.includes(next))return false;
+        if(old===next||!input.value.trim())return true;
+        try{
+            const places=u=>u==='kg'?3:u==='m'?2:0,amount=ClinicalEngine.decimal(input.value,'measureUnitInvalid');
+            const converted=ClinicalEngine.shiftDecimal(amount,places(old)-places(next));
+            if(!Number.isFinite(converted)||ClinicalEngine.shiftDecimal(amount,places(old))!==ClinicalEngine.shiftDecimal(converted,places(next)))return false;
+            input.value=String(converted);
+            return true;
+        }catch(_){return false;/* Keep invalid text for explicit validation. */}
     }
     readForms() {
         for (const prefix of ['single','batch']) {

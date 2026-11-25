@@ -29,7 +29,28 @@ class HistoryManager {
         // Compare content, not navigation or optional empty controls populated by the DOM.
         // Never strip identifiers, result timestamps, reference versions or real observations.
         const numericControls=new Set(['ageYears','ageMonths','ageTotalMonths','ageDays','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays','weight','height','muac',...SupplementaryHistory.fields]);
-        const draft=value=>!HistoryManager.hasDraftWork(value)?null:Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>[k,numericControls.has(k)&&typeof v==='number'&&Number.isFinite(v)?String(v):v]).sort(([a],[b])=>a<b?-1:a>b?1:0));
+        const draft=value=>{
+            if(!HistoryManager.hasDraftWork(value))return null;
+            const comparable={...value};
+            for(const [field,unitKey,base,alternative,places] of [
+                ['weight','weightUnit','g','kg',3],['height','heightUnit','cm','m',2]
+            ]){
+                const unit=value[unitKey]||base;
+                if(unit!==base&&unit!==alternative)continue;
+                try{
+                    const amount=value[field];
+                    if(amount!==undefined&&amount!==null&&amount!==''){
+                        const canonical=ClinicalEngine.shiftDecimal(ClinicalEngine.decimal(amount,'measureUnitInvalid'),unit===alternative?places:0);
+                        if(!Number.isFinite(canonical))continue;
+                        comparable[field]=String(canonical);
+                    }
+                    delete comparable[unitKey];
+                }catch(_){/* An unfinished value and its unit are both part of the draft. */}
+            }
+            return Object.fromEntries(Object.entries(comparable).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>[
+                k,numericControls.has(k)&&typeof v==='number'&&Number.isFinite(v)?String(v):v
+            ]).sort(([a],[b])=>a<b?-1:a>b?1:0));
+        };
         const {mode,draft:singleDraft,batchDraft,...rest}=workspace;
         return JSON.stringify({...Object.fromEntries(Object.entries(rest).sort(([a],[b])=>a<b?-1:a>b?1:0)),draft:draft(singleDraft),batchDraft:draft(batchDraft)});
     }

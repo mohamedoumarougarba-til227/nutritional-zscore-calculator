@@ -358,6 +358,22 @@ test('numeric draft controls restored as strings do not create a duplicate archi
     assert.equal(store.records.sessions.length,1);
 });
 
+test('equivalent measurement units do not create a new version but a changed quantity does',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    work.draft={name:'FICTIF-UNIT',weight:'12710',weightUnit:'g',height:'77,5',heightUnit:'cm'};
+    assert.ok(await history.save(work,'automatic'));
+    const formatted=structuredClone(work);
+    Object.assign(formatted.draft,{weight:'12,71',weightUnit:'kg',height:'٠٫٧٧٥',heightUnit:'m'});
+    assert.equal(await history.save(formatted,'manual',true),null);
+    formatted.draft.height='0.776';
+    assert.ok(await history.save(formatted,'automatic'));
+    formatted.draft.height='unfinished';
+    const signature=HistoryManager.signature(formatted);
+    formatted.draft.heightUnit='cm';
+    assert.notEqual(HistoryManager.signature(formatted),signature);
+    assert.equal(store.records.sessions.length,2);
+});
+
 test('update notices dismiss without removing update or retry actions from Settings',()=>{
  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language:'fr',theme:'light',growthProfile:'who'},updateError:'updateFailedHelp',offlineRegistration:{waiting:{}}});
  const old=global.document;global.document={getElementById:()=>null};
