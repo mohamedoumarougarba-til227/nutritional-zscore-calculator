@@ -796,13 +796,13 @@ class WorkspaceApp {
     }
     batchOtherFieldsHTML(context){
         const d=context.draft,original=context.entry.child,ig=d.growthProfile==='intergrowth',t=k=>this.esc(this.t(k));
-        const group=(key,content)=>'<section class="other-fields-group"><h3>'+t(key)+'</h3><div class="form-grid">'+content+'</div></section>';
+        const group=(key,content,kind)=>'<section class="other-fields-group other-fields-'+kind+'"><h3>'+t(key)+'</h3><div class="other-fields-grid">'+content+'</div></section>';
         const field=(key,type='text',attrs='')=>'<div class="field"><label for="correction-'+key+'">'+t(key)+'</label><input id="correction-'+key+'" name="'+key+'" type="'+type+'" value="'+this.esc(d[key])+'" '+attrs+'></div>';
         const select=(key,options,current=d[key],label=key)=>'<div class="field"><label for="correction-'+key+'">'+t(label)+'</label><select id="correction-'+key+'" name="'+key+'">'+options.map(([value,text])=>'<option value="'+this.esc(value)+'"'+(String(current??'')===value?' selected':'')+'>'+this.esc(this.t(text))+'</option>').join('')+'</select></div>';
         const tri=[['','unknown'],['n','no'],['y','yes']],profile=select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']],d.growthProfile,'growthProfileVisit');
         const protocol=select('careProtocol',[['','careWHO'],['niger2025','careNiger2025'],['niger2023','careNiger2023']],d.careProtocol==='who2023'?'':d.careProtocol);
         const modes=(ig?['days','dates','pma']:['days','totalMonths','months','dates']).map(k=>[k,k]);
-        const ageMode=select('ageMode',modes,d.ageMode);
+        const ageMode=select('ageMode',modes,d.ageMode).replace('<label for="correction-ageMode">','<label class="sr-only" for="correction-ageMode">');
         const ageOldKeys=WorkspaceApp.correctionAgeFields(original.ageMode);
         const oldAge=ageOldKeys.map(k=>t(k)+' : '+this.esc(k==='birthDate'&&original[k]?this.calendarDate(original[k]):original[k]??(k==='ageTotalMonths'?original.totalAgeMonths:null)??this.t('unknown'))).join(' · ');
         const oldAgeHTML='<p class="hint other-age-original">'+t('batchPreviousAge')+' : '+t(original.ageMode)+' · '+oldAge+'</p>';
@@ -816,12 +816,22 @@ class WorkspaceApp {
         const clinical=select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])+NutritionUI.dangerFields.map(k=>select(k,tri)).join('')+select('acuteProblem',tri)+select('appetite',[['','unknown'],['good',d.careProtocol==='niger2025'?'pcima2025AppetitePassed':d.careProtocol==='niger2023'?'pcimaAppetitePassed':'appetiteGood'],['poor','appetitePoor']])+select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])+NutritionUI.observationsFor(d).map(k=>select(k,tri)).join('');
         const supplements=field('headCircumference','text','inputmode="decimal"')+(!ig||SupplementaryUI.present(d.tricepsSkinfold)||SupplementaryUI.present(d.subscapularSkinfold)?field('tricepsSkinfold','text','inputmode="decimal"')+field('subscapularSkinfold','text','inputmode="decimal"'):'');
         const position=ig&&d.position==='H'?select('position',[['','unknown'],['L','lying'],['H','standing']]):'';
-        return '<form id="correction-form" class="clinical-entry-form batch-other-fields" novalidate>'+group('settingsClinical',profile+protocol)+group('ageMode',ageMode+oldAgeHTML+ageInputs+gestation)+group('batchDisplayUnit',unit('weight',['g','kg'],'weightUnit')+unit('height',['cm','m'],'heightUnit'))+group('additionalMeasures',supplements+position)+(ig&&(SupplementaryUI.present(d.tricepsSkinfold)||SupplementaryUI.present(d.subscapularSkinfold))?'<p class="notice warn">'+t('intergrowthUnsupportedMeasures')+'</p>':'')+group('clinicalSection',clinical)+'<div id="correction-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>';
+        return '<form id="correction-form" class="clinical-entry-form batch-other-fields" novalidate>'+group('settingsClinical',profile+protocol,'references')+group('ageMode',ageMode+oldAgeHTML+ageInputs+gestation,'age')+group('batchDisplayUnit',unit('weight',['g','kg'],'weightUnit')+unit('height',['cm','m'],'heightUnit'),'units')+group('additionalMeasures',supplements+position,'supplements')+(ig&&(SupplementaryUI.present(d.tricepsSkinfold)||SupplementaryUI.present(d.subscapularSkinfold))?'<p class="notice warn">'+t('intergrowthUnsupportedMeasures')+'</p>':'')+group('clinicalSection',clinical,'clinical')+'<div id="correction-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>';
+    }
+    batchCorrectionDialogHTML(context){
+        const t=k=>this.esc(this.t(k)),child=context.entry.child;
+        const info='<details class="other-fields-help"><summary title="'+t('batchOtherFieldsHelp')+'" aria-label="'+this.esc(this.t('helpAbout')+' '+this.t('batchOtherFields'))+'">'+this.icon('info')+'</summary><p>'+t('batchOtherFieldsHelp')+'</p></details>';
+        const identity='<span class="other-fields-identity"><bdi>'+this.esc(child.name||this.t('unknown'))+'</bdi>'+(child.caseId?' <span aria-hidden="true">·</span> <bdi>'+this.esc(child.caseId)+'</bdi>':'')+'</span>';
+        const actions='<div class="other-fields-actions">'+this.toolButton('batchSaveChanges','save','save-batch-correction',{primary:true})+this.toolButton('close','close','close-dialog')+'</div>';
+        return '<div class="dialog-top other-fields-heading">'+info+'<h2 id="dialog-title">'+t('batchOtherFields')+'</h2>'+identity+actions+'</div><div class="dialog-body" role="region" aria-labelledby="dialog-title" tabindex="0"><p id="correction-progress" role="status" aria-live="polite"></p>'+this.batchOtherFieldsHTML(context)+'</div>';
     }
     renderBatchCorrection(focus='correction-growthProfile') {
         const context=this.batchCorrection;if(!context)return;
         const previousMode=context.draft.ageMode,previousProfile=context.draft.growthProfile;
-        this.dialog('batchOtherFields','<p><bdi>'+this.esc(context.entry.child.name||context.entry.child.caseId||this.t('unknown'))+'</bdi> · <bdi>'+this.esc(context.entry.child.caseId||'')+'</bdi></p><p class="hint">'+this.t('batchOtherFieldsHelp')+'</p><p id="correction-progress" role="status" aria-live="polite"></p>'+this.batchOtherFieldsHTML(context),'<button class="btn primary" data-action="save-batch-correction">'+this.t('batchSaveChanges')+'</button>');
+        const dialog=document.getElementById('workspace-dialog');
+        dialog.classList.remove('csv-mapping-dialog');dialog.classList.add('batch-other-fields-dialog');
+        dialog.innerHTML=this.batchCorrectionDialogHTML(context);
+        if(!dialog.open)dialog.showModal();
         const form=document.getElementById('correction-form');
         form.addEventListener('submit',event=>{event.preventDefault();this.saveBatchCorrection();});
         form.addEventListener('change',event=>{
@@ -1440,7 +1450,7 @@ class WorkspaceApp {
         catch(error){if(current()){this.render('batch-results-title');this.toast('unsaved',true);}}
         finally{this.csvBusy=false;this.updateCSVControls();}
     }
-    dialog(title,html,buttons='') {const d=document.getElementById('workspace-dialog');d.classList?.toggle('csv-mapping-dialog',title==='csvMapping');d.innerHTML=`<div class="dialog-top"><h2 id="dialog-title">${this.t(title)}</h2><button class="btn" data-action="close-dialog" aria-label="${this.t('close')}">×</button></div><div class="dialog-body" role="region" aria-labelledby="dialog-title" tabindex="0">${html}</div><div class="toolbar">${buttons}<button class="btn" data-action="close-dialog">${this.t('close')}</button></div>`;if(!d.open)d.showModal();}
+    dialog(title,html,buttons='') {const d=document.getElementById('workspace-dialog');d.classList?.remove('batch-other-fields-dialog');d.classList?.toggle('csv-mapping-dialog',title==='csvMapping');d.innerHTML=`<div class="dialog-top"><h2 id="dialog-title">${this.t(title)}</h2><button class="btn" data-action="close-dialog" aria-label="${this.t('close')}">×</button></div><div class="dialog-body" role="region" aria-labelledby="dialog-title" tabindex="0">${html}</div><div class="toolbar">${buttons}<button class="btn" data-action="close-dialog">${this.t('close')}</button></div>`;if(!d.open)d.showModal();}
     async previewSession(row){
         const epoch=this.renderEpoch,request=this.previewRequest=(this.previewRequest||0)+1;let session;
         try{session=await this.history.version(row);}catch(_){if(request===this.previewRequest)this.toast('historyReadFailed',true);return;}

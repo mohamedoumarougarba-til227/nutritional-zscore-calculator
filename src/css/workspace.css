@@ -880,3 +880,39 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  .batch-record-value,.batch-record-score-content{align-self:start}
 }
 @media(max-width:340px){.batch-record-notes{grid-column:1}}
+
+/* Focused batch editor: compact header actions and responsive field groups. */
+#workspace-dialog.batch-other-fields-dialog{width:min(1200px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);padding:14px 18px;gap:8px;border-radius:12px}
+.batch-other-fields-dialog>.other-fields-heading{display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:0 0 8px;border-bottom:1px solid var(--line);position:relative;z-index:2}
+.other-fields-heading h2{font-size:19px;flex:0 0 auto;line-height:1.25}
+.other-fields-identity{font-size:13px;color:var(--muted);min-width:0;overflow-wrap:anywhere;margin-inline-start:6px}
+.other-fields-actions{margin-inline-start:auto;display:flex;gap:6px;flex-shrink:0}
+.other-fields-heading .other-fields-actions button{width:38px;height:38px;min-height:38px;padding:7px}
+.other-fields-help{position:relative;flex-shrink:0}
+.other-fields-help>summary{list-style:none;display:grid;place-items:center;width:32px;height:32px;cursor:pointer;border-radius:5px;color:var(--accent)}
+.other-fields-help>summary::-webkit-details-marker{display:none}
+.other-fields-help>summary:focus-visible{outline:2px solid var(--accent)}
+.other-fields-help>summary .ui-icon{width:18px;height:18px}
+.other-fields-help[open]>summary{background:var(--accent-soft)}
+.other-fields-help>p{position:absolute;inset-inline-start:0;top:calc(100% + 5px);z-index:3;width:min(410px,calc(100vw - 76px));margin:0;padding:12px;background:var(--surface);border:1px solid var(--control-line);border-radius:8px;box-shadow:var(--shadow);font-size:13px;line-height:1.45;max-height:45dvh;overflow:auto}
+.batch-other-fields-dialog>.dialog-body{padding:2px;min-height:0}
+.batch-other-fields-dialog #correction-progress{margin:0;font-size:12px}
+.batch-other-fields-dialog #correction-progress:empty{display:none}
+.batch-other-fields-dialog .batch-other-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.batch-other-fields-dialog .other-fields-group{grid-column:1/-1;padding:8px 10px}
+.batch-other-fields-dialog .other-fields-age,.batch-other-fields-dialog .other-fields-units{grid-column:auto}
+.batch-other-fields-dialog .other-fields-group h3{font-size:14px;line-height:1.3;margin:0 0 6px}
+.batch-other-fields-dialog .other-fields-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 12px;align-items:end}
+.batch-other-fields-dialog .other-fields-age .other-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.batch-other-fields-dialog .other-fields-age .other-fields-grid>.field:first-child{grid-column:1/-1}
+.batch-other-fields-dialog .other-fields-supplements .other-fields-grid,.batch-other-fields-dialog .other-fields-clinical .other-fields-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.batch-other-fields-dialog .other-fields-grid>.field{grid-column:auto;min-width:0;margin:0;display:block}
+.batch-other-fields-dialog .other-fields-grid label{display:block;font-size:12px;line-height:1.35;margin-bottom:3px}
+.batch-other-fields-dialog .other-fields-grid label.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0}
+.batch-other-fields-dialog .other-fields-grid input,.batch-other-fields-dialog .other-fields-grid select{width:100%;min-width:0;min-height:34px;height:auto;padding:5px 8px;font-size:13px}
+.batch-other-fields-dialog .other-age-original{grid-column:1/-1;font-size:11px;line-height:1.35}
+.batch-other-fields-dialog .batch-other-fields>.notice{grid-column:1/-1;margin:0}
+@media(max-width:780px){.batch-other-fields-dialog .other-fields-supplements .other-fields-grid,.batch-other-fields-dialog .other-fields-clinical .other-fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){#workspace-dialog.batch-other-fields-dialog{width:calc(100vw - 16px);max-width:calc(100vw - 16px);padding:10px;max-height:calc(100dvh - 16px)}.batch-other-fields-dialog>.other-fields-heading{flex-wrap:wrap;gap:5px}.other-fields-heading h2{font-size:16px}.other-fields-identity{order:4;flex-basis:100%;margin:0;font-size:12px}.batch-other-fields-dialog .batch-other-fields{grid-template-columns:1fr}.batch-other-fields-dialog .other-fields-age,.batch-other-fields-dialog .other-fields-units{grid-column:1/-1}}
+@media(max-width:380px){.batch-other-fields-dialog .other-fields-grid,.batch-other-fields-dialog .other-fields-supplements .other-fields-grid,.batch-other-fields-dialog .other-fields-clinical .other-fields-grid{grid-template-columns:1fr}.batch-other-fields-dialog .other-fields-age .other-fields-grid{grid-template-columns:1fr}}
+@media(pointer:coarse){.other-fields-heading .other-fields-actions button{width:44px;height:44px;min-height:44px}.other-fields-help>summary{width:44px;height:44px}.batch-other-fields-dialog .other-fields-grid input,.batch-other-fields-dialog .other-fields-grid select{min-height:42px}}

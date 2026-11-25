@@ -247,3 +247,21 @@ test('compact screening filters cover every stored category and notes stay below
  assert.ok(html.includes('Œdèmes bilatéraux\nau godet'));
  assert.equal(JSON.stringify(app.state),before);
 });
+
+test('compact contextual dialog places escaped identity, accessible SVG actions and help in header; retains conditional groups in all languages',()=>{
+ const entry=engine.calculate(input({name:'<TEST>',careProtocol:'niger2025'}));
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations});
+  const context={entry,draft:entry.child,units:{weight:'g',height:'cm'}},html=app.batchCorrectionDialogHTML(context);
+  const top=html.slice(0,html.indexOf('<div class="dialog-body"'));
+  assert.ok(top.includes('id="dialog-title"'));assert.ok(top.includes('&lt;TEST&gt;'));assert.ok(!top.includes('<TEST>'));
+  assert.ok(top.indexOf('other-fields-help')<top.indexOf('id="dialog-title"'));
+  assert.ok(top.indexOf('data-action="save-batch-correction"')<top.indexOf('data-action="close-dialog"'));
+  assert.equal((html.match(/data-action="save-batch-correction"/g)||[]).length,1);
+  assert.equal((html.match(/data-action="close-dialog"/g)||[]).length,1);
+  assert.ok(top.includes('aria-label="'+app.esc(app.t('batchSaveChanges'))+'"'));assert.ok(top.includes('<svg'));
+  assert.ok(!html.includes('class="toolbar"'));assert.ok(!html.slice(top.length).includes(app.esc(app.t('batchOtherFieldsHelp'))));
+  for(const kind of ['references','age','units','supplements','clinical'])assert.ok(html.includes('other-fields-'+kind));
+  assert.ok(html.includes('id="correction-progress"'));assert.ok(html.includes('id="correction-error"'));assert.ok(html.includes('name="maternalDanger"'));
+ }
+});
