@@ -584,7 +584,7 @@ class WorkspaceApp {
     batchDisplayView(){
         const query=this.historySearchKey(this.batchSearch||''),filter=this.batchFilter||'all',size=8;
         const signalled=filter==='quality'?new Set(QualityUI.build(this.state.batch).rows.filter(r=>r.codes.length).map(r=>r.index-1)):null;
-        const rows=this.state.batch.map((entry,index)=>({entry,index})).filter(({entry})=>{
+        const rows=this.state.batch.map((entry,index)=>({entry,index})).filter(({entry,index})=>{
             const {child,result}=entry;
             return (!query||this.historySearchKey([child.name,child.caseId,child.measurementDate].filter(Boolean).join(' ')).includes(query))&&(filter==='all'||(filter==='quality'?signalled.has(index):filter==='pending'?!result:result?.nutrition?.category===filter));
         });
