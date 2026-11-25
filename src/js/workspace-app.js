@@ -614,7 +614,7 @@ class WorkspaceApp {
         const next=HistoryManager.clone(workspace);next.batch[index]={child,result:null};return next;
     }
     batchEditable(child,index,key,label,display,unit=''){
-        const ctx=this.batchInlineEdit,active=ctx?.workspace===this.state&&ctx.index===index&&ctx.entry===this.state?.batch?.[index]&&ctx.key===key,id='batch-inline-'+index+'-'+key,name=this.esc(label);
+        const ctx=this.batchInlineEdit,active=!!ctx&&ctx.workspace===this.state&&ctx.index===index&&ctx.entry===this.state?.batch?.[index]&&ctx.key===key,id='batch-inline-'+index+'-'+key,name=this.esc(label);
         if(!active)return '<button type="button" class="batch-inline-value" id="'+id+'" data-action="batch-inline-open" data-index="'+index+'" data-field="'+key+'" title="'+this.esc(this.t('batchInlineEdit')+' · '+label)+'" aria-label="'+this.esc(this.t('batchInlineEdit')+' · '+label+' : '+display)+'"><bdi dir="auto">'+this.esc(display)+'</bdi>'+this.icon('edit')+'</button>';
         const choices={gender:[['M','male'],['F','female']],position:[['','unknown'],['L','lying'],['H','standing']],oedema:[['','unknown'],['n','no'],['y','yes']]},disabled=ctx.busy?' disabled':'';
         const control=choices[key]?'<select id="'+id+'" data-inline-input aria-label="'+name+'"'+disabled+'>'+choices[key].map(([v,k])=>'<option value="'+v+'"'+(ctx.value===v?' selected':'')+'>'+this.esc(this.t(k))+'</option>').join('')+'</select>':'<input id="'+id+'" data-inline-input aria-label="'+name+'" type="'+(['birthDate','measurementDate'].includes(key)?'date':'text')+'"'+(!['name','caseId','birthDate','measurementDate'].includes(key)?' inputmode="decimal"':'')+' value="'+this.esc(ctx.value)+'"'+disabled+'>';
@@ -627,7 +627,7 @@ class WorkspaceApp {
     }
     openBatchInline(index,key){
         if(this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy||this.batchInlineEdit?.busy)return;
-        if(this.batchInlineEdit?.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
+        if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
         const entry=this.state.batch[index];if(!Number.isInteger(index)||index<0||!entry||!WorkspaceApp.inlineBatchFields.includes(key))return;
         const unit=['weight','height'].includes(key)?this.batchUnit(key):'',raw=unit?WorkspaceApp.batchDisplayMeasure(entry.child[key],key,unit):key==='ageTotalMonths'?entry.child.ageTotalMonths??entry.child.totalAgeMonths:entry.child[key];
         this.batchInlineEdit={workspace:this.state,index,entry,key,unit,value:String(raw??''),initial:String(raw??''),busy:false};
@@ -775,7 +775,7 @@ class WorkspaceApp {
             const index=indices?.[i]??offset+i;
             const identity=`<bdi dir="auto" class="item-title">${this.esc(child.name||child.caseId||this.t('unknown'))}</bdi><div class="item-sub"><bdi dir="auto">${this.esc(child.name?child.caseId||'':'')}</bdi></div>${child.measurementDate?`<div class="${compact?'sr-only':'item-sub'}">${this.esc(this.t('measurementDate'))} : <bdi>${this.esc(this.calendarDate(child.measurementDate))}</bdi></div>`:''}${result?.nutrition?`<div class="item-sub">${this.t('muac')} : ${result.nutrition.muacMm==null?this.t('unknown'):this.esc(this.number(result.nutrition.muacMm,1))+' mm'}</div>${compact?`<details class="row-assessment ${result.nutrition.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(result.nutrition.orientation)?'clinical-urgent':''}"><summary>${this.esc(this.t(result.nutrition.category+'Short'))} · ${this.esc(this.t(result.nutrition.orientation+'Short'))}</summary><p>${this.esc(this.t(result.nutrition.category))}</p><p>${this.esc(this.t(result.nutrition.orientation))}</p><p>${(result.nutrition.criteria||[]).map(k=>this.esc(this.t(k))).join(' · ')}</p>${result.referenceFamily==='INTERGROWTH2015'?(result.warnings||[]).map(note).join(''):''}</details>`:`<div class="item-sub">${this.esc(this.t(result.nutrition.category))} · ${this.esc(this.t(result.nutrition.orientation))}</div>`}`:''}${this.additionalResultsHTML(result)}${!result?note('notCalculated'):''}${result?.imported&&!compact?note('importedResult'):''}${(result?.warnings||[]).filter(key=>!compact||result?.referenceFamily!=='INTERGROWTH2015'&&key!=='estimatedAge').map(note).join('')}`;
             const displayIdentity=visual?`<bdi dir="auto" class="item-title">${this.esc(child.name||child.caseId||this.t('unknown'))}</bdi><div class="item-sub"><bdi>${this.esc(child.name?child.caseId||'':'')}</bdi> · ${this.esc(this.calendarDate(child.measurementDate))}</div>${result?.imported?note('importedResult'):''}${(result?.warnings||[]).filter(k=>k!=='estimatedAge').map(note).join('')}`:identity;
-            const n=result?.nutrition,screening=n?`<div class="batch-screening ${n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation)?'clinical-urgent':''}"><strong>${this.esc(this.t(n.category+'Short'))}</strong><div>${this.esc(this.t(n.orientation+'Short'))}</div>${(n.criteria||[]).map(k=>`<div class="item-sub">${this.esc(this.t(k))}</div>`).join('')}</div>`:note('notCalculated');
+            const n=result?.nutrition,screening=n?`<div class="batch-screening ${n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation)?'clinical-urgent':''}"><strong>${this.esc(this.t(n.category+'Short'))}</strong><div>${this.esc(this.t(n.orientation+'Short'))}</div>${(n.criteria||[]).map(k=>`<div class="item-sub">${this.esc(this.t(k))}</div>`).join('')}</div>`:note(result?(result.referenceFamily==='INTERGROWTH2015'?'pdfScreeningNA':'unknown'):'notCalculated');
             return `<tr role="row"${visual&&!result?' class="pending-batch-row"':''}>${cell('name',displayIdentity+(visual?`<button class="btn row-preview" data-action="quality-view" data-index="${index}">${this.icon('info')}${this.t('preview')}</button>`:'')+(editable?`<button type="button" id="batch-correct-${index}" class="btn row-correction" data-action="batch-correct" data-index="${index}" aria-label="${this.esc(this.t('batchCorrectionEdit')+' · '+this.t('qualityRecord')+' '+this.number(index+1,0)+' · '+(child.name||child.caseId||this.t('unknown')))}">${this.icon('edit')}<span>${this.t('batchCorrectionEdit')}</span></button>`:''))}${cell('weight',visual?this.batchMeasureHTML(child,index,'weight'):number(child.weight,0))}${cell('height',visual?this.batchMeasureHTML(child,index,'height'):number(child.height,1))}${visual?cell('muac',this.batchEditable(child,index,'muac',this.t('muac'),this.number(child.muac,1)))+cell('uiScreening',screening):''}${indicators.map(key=>{
                 if(visual&&!result)return cell(key,`<span class="pending-score" title="${this.esc(this.t('notCalculated'))}"><span aria-hidden="true">—</span><span class="sr-only">${this.esc(this.t('notCalculated'))}</span></span>`);
                 const value=key==='bmiForAge'&&result?.schemaVersion!==4?null:result?.[key],hasValue=typeof value?.zscore==='number'&&Number.isFinite(value.zscore);
@@ -906,7 +906,7 @@ class WorkspaceApp {
         });
         document.getElementById('app-root').addEventListener('input', event => {
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
-            if(event.target.id==='batch-search'){if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchSearch||'';return;}this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
+            if(event.target.id==='batch-search'){if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state){event.target.value=this.batchSearch||'';return;}this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
             if(event.target.id==='reference-search'){const query=this.historySearchKey(event.target.value);document.querySelectorAll('.reference-grid>section').forEach(section=>{section.hidden=!!query&&!this.historySearchKey(section.textContent).includes(query);});return;}
             if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
@@ -919,13 +919,13 @@ class WorkspaceApp {
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
             if(event.target.dataset?.batchUnit){
                 const key=event.target.dataset.batchUnit,unit=event.target.value,id=event.target.id;
-                if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchUnit(key);this.toast('batchInlineFinish',true);return;}
+                if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state){event.target.value=this.batchUnit(key);this.toast('batchInlineFinish',true);return;}
                 if(key==='weight'&&['g','kg'].includes(unit))this.batchWeightUnit=unit;
                 if(key==='height'&&['cm','m'].includes(unit))this.batchHeightUnit=unit;
                 this.refreshBatchBrowser();document.getElementById(id)?.focus();return;
             }
             if(event.target.id==='history-filter'){this.historyFilter=event.target.value;this.historyPage=0;this.renderHistoryList();return;}
-            if(event.target.id==='batch-filter'){if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchFilter||'all';this.toast('batchInlineFinish',true);return;}this.batchFilter=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
+            if(event.target.id==='batch-filter'){if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state){event.target.value=this.batchFilter||'all';this.toast('batchInlineFinish',true);return;}this.batchFilter=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.name === 'ageMode') {
                 const form = event.target.closest('form'); form.querySelectorAll('[data-age]').forEach(div => { div.hidden = div.dataset.age !== event.target.value; });
                 const prefix=form.id==='single-form'?'single':'batch';this.readForms();const draft=prefix==='single'?this.state.draft:this.state.batchDraft;
@@ -1035,7 +1035,7 @@ class WorkspaceApp {
         if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
         if(action==='batch-inline-save'){await this.saveBatchInline();return;}
         if(action==='batch-inline-cancel'){this.cancelBatchInline();return;}
-        if(this.batchInlineEdit?.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
+        if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
         if(action==='batch-layout'){if(['table','records'].includes(button.dataset.value)){this.batchRecordLayout=button.dataset.value;this.refreshBatchBrowser();document.querySelector?.('[data-action="batch-layout"][data-value="'+button.dataset.value+'"]')?.focus();}return;}
         this.readForms();
         button.closest?.('.mobile-actions-dialog')?.close();
