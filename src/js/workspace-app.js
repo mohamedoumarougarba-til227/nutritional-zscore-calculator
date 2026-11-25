@@ -462,6 +462,7 @@ class WorkspaceApp {
     formSectionSummary(prefix,title,help,brief='') {
         return `<summary class="form-section-summary"><span class="form-section-title">${this.t(title)}</span>${this.infoButton(help,title,`${prefix}-${help}-section-info`)}${brief?`<span class="form-section-brief">${this.esc(this.t(brief))}</span>`:''}</summary>`;
     }
+    static compactEntryForm(prefix){return prefix==='single'||prefix==='batch';}
     additionalFormHTML(prefix,data,ig,field) {
         const skinfolds=['tricepsSkinfold','subscapularSkinfold'];
         const hasSkinfolds=skinfolds.some(key=>SupplementaryUI.present(data[key]));
@@ -472,10 +473,10 @@ class WorkspaceApp {
         const fields=(ig?'':field('headCircumference','number','min="25" max="64" step="0.1" inputmode="decimal"'))
             +field('tricepsSkinfold','number',numeric)+field('subscapularSkinfold','number',numeric);
         const clear=ig?`<button type="button" class="btn" data-action="clear-unsupported-skinfolds" data-prefix="${prefix}">${this.t('clearUnsupportedSkinfolds')}</button>`:'';
-        return `<details class="additional-fields"${open?' open':''}>${prefix==='single'?this.formSectionSummary(prefix,summaryKey,ig?'intergrowthUnsupportedMeasures':'additionalMeasureHelp',ig?'intergrowthUnsupportedMeasures':''):`<summary>${this.t(summaryKey)}</summary><p class="hint">${this.t(ig?'intergrowthUnsupportedMeasures':'additionalMeasureHelp')}</p>`}<div class="form-grid">${fields}</div>${clear}</details>`;
+        return `<details class="additional-fields"${open?' open':''}>${WorkspaceApp.compactEntryForm(prefix)?this.formSectionSummary(prefix,summaryKey,ig?'intergrowthUnsupportedMeasures':'additionalMeasureHelp',ig?'intergrowthUnsupportedMeasures':''):`<summary>${this.t(summaryKey)}</summary><p class="hint">${this.t(ig?'intergrowthUnsupportedMeasures':'additionalMeasureHelp')}</p>`}<div class="form-grid">${fields}</div>${clear}</details>`;
     }
     formHTML(prefix, data, batch = false) {
-        const ig=data.growthProfile==='intergrowth',compact=prefix==='single';
+        const ig=data.growthProfile==='intergrowth',compact=WorkspaceApp.compactEntryForm(prefix);
         const clinicalHelp=data.careProtocol==='niger2025'?'pcima2025Help':data.careProtocol==='niger2023'?'pcimaHelp':ig?'intergrowthNoScreening':'clinicalHelp';
         const clinicalBrief=ig?'uiClinicalPretermBrief':data.careProtocol==='niger2023'||data.careProtocol==='niger2025'?'uiClinicalPcimaBrief':'uiClinicalWhoBrief';
         const ageHelp=ig?'intergrowthAgeHelp':data.growthProfile==='us'?'usAgeHelp':'ageHint',positionHelp=ig?'intergrowthLengthRequired':'positionHint';

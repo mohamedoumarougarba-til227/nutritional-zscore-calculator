@@ -304,7 +304,7 @@ test('individual compact entry keeps each original input and age mode across pro
         for(const mode of profile==='intergrowth'?['days','dates','pma']:['days','dates','months','totalMonths']){
             const current={...draft,ageMode:mode},before=JSON.stringify(current),html=app.formHTML('single',current),batch=app.formHTML('batch',current,true);
             assert.ok(html.includes('entry-flow-grid'));assert.ok(!html.includes('entry-group-title'));
-            assert.ok(!batch.includes('entry-flow-grid'));
+            assert.equal(batch.replaceAll('batch-','single-').replaceAll('data-prefix="batch"','data-prefix="single"'),html);
             assert.ok(html.includes('data-info="growthProfileVisitHelp"'));assert.ok(html.includes('form-section-brief'));assert.ok(html.includes('data-info="'+(profile==='intergrowth'?'intergrowthNoScreening':'clinicalHelp')+'"'));
             if(profile!=='intergrowth')assert.ok(html.includes('data-info="additionalMeasureHelp"'));
             const fields=v=>[...v.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort();assert.deepEqual(fields(html),fields(batch));
@@ -329,10 +329,29 @@ test('individual age and unit selectors share their input field and preserve nat
         assert.equal((html.match(/ data-title-choice/g)||[]).length,3);
         assert.ok(html.includes('class="field title-age" data-field="ageMode"'));
         assert.equal((html.match(/class="field title-measurement"/g)||[]).length,2);
-        assert.ok(!batch.includes('data-title-choice'));
+        assert.equal((batch.match(/ data-title-choice/g)||[]).length,3);
         assert.ok(html.includes('class="entry-primary-row"'));assert.ok(html.includes('class="entry-measure-row"'));
-        assert.ok(html.includes('placeholder="'+app.t('ageYears')+'"'));assert.ok(html.includes('placeholder="'+app.t('uiMonthsShort')+'"'));assert.ok(!batch.includes('class="entry-primary-row"'));
+        assert.ok(html.includes('placeholder="'+app.t('ageYears')+'"'));assert.ok(html.includes('placeholder="'+app.t('uiMonthsShort')+'"'));assert.ok(batch.includes('class="entry-primary-row"'));
         assert.equal(app.choiceDisplay({dataset:{choicePrefix:app.t('weightMeasure')},selectedOptions:[{textContent:'kg'}]}),app.t('weightMeasure')+' (kg)');
         assert.equal(app.choiceDisplay({dataset:{choiceBirthLabel:app.t('birthDate')},value:'dates',selectedOptions:[{textContent:app.t('dates')}]}),app.t('birthDate'));
+    }
+});
+
+
+test('shared entry presentation preserves every field, screening help and correction dialog',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar'])for(const profile of ['who','us','intergrowth']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:profile}});
+        for(const careProtocol of profile==='who'?['','niger2023','niger2025']:['']){
+            const draft={...app.emptyDraft(profile),careProtocol,name:'FICTIF',caseId:'DEMO',weight:'9.2',weightUnit:'kg',height:'78.5',heightUnit:'cm',muac:'122',tricepsSkinfold:'7.5'};
+            for(const ageMode of profile==='intergrowth'?['days','dates','pma']:['days','totalMonths','months','dates']){
+                const current={...draft,ageMode},before=JSON.stringify(current);
+                const individual=app.formHTML('single',current),batch=app.formHTML('batch',current,true),correction=app.formHTML('correction',current);
+                assert.equal(batch.replaceAll('batch-','single-').replaceAll('data-prefix="batch"','data-prefix="single"'),individual);
+                assert.equal(JSON.stringify(current),before);
+                assert.ok(!correction.includes('data-title-choice'));assert.ok(correction.includes('entry-group-title'));
+                assert.deepEqual([...batch.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort(),[...correction.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort());
+            }
+        }
     }
 });
