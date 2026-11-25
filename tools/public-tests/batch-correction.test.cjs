@@ -243,7 +243,7 @@ test('compact screening filters cover every stored category and notes stay below
  const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:0});
  const before=JSON.stringify(app.state),options=app.batchKpiOptions();
  assert.deepEqual(options.map(k=>k.key),['pending',...categories]);assert.ok(options.every(k=>k.count===1));
- const filters=app.batchKpisHTML();assert.ok(!filters.includes('data-value="quality"'));assert.ok(filters.includes('data-value="all"'));
+ const filters=app.batchKpisHTML();assert.ok(!filters.includes('data-value="quality"'));assert.ok(!filters.includes('data-value="all"'));assert.ok(filters.includes('id="batch-select-all"'));
  for(const [i,key] of ['pending',...categories].entries()){app.batchFilter=key;assert.deepEqual(app.batchDisplayView().indices,[i]);}
  const html=app.batchRecordsHTML([entries[1]],[1]);
  const notes=html.indexOf('class="batch-record-notes"'),body=html.indexOf('class="batch-record-body"');
@@ -317,4 +317,29 @@ test('confirmed removals archive the full previous lot before publishing the new
   global.window={confirm:()=>true};failed.store.beforeWrite=()=>{throw Error('disk unavailable');};
   await assert.rejects(()=>failed.app.deleteBatchRows([0]),/disk unavailable/);assert.equal(failed.app.state,state);assert.equal(JSON.stringify(state),before);assert.equal(failed.app.batchDeleting,false);
  }finally{failed.restore();if(previous===undefined)delete global.window;else global.window=previous;}
+});
+
+test('global batch selection includes every row across pagination and filters and clears completely',()=>{
+ const base=engine.calculate(input()),entries=Array.from({length:13},(_,i)=>({child:{...base.child,caseId:'S-'+i},result:i%2?base.result:null}));
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:1,batchFilter:'pending'});
+ app.syncBatchSelection=()=>{};
+ app.toggleBatchSelection({id:'batch-select-all',checked:true});
+ assert.deepEqual([...app.batchSelectionSet()],Array.from({length:13},(_,i)=>i));
+ assert.ok(app.batchSelectionHTML().includes('id="batch-select-all"'));assert.ok(app.batchSelectionHTML().includes(' checked'));
+ app.toggleBatchSelection({id:'batch-select-all',checked:false});assert.equal(app.batchSelectionSet().size,0);
+});
+test('oedema warning is shown once per batch row, suspended scores keep their explicit status and deletion is separate',()=>{
+ const entry=engine.calculate(input({oedema:'y'})),app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace([entry]),prefs:{language:'fr'},translations});
+ const before=JSON.stringify(entry),html=app.batchRecordsHTML([entry],[0]),warning=app.esc(app.t('oedemaWarning'));
+ assert.equal(html.split(warning).length-1,1);assert.ok(html.includes(app.esc(app.t('pdfOedemaSuspended'))));
+ assert.ok(html.indexOf('class="batch-record-delete"')<html.indexOf('class="batch-record-identity"'));
+ assert.equal(JSON.stringify(entry),before);
+});
+test('quality controls are outside the native disclosure summary in every language',()=>{
+ const entry=engine.calculate(input()),state=workspace([{child:entry.child,result:null}]);
+ for(const language of ['fr','en','ar']){
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language},translations});
+ const html=app.qualityHTML({open:true}),summary=html.slice(html.indexOf('<summary>'),html.indexOf('</summary>'));
+ assert.ok(!summary.includes('data-action="quality-filter"'));assert.ok(html.indexOf('data-action="quality-filter"')>html.indexOf('</summary>'));
+ }
 });

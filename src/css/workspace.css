@@ -1033,3 +1033,17 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
   #history-view-versions .history-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
  }
 }
+
+/* Batch finishing: selection replaces the reset chip; row deletion is separate from editing. */
+#batch-view-results .batch-kpis>.batch-selection-bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:6px;margin:0;padding:2px 5px;border:1px solid var(--line);border-radius:6px;min-height:30px;flex-wrap:nowrap}
+.batch-select-all{display:inline-flex;align-items:center;justify-content:center;min-width:23px;min-height:26px;cursor:pointer}
+#batch-selected-count{min-width:2ch;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+.batch-record{position:relative}
+.batch-record-delete{position:absolute;inset-block-start:4px;inset-inline-end:4px;z-index:1}
+.batch-record-delete .icon-button{width:27px;height:27px;min-height:27px;padding:4px;color:var(--danger);background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.batch-record-delete .icon-button:hover,.batch-record-delete .icon-button:focus-visible{border-color:var(--danger);background:var(--warn-bg)}
+.batch-record-body{padding-inline-end:38px}
+.quality-review[open]>.quality-filter-row{margin-block:6px 10px}
+@media(pointer:coarse){.batch-select-all{min-width:40px;min-height:40px}.batch-record-delete .icon-button{width:40px;height:40px;min-height:40px}.batch-record-body{padding-inline-end:48px}}
+@media(max-width:750px){.batch-record-identity{padding-inline-end:38px}.batch-record-body{padding-inline-end:10px}}
+@media print{.batch-record-delete,.batch-selection-bar{display:none!important}.batch-record-body{padding-inline-end:10px}}
