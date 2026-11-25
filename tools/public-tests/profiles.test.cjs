@@ -394,7 +394,7 @@ test('lot counters belong only to the list panel and do not consume entry, quali
   for(const pane of ['entry','results','quality','statistics']){
    app.batchPane=pane;const html=app.batchHTML(),start=html.indexOf('id="batch-view-results"'),end=html.indexOf('id="batch-view-quality"'),overview=html.indexOf('class="batch-kpis"');
    assert.ok(start>=0&&overview>start&&overview<end);
-   assert.equal((html.match(/class="batch-kpi"/g)||[]).length,4);
+   assert.equal((html.match(/class="batch-kpi"/g)||[]).length,7);
    assert.ok(html.indexOf('class="workspace-view-nav"')<html.indexOf('id="measure-card"'));
   }
  }
@@ -411,7 +411,7 @@ test('batch contextual help and list filters preserve data and distinct referenc
   assert.ok(!app.batchBrowserHTML().includes('batch-record-toolbar'));
   assert.ok(!app.batchBrowserHTML().includes('batch-record-results'));
   assert.ok(html.includes('data-action="batch-kpi-filter"'));
-  assert.ok(html.includes('value="quality"'));
+  assert.ok(!html.includes('id="batch-filter"'));assert.ok(!html.includes('data-value="quality"'));assert.ok(html.includes('data-value="pending"'));
   assert.ok(html.includes('data-info="qualityHelp"'));
   assert.ok(html.includes('data-info="qualityExportHelp"'));assert.ok(html.includes('data-info="analysisPreparationHelp"'));
   assert.ok(html.includes('data-info="lotHelpWho"'));assert.ok(html.includes('class="lot-summary-reference"'));

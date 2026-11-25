@@ -230,3 +230,20 @@ test('preterm contextual editor always shows the applicable PMA or birth gestati
   assert.ok(!html.includes('name="tricepsSkinfold"'));
  }
 });
+
+test('compact screening filters cover every stored category and notes stay below identity, without modifying scores',()=>{
+ const entry=engine.calculate(input()),categories=['nutritionModerateCriteria','nutritionSevere','nutritionNoCriteria','nutritionIncomplete','nutritionAgeUnsupported','intergrowthNoScreening'];
+ const entries=[{child:entry.child,result:null},...categories.map(category=>({child:entry.child,result:{...entry.result,nutrition:{...entry.result.nutrition,category}}}))];
+ entries[1].result.imported=true;entries[1].result.warnings=['estimatedAge','oedemaWarning'];
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:0});
+ const before=JSON.stringify(app.state),options=app.batchKpiOptions();
+ assert.deepEqual(options.map(k=>k.key),['pending',...categories]);assert.ok(options.every(k=>k.count===1));
+ const filters=app.batchKpisHTML();assert.ok(!filters.includes('data-value="quality"'));assert.ok(filters.includes('data-value="all"'));
+ for(const [i,key] of ['pending',...categories].entries()){app.batchFilter=key;assert.deepEqual(app.batchDisplayView().indices,[i]);}
+ const html=app.batchRecordsHTML([entries[1]],[1]);
+ const notes=html.indexOf('class="batch-record-notes"'),body=html.indexOf('class="batch-record-body"');
+ assert.ok(notes>html.indexOf('class="batch-record-person"')&&notes<body);
+ assert.ok(html.slice(notes,body).includes(app.esc(app.t('oedemaWarning'))));
+ assert.ok(html.includes('Œdèmes bilatéraux\nau godet'));
+ assert.equal(JSON.stringify(app.state),before);
+});
