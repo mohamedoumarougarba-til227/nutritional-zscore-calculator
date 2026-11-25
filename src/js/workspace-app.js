@@ -160,6 +160,7 @@ class WorkspaceApp {
             close: '<path d="m6 6 12 12M6 18 18 6"/>',
             edit: '<path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/>',
             save: '<path d="M5 3h12l4 4v14H3V3h2Z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/>',
+            trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
             run: '<path d="m8 4 12 8-12 8V4Z"/>',
             plus: '<path d="M12 4v16M4 12h16"/>',
             new: '<path d="M14 3H5v18h14V8l-5-5Z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>',
@@ -397,7 +398,7 @@ class WorkspaceApp {
         this.renderEpoch = (this.renderEpoch || 0) + 1;
         document.getElementById('app-root').innerHTML = `
             <a class="skip" href="#main">${this.t('skip')}</a>
-            <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><button id="menu-button" class="brand-mark mobile-menu-button" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
+            <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><button id="menu-button" class="brand-mark mobile-menu-button" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
             <div class="shell"><aside class="sidebar"><nav id="main-nav" class="nav" aria-label="${this.t('brand')}">${['single','batch','history','references','settings'].map(p => `<button data-action="page" data-page="${p}" title="${this.esc(this.t(p))}" aria-label="${this.esc(this.t(p))}" ${this.page === p ? 'aria-current="page"' : ''}>${this.icon(p)}<span class="nav-text">${this.t(p)}</span></button>`).join('')}</nav></aside>
             <main id="main" tabindex="-1"><div class="print-header"><h2>${this.t('brand')}</h2><p>${this.t('appUsageNotice')}</p></div>
               <div id="update-notice">${this.updateHTML()}</div>
@@ -412,6 +413,7 @@ class WorkspaceApp {
         if (this.page === 'single' && this.state.single?.result) this.renderFollowup().catch(error=>console.warn('Follow-up read failed',error));
         this.enhanceSelects();
         this.updateCSVControls();
+        if(this.page==='batch')this.syncBatchSelection();
         if(focusId)document.getElementById(focusId)?.focus();
     }
     observeHeader() {
@@ -506,12 +508,12 @@ class WorkspaceApp {
             </div><details class="reference-profile" open>${compact?this.formSectionSummary(prefix,'settingsClinical','growthProfileVisitHelp'):`<summary>${this.t('settingsClinical')}</summary>`}<div class="form-grid">${select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']])}${select('careProtocol',[['','careWHO'],['niger2025','careNiger2025'],['niger2023','careNiger2023']])}</div>${compact?'':`<p class="hint">${this.t('growthProfileVisitHelp')}</p>`}</details><details class="clinical-fields"${NutritionUI.inputFields.some(k=>!['careProtocol','muac'].includes(k)&&data[k]!==undefined&&data[k]!=='')?' open':''}>${compact?this.formSectionSummary(prefix,'clinicalSection',clinicalHelp,clinicalBrief):`<summary>${this.t('clinicalSection')}</summary><p class="hint">${this.t(clinicalHelp)}</p>`}<div class="form-grid">${ig?`${field('muac','number','min="50" max="400" step="0.1" inputmode="decimal"',data.careProtocol==='niger2025'?'pcima2025MuacHelp':data.careProtocol==='niger2023'?'pcimaMuacHelp':'muacHelp')}`:''}${select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])}${NutritionUI.dangerFields.map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}${select('acuteProblem',[['','unknown'],['n','no'],['y','yes']])}${select('appetite',[['','unknown'],['good',data.careProtocol==='niger2025'?'pcima2025AppetitePassed':data.careProtocol==='niger2023'?'pcimaAppetitePassed':'appetiteGood'],['poor','appetitePoor']])}${select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])}${NutritionUI.observationsFor(data).map(key=>select(key,[['','unknown'],['n','no'],['y','yes']])).join('')}</div></details>${this.additionalFormHTML(prefix,data,ig,field)}<div id="${prefix}-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>`;
     }
     viewNav(scope,items,active){
-        return `<nav class="workspace-view-nav" aria-label="${this.esc(this.t(scope==='single'?'resultsTitle':'batch'))}">${items.map(([key,label,icon])=>`<button type="button" data-action="workspace-view" data-scope="${scope}" data-view="${key}" aria-controls="${scope==='batch'&&key==='entry'?'measure-card':scope+'-view-'+key}" aria-pressed="${key===active}">${this.icon(icon)}<span>${this.esc(this.t(label))}</span></button>`).join('')}</nav>`;
+        return `<nav class="workspace-view-nav" aria-label="${this.esc(this.t(scope==='single'?'resultsTitle':scope==='history'?'history':'batch'))}">${items.map(([key,label,icon])=>`<button type="button" data-action="workspace-view" data-scope="${scope}" data-view="${key}" aria-controls="${scope==='batch'&&key==='entry'?'measure-card':scope+'-view-'+key}" aria-pressed="${key===active}">${this.icon(icon)}<span>${this.esc(this.t(label))}</span></button>`).join('')}</nav>`;
     }
     selectWorkspaceView(scope,view){
-        const allowed=scope==='single'?['summary','charts','details']:scope==='batch'?['entry','results','quality','statistics']:[];
+        const allowed=scope==='single'?['summary','charts','details']:scope==='batch'?['entry','results','quality','statistics']:scope==='history'?['backup','versions']:[];
         if(scope!==this.page||!allowed.includes(view))return;
-        if(scope==='single')this.singleView=view;else this.batchPane=view;
+        if(scope==='single')this.singleView=view;else if(scope==='history')this.historyPane=view;else {this.batchPane=view;const card=document.getElementById('batch-results-card');if(card)card.hidden=view==='entry';}
         for(const panel of document.querySelectorAll('[data-workspace-panel="'+scope+'"]'))panel.hidden=panel.dataset.view!==view;
         for(const button of document.querySelectorAll('[data-action="workspace-view"][data-scope="'+scope+'"]'))button.setAttribute('aria-pressed',String(button.dataset.view===view));
         const active=document.querySelector?.('#'+scope+'-view-'+view);
@@ -677,14 +679,57 @@ class WorkspaceApp {
             const noteHTML=notes.length?'<div class="batch-record-notes">'+[...new Set(notes)].map(k=>'<p>'+t(k)+'</p>').join('')+'</div>':'';
             
             const heightLabel=this.prefs.language==='fr'?'Longueur /\ntaille ('+this.batchUnit('height',child)+')':this.t('pdfHeightShort')+' ('+this.batchUnit('height',child)+')';
-            return '<article class="batch-record" role="listitem"><div class="batch-record-identity"><div class="batch-record-person">'+edit('name',child.name||this.t('unknown'))+'<div class="batch-record-id-date">'+edit('caseId',child.caseId||this.t('unknown'))+'<span aria-hidden="true">·</span>'+edit('measurementDate',date(child.measurementDate))+'</div></div><div class="batch-record-tools"><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+t('batchOtherFields')+'</button></div>'+noteHTML+'</div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight',child)+')',this.batchMeasureHTML(child,index,'weight'))+field(heightLabel,this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+scores.map(k=>score(k,result?.[k])).join('')+extraScores+(result?field(this.t('uiScreening'),screening):'')+'</div></div></article>';
+            return '<article class="batch-record" role="listitem"><div class="batch-record-identity"><div class="batch-record-select"><input type="checkbox" data-batch-select="'+index+'" aria-label="'+t('batchSelectRow')+' '+this.esc(num(index+1))+'"'+(this.batchSelectionSet().has(index)?' checked':'')+'><span class="batch-record-index">'+this.esc(num(index+1))+'</span></div><div class="batch-record-person">'+edit('name',child.name||this.t('unknown'))+'<div class="batch-record-id-date">'+edit('caseId',child.caseId||this.t('unknown'))+'<span aria-hidden="true">·</span>'+edit('measurementDate',date(child.measurementDate))+'</div></div><div class="batch-record-tools"><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+t('batchOtherFields')+'</button>'+this.toolButton('batchDeleteRow','trash','batch-delete-row',{attrs:'data-index="'+index+'" id="batch-delete-'+index+'"'})+'</div>'+noteHTML+'</div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight',child)+')',this.batchMeasureHTML(child,index,'weight'))+field(heightLabel,this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+scores.map(k=>score(k,result?.[k])).join('')+extraScores+(result?field(this.t('uiScreening'),screening):'')+'</div></div></article>';
         }).join('')+'</div>';
     }
     batchBrowserHTML(){
         const view=this.batchDisplayView();
         return view.total?this.batchRecordsHTML(view.entries,view.indices)+this.batchPagination(view):'<div class="empty">'+this.t(this.state.batch.length?'uiNoMatch':'emptyBatch')+'</div>';
     }
-    refreshBatchBrowser(){const target=document.getElementById('batch-browser-live');if(target)target.innerHTML=this.batchBrowserHTML();this.syncBatchKpis();}
+    refreshBatchBrowser(){const target=document.getElementById('batch-browser-live');if(target)target.innerHTML=this.batchBrowserHTML();this.syncBatchKpis();this.syncBatchSelection();}
+    batchSelectionSet(){
+        const batch=this.state.batch;
+        if(this.batchSelectionSource!==batch){this.batchSelectionSource=batch;this.batchSelected=new Set();}
+        return this.batchSelected;
+    }
+    batchSelectionHTML(){
+        const selected=this.batchSelectionSet(),view=this.batchDisplayView(),all=view.indices.length>0&&view.indices.every(i=>selected.has(i));
+        return '<label class="batch-select-page"><input type="checkbox" id="batch-select-page"'+(all?' checked':'')+(!view.indices.length?' disabled':'')+'><span>'+this.esc(this.t('batchSelectPage'))+'</span></label><span id="batch-selected-count" aria-live="polite">'+this.esc(this.t('batchSelectedCount').replace('{count}',this.number(selected.size,0)))+'</span>'+this.toolButton('batchDeleteSelected','trash','batch-delete-selected',{disabled:!selected.size});
+    }
+    syncBatchSelection(){
+        const selected=this.batchSelectionSet(),view=this.batchDisplayView(),page=document.getElementById('batch-select-page'),count=document.getElementById('batch-selected-count'),remove=document.querySelector?.('[data-action="batch-delete-selected"]');
+        if(page){page.checked=!!view.indices.length&&view.indices.every(i=>selected.has(i));page.indeterminate=!page.checked&&view.indices.some(i=>selected.has(i));page.disabled=!view.indices.length||!!this.batchDeleting;}
+        if(count)count.textContent=this.t('batchSelectedCount').replace('{count}',this.number(selected.size,0));
+        if(remove)remove.disabled=!selected.size||!!this.batchDeleting;
+        for(const input of document.querySelectorAll?.('[data-batch-select]')||[]) {input.checked=selected.has(Number(input.dataset.batchSelect));input.disabled=!!this.batchDeleting;}
+    }
+    toggleBatchSelection(input){
+        if(this.batchDeleting||this.batchComputing||this.batchInlineEdit){this.syncBatchSelection();return;}
+        const selected=this.batchSelectionSet(),indices=input.id==='batch-select-page'?this.batchDisplayView().indices:[Number(input.dataset.batchSelect)];
+        for(const i of indices)if(Number.isInteger(i)&&i>=0&&i<this.state.batch.length){if(input.checked)selected.add(i);else selected.delete(i);}
+        this.syncBatchSelection();
+    }
+    static batchWithoutRows(workspace,indices){
+        const selected=new Set(indices);
+        if(!selected.size||[...selected].some(i=>!Number.isInteger(i)||i<0||i>=workspace.batch.length))throw Error('batchCorrectionChanged');
+        const next=HistoryManager.clone(workspace);next.batch=next.batch.filter((_,i)=>!selected.has(i));HistoryManager.checkWorkspace(next);return next;
+    }
+    async deleteBatchRows(indices){
+        if(this.batchDeleting||this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy||this.batchInlineEdit)return;
+        const source=this.state,batch=source.batch,selected=[...new Set(indices)].sort((a,b)=>a-b);
+        if(!selected.length||selected.some(i=>!Number.isInteger(i)||i<0||i>=batch.length))return;
+        if(!window.confirm(this.t('batchDeleteConfirm').replace('{count}',this.number(selected.length,0))))return;
+        this.batchDeleting=true;this.syncBatchSelection();
+        try{
+            const next=WorkspaceApp.batchWithoutRows(source,selected);
+            await this.saveImmediate('beforeBatchDelete',true);
+            if(this.state!==source||source.batch!==batch||this.page!=='batch')throw Error('batchCorrectionChanged');
+            await this.history.save(next,'batchDeleted',true);
+            if(this.state!==source||source.batch!==batch||this.page!=='batch')throw Error('batchCorrectionChanged');
+            this.state=next;this.batchSelectionSource=null;this.batchSelected=new Set();this.batchPane='results';this.batchPage=Math.min(this.batchPage||0,this.batchDisplayView().pages-1);this.saveState=HistoryManager.hasWork(next)?'saved':'ready';this.checkpoint(false);
+            this.batchDeleting=false;this.render('batch-results-title');this.toast('batchDeleteDone');
+        }finally{this.batchDeleting=false;this.syncBatchSelection();}
+    }
     batchKpiOptions(){
         const entries=this.state.batch,keys=['pending','nutritionModerateCriteria','nutritionSevere','nutritionNoCriteria','nutritionIncomplete','nutritionAgeUnsupported','intergrowthNoScreening'];
         const counts=new Map(keys.map(k=>[k,0]));let assessed=0;
@@ -712,17 +757,17 @@ class WorkspaceApp {
         const view=this.batchView(),disabled=!view.total;
         const active=['entry','results','quality','statistics'].includes(this.batchPane)?this.batchPane:(view.total?'results':'entry');
         const hide=key=>active===key?'':' hidden';
-        const overview=this.batchKpisHTML();
+        const overview=this.batchKpisHTML()+'<div class="batch-selection-bar">'+this.batchSelectionHTML()+'</div>';
         const nav=this.viewNav('batch',[['entry','uiEntry','plus'],['results','batchList','batch'],['quality','qualityTitle','check'],['statistics','uiStatistics','chart']],active);
         return `<div class="workspace-grid batch-workspace clinical-workspace">${nav}<section class="card" id="measure-card" data-workspace-panel="batch" data-view="entry"${hide('entry')}><div class="card-top"><h2>${this.t('formTitle')}</h2><div class="toolbar compact-toolbar form-top-actions">${this.toolButton('addBatch','plus','',{primary:true,submit:true,showLabel:true,attrs:'form="batch-form"'})}</div></div>${this.formHTML('batch',this.state.batchDraft,true)}<section class="csv-tools" aria-labelledby="csv-tools-toggle"><div class="csv-tools-heading"><div class="csv-heading-label"><button type="button" class="csv-tools-toggle" id="csv-tools-toggle" data-action="toggle-csv" aria-expanded="${!!this.state.paste}" aria-controls="csv-tools-body csv-heading-actions"><span>${this.t('csvTools')}</span></button>${this.infoButton('csvHelp','csvTools','csv-help-button')}</div><div id="csv-heading-actions" class="toolbar compact-toolbar csv-heading-actions"${this.state.paste?'':' hidden'}><label class="icon-button action-with-label file-label desktop-format-action" title="${this.esc(this.t('importCSV'))}">${this.icon('csv')}${this.actionLabelHTML('importCSV',true)}<input class="file-input" type="file" id="csv-file" aria-label="${this.esc(this.t('importCSV'))}" accept=".csv,text/csv"></label>${this.toolButton('csvTemplate','csv','csv-template',{showLabel:true,labelKey:'csvTemplateShort'})}<button id="csv-parse-button" class="btn" data-action="parse-csv">${this.t('parseCSV')}</button></div></div><div id="csv-tools-body" class="csv-tools-body"${this.state.paste?'':' hidden'}><div class="field"><label for="paste-data">${this.t('pasteLabel')}</label><textarea id="paste-data" rows="3">${this.esc(this.state.paste)}</textarea></div><p id="csv-progress" role="status" aria-live="polite"></p></div></section></section>
-          <section class="card batch-results-card"><div class="card-top"><div class="batch-heading"><h2 id="batch-results-title" class="flow-focus" tabindex="-1">${this.t('batchList')} <span class="batch-count">(${this.number(view.total,0)})</span></h2>${this.batchContextNotes().length?this.infoButton('batchContext','batchList','batch-context-info'):''}</div><div class="batch-filter-bar batch-header-filters" data-workspace-panel="batch" data-view="results"${hide('results')}><label><span class="sr-only">${this.t('uiSearchLot')}</span><input placeholder="${this.esc(this.t('uiSearchLot'))}" id="batch-search" type="search" value="${this.esc(this.batchSearch||'')}" autocomplete="off"></label></div><div class="toolbar compact-toolbar batch-actions">${this.toolButton('computeBatch','run','calculate-batch',{primary:true,disabled,showLabel:true,labelKey:'calculateShort'})}${this.toolButton('exportCSV','csv','csv-results',{disabled,showLabel:true,labelKey:'csvShort'})}${this.toolButton('exportPDF','pdf','export-pdf',{disabled:disabled||this.pdfBusy,showLabel:true,labelKey:'pdfShort'})}${this.toolButton('exportPDFCompact','compact','export-pdf',{disabled:disabled||this.pdfBusy,attrs:'data-layout="compact"',showLabel:true,labelKey:'pdfCompactShort'})}${this.toolButton('print','print','print',{disabled,showLabel:true})}${this.toolButton('saveNow','save','save',{showLabel:true,labelKey:'saveShort'})}</div></div><div id="batch-view-results" data-workspace-panel="batch" data-view="results"${hide('results')}>${overview}<div class="batch-browser" id="batch-browser-live">${this.batchBrowserHTML()}</div></div><div id="batch-view-quality" data-workspace-panel="batch" data-view="quality"${hide('quality')}><div data-lot-quality>${view.total?this.qualityHTML({open:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></div><div id="batch-view-statistics" data-workspace-panel="batch" data-view="statistics"${hide('statistics')}>${view.total?this.lotSummaryHTML({compactHelp:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></section></div><div id="batch-print" class="print-only"></div>`;
+          <section class="card batch-results-card" id="batch-results-card"${active==='entry'?' hidden':''}><div class="card-top"><div class="batch-heading"><h2 id="batch-results-title" class="flow-focus" tabindex="-1">${this.t('batchList')} <span class="batch-count">(${this.number(view.total,0)})</span></h2>${this.batchContextNotes().length?this.infoButton('batchContext','batchList','batch-context-info'):''}</div><div class="batch-filter-bar batch-header-filters" data-workspace-panel="batch" data-view="results"${hide('results')}><label><span class="sr-only">${this.t('uiSearchLot')}</span><input placeholder="${this.esc(this.t('uiSearchLot'))}" id="batch-search" type="search" value="${this.esc(this.batchSearch||'')}" autocomplete="off"></label></div><div class="toolbar compact-toolbar batch-actions">${this.toolButton('computeBatch','run','calculate-batch',{primary:true,disabled,showLabel:true,labelKey:'calculateShort'})}${this.toolButton('exportCSV','csv','csv-results',{disabled,showLabel:true,labelKey:'csvShort'})}${this.toolButton('exportPDF','pdf','export-pdf',{disabled:disabled||this.pdfBusy,showLabel:true,labelKey:'pdfShort'})}${this.toolButton('exportPDFCompact','compact','export-pdf',{disabled:disabled||this.pdfBusy,attrs:'data-layout="compact"',showLabel:true,labelKey:'pdfCompactShort'})}${this.toolButton('print','print','print',{disabled,showLabel:true})}${this.toolButton('saveNow','save','save',{showLabel:true,labelKey:'saveShort'})}</div></div><div id="batch-view-results" data-workspace-panel="batch" data-view="results"${hide('results')}>${overview}<div class="batch-browser" id="batch-browser-live">${this.batchBrowserHTML()}</div></div><div id="batch-view-quality" data-workspace-panel="batch" data-view="quality"${hide('quality')}><div data-lot-quality>${view.total?this.qualityHTML({open:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></div><div id="batch-view-statistics" data-workspace-panel="batch" data-view="statistics"${hide('statistics')}>${view.total?this.lotSummaryHTML({compactHelp:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></section></div><div id="batch-print" class="print-only"></div>`;
     }
     qualityHTML({open=false}={}) {
-        if(this.qualityWorkspace!==this.state){this.qualityWorkspace=this.state;this.qualityPage=0;}
-        const report=QualityUI.build(this.state.batch),rows=report.rows.filter(r=>r.codes.length),pages=Math.max(1,Math.ceil(rows.length/8));
+        if(this.qualityWorkspace!==this.state||this.qualityBatch!==this.state.batch){this.qualityWorkspace=this.state;this.qualityBatch=this.state.batch;this.qualityPage=0;this.qualityFilter='';}
+        const report=QualityUI.build(this.state.batch),rows=report.rows.filter(r=>r.codes.length&&(!this.qualityFilter||r.codes.includes(this.qualityFilter))),pages=Math.max(1,Math.ceil(rows.length/8));
         this.qualityPage=Math.min(Math.max(0,this.qualityPage||0),pages-1);
         const start=this.qualityPage*8,shown=rows.slice(start,start+8),e=v=>this.esc(v),t=k=>e(this.t(k));
-        const counts=QualityUI.codes.filter(k=>report.counts[k]).map(k=>`<div><dt>${t(k)}</dt><dd>${e(this.number(report.counts[k],0))}</dd></div>`).join('');
+        const counts=QualityUI.codes.filter(k=>report.counts[k]).map(k=>`<div><dt><button type="button" class="quality-filter-button" data-action="quality-filter" data-value="${e(k)}" aria-pressed="${this.qualityFilter===k}"><span>${t(k)}</span><strong>${e(this.number(report.counts[k],0))}</strong></button></dt></div>`).join('');
         const table=shown.length?`<div class="table-scroll"><table><caption class="sr-only">${t('qualityRows')}</caption><thead><tr><th scope="col">${t('qualityRecord')}</th><th scope="col">${t('qualitySignals')}</th><th scope="col">${t('preview')}</th></tr></thead><tbody>${shown.map(r=>`<tr><th scope="row">${e(this.number(r.index,0))}</th><td>${r.codes.map(t).join(' · ')}</td><td><button class="btn" data-action="quality-view" data-index="${r.index-1}" aria-label="${t('preview')} · ${t('qualityRecord')} ${e(this.number(r.index,0))}">${t('preview')}</button></td></tr>`).join('')}</tbody></table></div>${this.paginationHTML({current:this.qualityPage,pages,total:rows.length,from:start+1,to:start+shown.length},{action:'quality-page',previousAction:'quality-previous',nextAction:'quality-next'})}`:`<p>${t('qualityNoSignals')}</p>`;
         return `<details class="lot-analysis quality-review"${open?' open':''}><summary><span class="quality-heading-layout"><span class="quality-heading-title">${t('qualityTitle')} · ${e(this.number(report.signalledRows,0))} / ${e(this.number(report.total,0))}${this.infoButton('qualityHelp','qualityTitle','quality-review-info')}</span>${counts?`<dl class="lot-overview quality-heading-counts">${counts}</dl>`:''}</span></summary><p class="batch-print-help">${t('qualityHelp')}</p>${table}<p class="hint batch-print-help">${t('analysisPreparationHelp')}</p><div class="toolbar quality-exports"><div class="quality-export-action"><button class="btn" data-action="quality-csv">${t('qualityExport')}</button>${this.infoButton('qualityExportHelp','qualityExport','quality-export-info')}</div><div class="quality-export-action"><button class="btn" data-action="analysis-csv">${t('analysisPreparationExport')}</button>${this.infoButton('analysisPreparationHelp','analysisPreparationExport','quality-analysis-info')}</div></div></details>`;
     }
@@ -895,8 +940,19 @@ class WorkspaceApp {
             }).join('')}</tr>`;
         }).join('')}</tbody></table>`;
     }
+    static historyMatches(session,filter){
+        const w=session.metadata?.workspace,entries=w?[...(w.single?[w.single]:[]),...(w.batch||[])]:[];
+        const mode=session.summary?.mode||w?.mode,records=session.summary?.records??entries.length,calculated=session.summary?.calculated??entries.filter(e=>!!e.result).length;
+        return filter==='all'||filter===mode||filter==='imported'&&!!session.metadata?.importedAt||filter==='draft'&&!records||filter==='pending'&&records>0&&!calculated||filter==='complete'&&records>0&&calculated===records||filter==='mixed'&&calculated>0&&calculated<records;
+    }
+    historyKpisHTML(){
+        const active=this.historyFilter||'all',labels={all:'historyAll',draft:'historyDrafts',imported:'imported',batch:'batch',single:'single',complete:'historyComplete',pending:'notCalculated',mixed:'historyMixed'};
+        const sessions=this.sessions||[];
+        return Object.entries(labels).map(([key,label])=>'<button type="button" class="history-kpi" data-action="history-kpi" data-value="'+key+'" aria-pressed="'+(active===key)+'"><span>'+this.esc(this.t(label))+'</span><strong>'+this.esc(this.number(sessions.filter(s=>WorkspaceApp.historyMatches(s,key)).length,0))+'</strong></button>').join('');
+    }
     historyHTML() {
-        return `<div class="toolbar"><button class="btn primary" data-action="export-backup">${this.t('exportAll')}</button><button class="btn" data-action="password-export">${this.t('exportEncrypted')}</button><label class="btn file-label">${this.t('importBackup')}<input class="file-input" type="file" id="backup-file" accept=".zscore,.enc,application/x-ndjson,application/octet-stream"></label></div><p class="hint">${this.t('exportSensitive')}</p><p class="hint">${this.t('transferHelp')}</p><p id="transfer-status" role="status" aria-live="polite"></p><section id="storage-capacity" class="card capacity" aria-labelledby="storage-capacity-title" aria-live="polite">${this.capacityHTML()}</section><div class="history-filter-bar"><div class="field search"><label for="history-search">${this.t('search')}</label><input type="search" id="history-search" value="${this.esc(this.search)}"></div><div class="field"><label for="history-filter">${this.t('historyFilter')}</label><select id="history-filter">${['all','single','batch','imported','draft','pending','complete','mixed'].map(k=>`<option value="${k}"${(this.historyFilter||'all')===k?' selected':''}>${this.t(({all:'historyAll',pending:'notCalculated',complete:'historyComplete',mixed:'historyMixed'}[k]||k))}</option>`).join('')}</select></div></div><div id="history-list" class="list"></div><div id="history-pages"></div><p class="meta">${this.t('allPreserved')}</p>`;
+        const active=this.historyPane==='versions'?'versions':'backup';
+        return `${this.viewNav('history',[['backup','historyBackupTab','save'],['versions','historyVersionsTab','history']],active)}<div id="history-view-backup" data-workspace-panel="history" data-view="backup"${active==='backup'?'':' hidden'}><div class="toolbar"><button class="btn primary" data-action="export-backup">${this.t('exportAll')}</button><button class="btn" data-action="password-export">${this.t('exportEncrypted')}</button><label class="btn file-label">${this.t('importBackup')}<input class="file-input" type="file" id="backup-file" accept=".zscore,.enc,application/x-ndjson,application/octet-stream"></label></div><p class="hint">${this.t('exportSensitive')}</p><p class="hint">${this.t('transferHelp')}</p><p id="transfer-status" role="status" aria-live="polite"></p><section id="storage-capacity" class="card capacity" aria-labelledby="storage-capacity-title" aria-live="polite">${this.capacityHTML()}</section></div><div id="history-view-versions" data-workspace-panel="history" data-view="versions"${active==='versions'?'':' hidden'}><div class="history-filter-bar"><div class="field search"><label for="history-search">${this.t('search')}</label><input type="search" id="history-search" value="${this.esc(this.search)}"></div><div class="field history-mobile-filter"><label for="history-filter">${this.t('historyFilter')}</label><select id="history-filter">${['all','single','batch','imported','draft','pending','complete','mixed'].map(k=>`<option value="${k}"${(this.historyFilter||'all')===k?' selected':''}>${this.t(({all:'historyAll',pending:'notCalculated',complete:'historyComplete',mixed:'historyMixed'}[k]||k))}</option>`).join('')}</select></div></div><div id="history-kpis" class="history-kpis">${this.historyKpisHTML()}</div><div id="history-list" class="list"></div><div id="history-pages"></div><p class="meta">${this.t('allPreserved')}</p></div>`;
     }
     formatBytes(value) {
         if(!Number.isSafeInteger(value)||value<0)return this.t('storageUnknown');
@@ -937,12 +993,9 @@ class WorkspaceApp {
     renderHistoryList() {
         const query = this.historySearchKey(this.search);
         const filter=this.historyFilter||'all';
-        const filtered=this.sessions.filter(s=>{
-            if(query&&!this.historySearchText(s).includes(query))return false;
-            const w=s.metadata?.workspace,entries=w?[...(w.single?[w.single]:[]),...(w.batch||[])]:[];
-            const mode=s.summary?.mode||w?.mode,records=s.summary?.records??entries.length,calculated=s.summary?.calculated??entries.filter(e=>!!e.result).length;
-            return filter==='all'||filter===mode||filter==='imported'&&!!s.metadata?.importedAt||filter==='draft'&&!records||filter==='pending'&&records>0&&!calculated||filter==='complete'&&records>0&&calculated===records||filter==='mixed'&&calculated>0&&calculated<records;
-        });
+        const filtered=this.sessions.filter(s=>(!query||this.historySearchText(s).includes(query))&&WorkspaceApp.historyMatches(s,filter));
+        const kpis=document.getElementById('history-kpis');if(kpis)kpis.innerHTML=this.historyKpisHTML();
+        const mobile=document.getElementById('history-filter');if(mobile)mobile.value=filter;
         const pages = Math.max(1, Math.ceil(filtered.length / 8)); this.historyPage = Math.max(0, Math.min(Number.isFinite(this.historyPage) ? this.historyPage : 0,pages-1));
         const rows = filtered.slice(this.historyPage*8,(this.historyPage+1)*8);
         document.getElementById('history-list').innerHTML = rows.length ? rows.map(s => {
@@ -1027,6 +1080,7 @@ class WorkspaceApp {
             }
         });
         document.getElementById('app-root').addEventListener('change', async event => {
+            if(event.target.id==='batch-select-page'||event.target.dataset?.batchSelect!==undefined){this.toggleBatchSelection(event.target);return;}
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
             if(event.target.dataset?.batchUnit){
                 const key=event.target.dataset.batchUnit,unit=event.target.value,id=event.target.id;
@@ -1142,13 +1196,14 @@ class WorkspaceApp {
     updateToast(){const el=document.getElementById('toast');if(el){el.textContent=this.toastKey?(this.t(this.toastKey)===this.toastKey?this.t('error'):this.t(this.toastKey)):'';el.setAttribute('role',this.toastIsError?'alert':'status');}}
     toast(key,error=false) { this.toastKey=key;this.toastIsError=error;this.updateToast();clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>{this.toastKey=null;this.updateToast();},6500); }
     async action(action,button) {
-        if(this.batchInlineEdit?.busy)return;
+        if(this.batchDeleting||this.batchInlineEdit?.busy)return;
         if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
         if(action==='batch-inline-save'){await this.saveBatchInline();return;}
         if(action==='batch-inline-cancel'){this.cancelBatchInline();return;}
         if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
         if(action==='batch-kpi-filter'){if(!button.disabled)this.setBatchKpiFilter(button.dataset.value);return;}
         this.readForms();
+        if(action==='batch-delete-row'||action==='batch-delete-selected'){await this.deleteBatchRows(action==='batch-delete-row'?[Number(button.dataset.index)]:[...this.batchSelectionSet()]);return;}
         button.closest?.('.mobile-actions-dialog')?.close();
         if(action==='workspace-view')this.selectWorkspaceView(button.dataset.scope,button.dataset.view);
         else if(action==='dismiss-import-notice')this.dismissImportNotice();
@@ -1178,7 +1233,7 @@ class WorkspaceApp {
         else if(action==='header-page'){
             if(!['single','batch','history','references','settings'].includes(button.dataset.value))return;
             const d=document.getElementById('header-dialog');d.dataset.opener='';d.close();
-            this.page=button.dataset.value;if(this.page==='history')this.sessions=await this.history.catalog();this.render('main');
+            this.page=button.dataset.value;if(this.page==='history'){this.historyPane='backup';this.sessions=await this.history.catalog();}this.render('main');
         }
         else if(action==='apply-update')await this.applyUpdate();
         else if(action==='install-app')await this.installApp();
@@ -1192,7 +1247,7 @@ class WorkspaceApp {
         else if(action==='stage-detail-previous'||action==='stage-detail-next'){this.stagePreviewPage+=(action==='stage-detail-next'?1:-1);this.renderStagePreview();this.focusPagination('stage-detail-page');}
         else if(action==='stage-detail-page'){const page=Number(button.dataset.page);if(Number.isInteger(page)&&page>=0){this.stagePreviewPage=page;this.renderStagePreview();this.focusPagination('stage-detail-page');}}
         else if(action==='stage-back'&&this.preparedImport)this.showImportPreview(this.preparedImport,this.importOverview.name,this.importOverview.duplicate);
-        else if(action==='page'){ this.page=button.dataset.page; if(this.page==='history')this.sessions=await this.history.catalog(); this.render(); document.getElementById('main').focus({preventScroll:true}); }
+        else if(action==='page'){ this.page=button.dataset.page; if(this.page==='history'){this.historyPane=button.dataset.historyPane==='versions'?'versions':'backup';this.sessions=await this.history.catalog();} this.render(); document.getElementById('main').focus({preventScroll:true}); }
         else if(action==='edit-measures'||action==='show-results'){ this.singleEditing=action==='edit-measures'; this.render(this.singleEditing?'single-caseId':'results-title'); }
         else if(action==='save'){ const hasWork=HistoryManager.hasWork(this.state),snapshot=await this.saveImmediate('manual',true); this.toast(!hasWork?'manualEmpty':snapshot?'manualSaved':'manualUnchanged'); if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();} }
         else if(action==='new'){ await this.saveImmediate('beforeNew'); this.state=this.emptyWorkspace();this.singleEditing=false;this.singleView='summary';this.batchPane='entry';this.batchSearch='';this.batchFilter='all';this.state.mode=this.page==='batch'?'batch':'single';this.batchPage=0; this.saveState='ready'; this.render(this.page==='batch'?'batch-caseId':'single-caseId'); }
@@ -1203,7 +1258,7 @@ class WorkspaceApp {
             if(child.growthProfile==='intergrowth')Object.assign(this.state.draft,{gestationalAgeWeeks:child.gestationalAgeWeeks,gestationalAgeDays:child.gestationalAgeDays,postmenstrualDays:'',ageDays:''});
             this.page='single';await this.saveImmediate('automatic');this.render('single-caseId');
         }
-        else if(action==='view-case'){this.historyFilter='all';this.search=button.dataset.caseId;this.historyPage=0;this.sessions=await this.history.catalog();this.page='history';this.render('history-search');}
+        else if(action==='view-case'){this.historyFilter='all';this.search=button.dataset.caseId;this.historyPage=0;this.sessions=await this.history.catalog();this.page='history';this.historyPane='versions';this.render('history-search');}
         else if(action==='calculate-batch'){
             if(this.batchComputing||this.csvBusy||this.csvReading)return;
             button.disabled=true;const workspace=this.state,entries=[];this.batchComputing=true;
@@ -1219,6 +1274,11 @@ class WorkspaceApp {
         }
         else if(action==='csv-template'&&this.state.batchDraft.growthProfile==='intergrowth')this.download('name,caseId,growthProfile,ageMode,postmenstrualDays,weight,height,headCircumference,gender,position,oedema\r\nExemple fictif,PRETERM-001,intergrowth,pma,224,1600,42,29,M,L,n\r\n','zscore-intergrowth-modele.csv','text/csv');
         else if(action==='csv-template')this.download('name,caseId,ageYears,ageMonths,weight,height,gender,position,oedema,muac\r\nExemple fictif,TEST-001,1,0,8500,75,M,L,n,130\r\n','zscore-modele.csv','text/csv');
+        else if(action==='quality-filter'){
+            if(!QualityUI.codes.includes(button.dataset.value))return;
+            this.qualityFilter=this.qualityFilter===button.dataset.value?'':button.dataset.value;this.qualityPage=0;this.renderQuality();
+            document.querySelector?.('[data-action="quality-filter"][data-value="'+button.dataset.value+'"]')?.focus({preventScroll:true});
+        }
         else if(action==='quality-page'||action==='quality-previous'||action==='quality-next'){
             const page=action==='quality-page'?Number(button.dataset.page):(this.qualityPage||0)+(action==='quality-next'?1:-1);
             if(Number.isInteger(page)&&page>=0){this.qualityPage=page;this.renderQuality();}
@@ -1250,6 +1310,11 @@ class WorkspaceApp {
         else if(action==='confirm-encrypted-export')await this.passwordOperation(false,button);
         else if(action==='unlock-backup')await this.passwordOperation(true,button);
         else if(action==='export-backup')await this.exportBackup();
+        else if(action==='history-kpi'){
+            if(!['all','single','batch','imported','draft','pending','complete','mixed'].includes(button.dataset.value))return;
+            this.historyFilter=(this.historyFilter||'all')===button.dataset.value?'all':button.dataset.value;this.historyPage=0;this.renderHistoryList();
+            document.querySelector?.('[data-action="history-kpi"][data-value="'+button.dataset.value+'"]')?.focus({preventScroll:true});
+        }
         else if(action==='history-previous'||action==='history-next'){this.historyPage+=action==='history-next'?1:-1;this.renderHistoryList();this.focusPagination('history-page');}
         else if(action==='history-page'){const page=Number(button.dataset.page);if(Number.isInteger(page)&&page>=0){this.historyPage=page;this.renderHistoryList();this.focusPagination('history-page');}}
         else if(action==='preview')await this.previewSession(this.sessions.find(s=>s.id===button.dataset.id));
@@ -1261,7 +1326,7 @@ class WorkspaceApp {
         else if(action==='restore'){const selected=this.previewedVersion||this.sessions.find(s=>s.id===button.dataset.id);if(selected?.id===button.dataset.id&&selected.metadata?.workspace)await this.restore(selected);else this.toast('historyReadFailed',true);}
         else if(action==='commit-import'){
             if(!this.preparedImport)return;button.disabled=true;
-            try{await this.transfers().commit(this.preparedImport);this.preparedImport=null;document.getElementById('workspace-dialog').close();this.sessions=await this.history.catalog();this.page='history';this.render('main');this.toast('importDone');}
+            try{await this.transfers().commit(this.preparedImport);this.preparedImport=null;document.getElementById('workspace-dialog').close();this.sessions=await this.history.catalog();this.page='history';this.historyPane='versions';this.render('main');this.toast('importDone');}
             finally{button.disabled=false;}
         }
     }

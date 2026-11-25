@@ -265,3 +265,31 @@ test('compact contextual dialog places escaped identity, accessible SVG actions 
   assert.ok(html.includes('id="correction-progress"'));assert.ok(html.includes('id="correction-error"'));assert.ok(html.includes('name="maternalDanger"'));
  }
 });
+
+test('row selection is absolute across pages, removal preserves other entries and previous workspace',()=>{
+ const base=engine.calculate(input()),entries=Array.from({length:13},(_,i)=>({child:{...base.child,caseId:'T-'+i},result:null})),state=workspace(entries),before=JSON.stringify(state);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language:'fr'},translations,batchPage:1});
+ app.batchSelectionSet().add(9);
+ const view=app.batchDisplayView(),html=app.batchRecordsHTML(view.entries,view.indices);
+ assert.ok(html.includes('data-batch-select="9"'));assert.ok(html.includes('data-batch-select="9" aria-label="Sélectionner la ligne 10" checked'));
+ assert.ok(html.includes('data-action="batch-delete-row"'));
+ const next=WorkspaceApp.batchWithoutRows(state,[0,9,9]);
+ assert.equal(next.batch.length,11);assert.deepEqual(next.batch.map(e=>e.child.caseId),entries.filter((_,i)=>i!==0&&i!==9).map(e=>e.child.caseId));assert.equal(JSON.stringify(state),before);
+ assert.throws(()=>WorkspaceApp.batchWithoutRows(state,[13]));
+ app.state=next;assert.equal(app.batchSelectionSet().size,0);
+});
+test('history filters classify stored versions with the same predicate for counters and filtering',()=>{
+ const sessions=[{summary:{mode:'batch',records:3,calculated:1},metadata:{importedAt:'2026-11-25'}},{summary:{mode:'single',records:1,calculated:1},metadata:{}},{summary:{mode:'batch',records:0,calculated:0},metadata:{}},{summary:{mode:'batch',records:1,calculated:0},metadata:{}}];
+ const counts=Object.fromEntries(['all','single','batch','imported','draft','pending','complete','mixed'].map(k=>[k,sessions.filter(s=>WorkspaceApp.historyMatches(s,k)).length]));
+ assert.deepEqual(counts,{all:4,single:1,batch:3,imported:1,draft:1,pending:1,complete:1,mixed:1});
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{sessions,prefs:{language:'fr'},translations});
+ assert.equal((app.historyKpisHTML().match(/data-action="history-kpi"/g)||[]).length,8);
+ const html=app.historyHTML();assert.ok(html.includes('id="history-view-versions" data-workspace-panel="history" data-view="versions" hidden'));assert.ok(html.includes('id="history-view-backup"'));
+});
+test('quality counter filters keep review expanded and select matching technical signals',()=>{
+ const entry=engine.calculate(input()),state=workspace([{child:entry.child,result:null},entry]);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language:'fr'},translations});
+ const html=app.qualityHTML({open:true});assert.ok(html.includes('class="lot-analysis quality-review" open'));assert.ok(html.includes('data-action="quality-filter"'));
+ const code=LotQuality.build(state.batch).rows[0].codes[0];app.qualityFilter=code;
+ const filtered=app.qualityHTML({open:true});assert.ok(filtered.includes('data-value="'+code+'" aria-pressed="true"'));assert.ok(filtered.includes('class="lot-analysis quality-review" open'));
+});
