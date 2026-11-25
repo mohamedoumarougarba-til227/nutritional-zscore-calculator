@@ -93,7 +93,7 @@ class GrowthChart {
         if(labels.at(-1).y>202){labels.at(-1).y=202;for(let i=labels.length-2;i>=0;i--)labels[i].y=Math.min(labels[i].y,labels[i+1].y-18);}
         return labels;
     }
-    static referenceHTML(entries,engine,ui) {
+    static referenceHTML(entries,engine,ui,{compactHelp=false}={}) {
         const model=this.referenceModel(entries,engine);if(!model)return '';
         const e=v=>ui.esc(v),t=k=>ui.t(k),n=(v,d=1)=>ui.number(v,d),xy=(p,panel)=>this.referenceCoordinates(p,panel);
         const units={weightForAge:'kg',heightForAge:'cm',bmiForAge:'kg/m²',...Object.fromEntries(Object.entries(SupplementaryChart.definitions).map(([k,d])=>[k,d.unit]))};
@@ -113,7 +113,10 @@ class GrowthChart {
         }).join('');
         const pointIndexes=model.panels.map(panel=>new Map(panel.points.map(p=>[p.index,p])));
         const table=`<div class="table-scroll"><table><caption class="sr-only">${e(t('referenceMeasurements'))}</caption><thead><tr><th scope="col">${e(t('measurementDate'))}</th><th scope="col">${e(t(model.ig?'postmenstrualDays':'days'))}</th>${model.panels.map(p=>`<th scope="col">${e(t(p.key)+' · '+units[p.key])}</th>`).join('')}</tr></thead><tbody>${entries.map((entry,index)=>`<tr><th scope="row">${e(ui.calendarDate(entry.child?.measurementDate))}</th><td>${Number.isInteger(model.ig?entry.result?.intergrowthContext?.age.postmenstrualDays:entry.child?.ageDays)?e(n(model.ig?entry.result.intergrowthContext.age.postmenstrualDays:entry.child.ageDays,0)):'—'}</td>${pointIndexes.map(points=>{const point=points.get(index);return `<td>${point?e(n(point.value,2)):'— '+e(t('referenceOmitted'))}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
-        return `<details class="growth-charts reference-charts"><summary>${e(t(model.ig?'intergrowthChartTitle':model.cdc?'cdcChartTitle':model.reference.startsWith('WHO-child-additional-')?'additionalChartTitle':model.older?'referenceChartTitleOlder':'referenceChartTitle'))}</summary><p class="hint">${e(t(model.ig?'intergrowthDescriptive':model.cdc?'cdcChartHelp':model.reference.startsWith('WHO-child-additional-')?'additionalResultHelp':model.older?'referenceChartHelpOlder':'referenceChartHelp'))}</p><div class="chart-panels">${panels}</div><details><summary>${e(t('referenceMeasurements'))}</summary>${table}</details></details>`;
+        const titleKey=model.ig?'intergrowthChartTitle':model.cdc?'cdcChartTitle':model.reference.startsWith('WHO-child-additional-')?'additionalChartTitle':model.older?'referenceChartTitleOlder':'referenceChartTitle';
+        const helpKey=model.ig?'intergrowthDescriptive':model.cdc?'cdcChartHelp':model.reference.startsWith('WHO-child-additional-')?'additionalResultHelp':model.older?'referenceChartHelpOlder':'referenceChartHelp';
+        const help=compactHelp&&ui.infoButton?ui.infoButton(helpKey,titleKey,'chart-help-'+model.reference.replace(/[^a-zA-Z0-9_-]/g,'-')):'';
+        return `<details class="growth-charts reference-charts"><summary>${e(t(titleKey))}${help}</summary><p class="hint${help?' print-only':''}">${e(t(helpKey))}</p><div class="chart-panels">${panels}</div><details><summary>${e(t('referenceMeasurements'))}</summary>${table}</details></details>`;
     }
     static build(entries, referenceVersion) {
         const dated = entries.map(entry => {

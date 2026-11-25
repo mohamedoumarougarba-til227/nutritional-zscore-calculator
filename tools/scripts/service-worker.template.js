@@ -4,7 +4,8 @@ const STATIC_ASSETS = Object.keys(RELEASE.assets);
 const assetURLs = STATIC_ASSETS.map(asset => new URL(asset, self.registration.scope).href);
 const hashes = new Map(STATIC_ASSETS.map((asset,i)=>[assetURLs[i],RELEASE.assets[asset]]));
 async function verifiedResponse(url) {
-    const response = await fetch(new Request(url,{cache:'reload',credentials:'same-origin'}));
+    const fetchURL=url===self.registration.scope&&hashes.get(url)===hashes.get(new URL('index.html',self.registration.scope).href)?new URL('index.html',self.registration.scope).href:url;
+    const response = await fetch(new Request(fetchURL,{cache:'reload',credentials:'same-origin'}));
     return verifyResponse(url,response);
 }
 async function verifyResponse(url,response) {
@@ -20,7 +21,16 @@ self.addEventListener('install', event => {
         const responses = new Array(assetURLs.length);let cursor=0;
         async function download(){while(cursor<assetURLs.length){const i=cursor++;responses[i]=await verifiedResponse(assetURLs[i]);}}
         // Avoid dozens of concurrent transfers on weak mobile connections.
-        await Promise.all(Array.from({length:Math.min(3,assetURLs.length)},download));
+        try{await Promise.all(Array.from({length:Math.min(3,assetURLs.length)},download));}
+        catch(error){
+            // Report only the failing application resource, never URLs with user data or contents.
+            try{const clients=await self.clients?.matchAll({type:'window',includeUncontrolled:true})||[];
+                const message=String(error?.message||'');const asset=assetURLs.find(url=>message.endsWith(url));
+                const path=asset?new URL(asset).pathname.split('/').filter(Boolean).join('/'):'';
+                for(const client of clients)client.postMessage({type:'RELEASE_INSTALL_FAILED',asset:path});
+            }catch(_){}
+            throw error;
+        }
         const cache = await caches.open(STATIC_CACHE_NAME);
         await Promise.all(assetURLs.map((url,i)=>cache.put(url,responses[i])));
         // No automatic skipWaiting: open work stays on its current release.

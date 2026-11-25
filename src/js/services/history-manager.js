@@ -14,15 +14,45 @@ class HistoryManager {
     }
     static emptyArchive() { return { sessions: [], children: [], results: [], settings: [] }; }
     static clone(data) { return JSON.parse(JSON.stringify(data)); }
+    static hasDraftWork(draft) {
+        if(!draft)return false;
+        const entered=value=>value!==undefined&&value!==null&&(typeof value!=='string'||value.trim()!=='');
+        // Selection of an age mode, default units/reference/context or the automatic date
+        // alone is not a patient record. Preserve explicit clinical answers, including zero/no.
+        return ['caseId','name','ageYears','ageMonths','ageTotalMonths','ageDays','birthDate','weight','height','gender','position','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...SupplementaryHistory.fields,...NutritionHistory.inputFields.filter(k=>k!=='careProtocol')].some(k=>entered(draft[k]))
+            || ['y','n'].includes(draft.oedema);
+    }
     static hasWork(workspace) {
-        const meaningfulDraft = draft => draft && (
-            ['caseId', 'name', 'ageYears', 'ageMonths', 'ageTotalMonths', 'ageDays', 'birthDate', 'weight', 'height', 'gender', 'position','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...SupplementaryHistory.fields].some(k => draft[k] !== '' && draft[k] !== undefined && draft[k] !== null)
-            || NutritionHistory.inputFields.some(k=>draft[k]!==undefined&&draft[k]!==null&&draft[k]!=='') || draft.oedema === 'y' || ['days', 'dates'].includes(draft.ageMode)
-            || !!draft.measurementDate && draft.measurementDate !== ClinicalEngine.today()
-        );
-        return meaningfulDraft(workspace.draft)
-            || !!workspace.single || !!workspace.batch?.length || !!workspace.paste?.trim()
-            || meaningfulDraft(workspace.batchDraft) || false;
+        return HistoryManager.hasDraftWork(workspace.draft)||!!workspace.single||!!workspace.batch?.length||!!workspace.paste?.trim()||HistoryManager.hasDraftWork(workspace.batchDraft);
+    }
+    static signature(workspace) {
+        // Compare content, not navigation or optional empty controls populated by the DOM.
+        // Never strip identifiers, result timestamps, reference versions or real observations.
+        const numericControls=new Set(['ageYears','ageMonths','ageTotalMonths','ageDays','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays','weight','height','muac',...SupplementaryHistory.fields]);
+        const draft=value=>{
+            if(!HistoryManager.hasDraftWork(value))return null;
+            const comparable={...value};
+            for(const [field,unitKey,base,alternative,places] of [
+                ['weight','weightUnit','g','kg',3],['height','heightUnit','cm','m',2]
+            ]){
+                const unit=value[unitKey]||base;
+                if(unit!==base&&unit!==alternative)continue;
+                try{
+                    const amount=value[field];
+                    if(amount!==undefined&&amount!==null&&amount!==''){
+                        const canonical=ClinicalEngine.shiftDecimal(ClinicalEngine.decimal(amount,'measureUnitInvalid'),unit===alternative?places:0);
+                        if(!Number.isFinite(canonical))continue;
+                        comparable[field]=String(canonical);
+                    }
+                    delete comparable[unitKey];
+                }catch(_){/* An unfinished value and its unit are both part of the draft. */}
+            }
+            return Object.fromEntries(Object.entries(comparable).filter(([,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>[
+                k,numericControls.has(k)&&typeof v==='number'&&Number.isFinite(v)?String(v):v
+            ]).sort(([a],[b])=>a<b?-1:a>b?1:0));
+        };
+        const {mode,draft:singleDraft,batchDraft,...rest}=workspace;
+        return JSON.stringify({...Object.fromEntries(Object.entries(rest).sort(([a],[b])=>a<b?-1:a>b?1:0)),draft:draft(singleDraft),batchDraft:draft(batchDraft)});
     }
     makeSnapshot(workspace, reason = 'automatic') {
         const now = new Date().toISOString();
@@ -32,18 +62,32 @@ class HistoryManager {
     }
     checkpoint(workspace) {
         if (!HistoryManager.hasWork(workspace)) return;
+        const signature=HistoryManager.signature(workspace);
+        if(signature===this.lastSaved||signature===this.lastCheckpoint&&localStorage.getItem(this.journalKey)!==null)return;
         const snapshot = this.makeSnapshot(workspace, 'checkpoint');
         localStorage.setItem(this.journalKey, JSON.stringify(snapshot));
+        this.lastCheckpoint=signature;
     }
     async save(workspace, reason = 'automatic', force = false) {
-        if (!HistoryManager.hasWork(workspace) && !force) return null;
-        const signature = JSON.stringify(workspace);
-        if (signature === this.lastSaved && !force) return null;
+        // Force requests a durable save, not a new version of identical or empty work.
+        if (!HistoryManager.hasWork(workspace)) return null;
+        const signature = HistoryManager.signature(workspace);
         const snapshot = this.makeSnapshot(workspace, reason);
-        const records = HistoryManager.emptyArchive(); records.sessions.push(snapshot);
-        await this.storage.addArchive(records);
-        this.lastSaved = signature;
-        return snapshot;
+        const pending=(this.pendingSave||Promise.resolve()).catch(()=>{}).then(async()=>{
+            if(signature===this.lastSaved)return null;
+            const records=HistoryManager.emptyArchive();records.sessions.push(snapshot);
+            await this.storage.addArchive(records);
+            this.lastSaved=signature;
+            return snapshot;
+        });
+        this.pendingSave=pending;
+        return pending;
+    }
+    async resumeSaved(workspace) {
+        // The source snapshot is already durable. The isolated restored copy does
+        // not become a new archived version until its content actually changes.
+        await (this.pendingSave||Promise.resolve());
+        this.lastSaved=HistoryManager.signature(workspace);
     }
     async archive() {
         const archive = await this.storage.readArchive();
@@ -63,9 +107,9 @@ class HistoryManager {
             journals.push(snapshot);
         }
         // Without a readable recovery journal, serializing every saved batch is unnecessary.
-        const signatures = journals.length ? new Set(archive.sessions.filter(s => s.metadata?.workspace).map(s => JSON.stringify(s.metadata.workspace))) : new Set();
+        const signatures = journals.length ? new Set(archive.sessions.filter(s => s.metadata?.workspace).map(s => HistoryManager.signature(s.metadata.workspace))) : new Set();
         for (const snapshot of journals) {
-            const signature = JSON.stringify(snapshot.metadata.workspace);
+            const signature = HistoryManager.signature(snapshot.metadata.workspace);
             if (!signatures.has(signature)) { archive.sessions.push(snapshot); signatures.add(signature); }
         }
         return archive;
@@ -79,19 +123,19 @@ class HistoryManager {
         const w=session.metadata?.workspace||{},entries=[...(w.batch||[]),...(w.single?[w.single]:[])],people=[w.draft,w.batchDraft,...entries.map(e=>e.child)];
         const name=session.name||w.draft?.name||w.draft?.caseId||w.batchDraft?.name||w.batchDraft?.caseId||w.single?.child?.caseId||'';
         return {id:session.id,name,createdAt:session.createdAt,metadata:{kind:session.metadata?.kind,reason:session.metadata?.reason,importedAt:session.metadata?.importedAt},
-            summary:{count:new Set(entries.map(e=>e.child.id)).size,caseIds:[...new Set(entries.map(e=>e.child.caseId).filter(Boolean))],searchText:`${session.name||''} ${people.map(c=>`${c?.name||''} ${c?.caseId||''}`).join(' ')} ${session.createdAt||''}`.toLocaleLowerCase()},origin};
+            summary:{mode:w.mode==='batch'?'batch':'single',records:entries.length,calculated:entries.filter(e=>!!e.result).length,count:new Set(entries.map(e=>e.child.id)).size,caseIds:[...new Set(entries.map(e=>e.child.caseId).filter(Boolean))],searchText:`${session.name||''} ${people.map(c=>`${c?.name||''} ${c?.caseId||''}`).join(' ')} ${session.createdAt||''}`.toLocaleLowerCase()},origin};
     }
     async catalog() {
         if(typeof this.storage.scanHistory!=='function')return (await this.list()).map(s=>HistoryManager.summary(s,{kind:'memory',record:s}));
         this.recoveryErrors=[];const journals=[];
         for(const key of Object.keys(localStorage)){
             if(!key.startsWith('zscore-work-v5-'))continue;
-            try{const snapshot=HistoryManager.parse(localStorage.getItem(key));HistoryManager.checkWorkspace(snapshot?.metadata?.workspace);journals.push({key,snapshot,signature:JSON.stringify(snapshot.metadata.workspace)});}
+            try{const snapshot=HistoryManager.parse(localStorage.getItem(key));HistoryManager.checkWorkspace(snapshot?.metadata?.workspace);journals.push({key,snapshot,signature:HistoryManager.signature(snapshot.metadata.workspace)});}
             catch(_){this.recoveryErrors.push(key);}
         }
         const signatures=new Set(journals.map(j=>j.signature)),matched=new Set();
         const scanned=await this.storage.scanHistory((session,origin)=>{
-            if(signatures.size){const signature=JSON.stringify(session.metadata.workspace);if(signatures.has(signature))matched.add(signature);}
+            if(signatures.size){const signature=HistoryManager.signature(session.metadata.workspace);if(signatures.has(signature))matched.add(signature);}
             return HistoryManager.summary(session,origin);
         });
         const rows=scanned.rows;

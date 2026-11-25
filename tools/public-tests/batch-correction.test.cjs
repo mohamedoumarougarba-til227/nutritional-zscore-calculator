@@ -133,7 +133,7 @@ test('a correction becomes visible only after both durable saves, and repeated c
         unlock();await pending;
         assert.equal(h.app.state.batch[0].child.weight,9000);assert.equal(h.store.records.sessions.length,2);
         assert.deepEqual(h.store.records.sessions.map(s=>s.metadata.reason),['beforeBatchCorrection','correctedBatch']);
-        assert.equal(h.app.batchCorrection,null);assert.equal(h.app.closed,true);assert.equal(h.app.focus,'batch-correct-0');assert.equal(h.app.notice.key,'batchCorrectionSaved');
+        assert.equal(h.app.batchCorrection,null);assert.equal(h.app.closed,true);assert.equal(h.app.focus,'batch-correct-0');assert.equal(h.app.notice.key,'batchOtherFieldsSaved');assert.equal(h.app.state.batch[0].result,null);
     }finally{h.restore();}
 });
 
@@ -162,4 +162,159 @@ test('correction actions use absolute row indices, translated labels and escaped
     assert.ok(!CSVManager.results([e]).includes('batch-correct'));
     const second=engine.calculate(input());assert.equal(LotQuality.build([e,second]).counts.qualityDuplicateMeasures,2);
     const corrected=WorkspaceApp.correctedBatch(workspace([e,second]),0,{weight:9000},engine);assert.equal(LotQuality.build(corrected.batch).counts.qualityDuplicateMeasures,0);
+});
+
+test('display unit conversions are exact and never mutate stored measurements; inline corrections preserve pending state',()=>{
+    const original=engine.calculate(input()),pending={child:original.child,result:null},state=workspace([pending,original]),before=JSON.stringify(state);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(13500,'weight','kg'),13.5);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(92,'height','m'),0.92);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(null,'height','m'),null);
+    const next=WorkspaceApp.inlineCorrectedBatch(state,0,'weight','9,5','kg',engine);
+    assert.equal(next.batch[0].child.weight,9500);assert.equal(next.batch[0].result,null);
+    assert.deepEqual(next.batch[1],original);assert.equal(next.batch[0].child.visitId,original.child.visitId);
+    const calculated=WorkspaceApp.inlineCorrectedBatch(state,1,'height','0.76','m',engine);
+    assert.equal(calculated.batch[1].child.height,76);assert.ok(calculated.batch[1].result);assert.deepEqual(calculated.batch[0],pending);
+    assert.equal(JSON.stringify(state),before);assert.throws(()=>WorkspaceApp.inlineCorrectedBatch(state,0,'weight','bad','kg',engine));
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language},translations,batchWeightUnit:'kg',batchHeightUnit:'m'});
+        const html=app.batchRecordsHTML([pending],[0]);assert.ok(html.includes('data-field="weight"'));assert.ok(html.includes(translations[language].birthDate));assert.ok(html.includes(translations[language].position));
+        const table=app.tableHTML([pending],{compact:true,editable:true,indices:[0]});assert.ok(table.includes('data-batch-unit="weight"'));assert.ok(table.includes('data-field="height"'));
+        assert.ok(!app.tableHTML([pending]).includes('data-batch-unit'));
+    }
+});
+
+test('compact records merge pending scores with measures and KPI filters use original indices, not page indices',()=>{
+ const base=engine.calculate(input()),entries=Array.from({length:20},(_,i)=>({child:{...base.child,caseId:'TEST-'+i,name:'TEST-'+i},result:i===11?{...base.result,nutrition:{...base.result.nutrition,category:'nutritionSevere'}}:i===14?{...base.result,nutrition:{...base.result.nutrition,category:'nutritionModerateCriteria'}}:null}));
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:0});
+ const before=JSON.stringify(app.state),html=app.batchRecordsHTML([entries[0]],[0]);
+ assert.ok(!html.includes('batch-record-results'));assert.ok(!html.includes('batch-record-toolbar'));assert.ok(html.includes('batch-record-id-date'));
+ assert.ok(html.includes('data-field="measurementDate"'));assert.ok(html.includes('Longueur /\ntaille (cm)'));
+ assert.equal((html.match(/class="batch-record-field batch-record-score"/g)||[]).length,4);
+ app.batchFilter='nutritionSevere';assert.deepEqual(app.batchDisplayView().indices,[11]);
+ app.batchFilter='nutritionModerateCriteria';assert.deepEqual(app.batchDisplayView().indices,[14]);
+ app.batchFilter='quality';assert.equal(app.batchDisplayView().total,LotQuality.build(entries).signalledRows);
+ app.batchFilter='all';assert.equal(app.batchDisplayView().total,20);
+ assert.equal(JSON.stringify(app.state),before);
+});
+
+test('specialized other-fields dialog omits inline values, retains conditional fields and never recalculates',()=>{
+ const original=engine.calculate(input({careProtocol:'niger2025',headCircumference:48})),other=engine.calculate(input({caseId:'FICTIF-OTHER'})),state=workspace([original,other]),before=JSON.stringify(state);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr'},translations,state});
+ const draft={...app.emptyDraft('who'),...original.child,growthProfile:'who'};
+ const context={entry:original,draft,initialDraft:structuredClone(draft),units:{weight:'kg',height:'m'}};
+ const html=app.batchOtherFieldsHTML(context);
+ for(const k of ['name','caseId','measurementDate','weight','height','gender','muac','oedema','ageDays'])assert.ok(!html.includes('name="'+k+'"'),k);
+ for(const k of ['ageMode','growthProfile','careProtocol','headCircumference','tricepsSkinfold','subscapularSkinfold','oedemaGrade','cannotDrink','appetite','maternalDanger','highRiskContext','displayWeightUnit','displayHeightUnit'])assert.ok(html.includes('name="'+k+'"'),k);
+ assert.equal(WorkspaceApp.otherFieldsChanged(context),false);
+ const changed=WorkspaceApp.correctionAgeChange(draft,'dates',original.child);assert.equal(changed.birthDate,'');
+ assert.ok(app.batchOtherFieldsHTML({...context,draft:changed}).includes('name="birthDate"'));
+ const noCalc={constructor:engine.constructor,calculate(){throw Error('must not calculate');}};
+ const next=WorkspaceApp.pendingBatchCorrection(state,0,{...draft,feedingDifficulty:'y'},noCalc);
+ assert.equal(next.batch[0].result,null);assert.equal(next.batch[0].child.feedingDifficulty,'y');assert.equal(next.batch[0].child.weight,original.child.weight);assert.equal(next.batch[0].child.visitId,original.child.visitId);assert.deepEqual(next.batch[1],other);assert.equal(JSON.stringify(state),before);
+ app.batchUnitsByVisit=new Map([[original.child.visitId,{weight:'kg',height:'m'}]]);
+ assert.equal(app.batchUnit('weight',original.child),'kg');assert.equal(app.batchUnit('weight',other.child),'g');
+ const row=app.batchRecordsHTML([original],[0]);assert.ok(!row.includes('data-action="quality-view"'));assert.ok(row.includes('data-action="batch-correct"'));assert.ok(row.includes('Poids (kg)'));
+});
+test('unchanged other-fields dialog saves display units only and keeps historical scores',async()=>{
+ const original=engine.calculate(input({muac:120})),state=workspace([original]),h=ui(state,{...original.child});
+ h.app.batchCorrection.initialDraft=structuredClone(h.app.batchCorrection.draft);h.app.batchCorrection.units={weight:'kg',height:'m'};
+ h.app.batchCorrection.draft.muac='١٢٠,٠';
+ assert.equal(WorkspaceApp.sameBatchField('weight','8.4','8,400'),true);
+ assert.equal(WorkspaceApp.sameBatchField('caseId','120','120.0'),false);
+ assert.equal(WorkspaceApp.sameBatchField('muac',120,'120.1'),false);
+ assert.equal(WorkspaceApp.sameBatchField('muac','',0),false);
+ try{await h.app.saveBatchCorrection();assert.equal(h.store.writes,0);assert.equal(h.app.state,state);assert.equal(h.app.state.batch[0].result,original.result);assert.equal(h.app.batchUnit('height',original.child),'m');assert.equal(h.app.notice.key,'batchDisplaySaved');}finally{h.restore();}
+});
+
+test('preterm contextual editor always shows the applicable PMA or birth gestation and preserves an explicitly recorded age',()=>{
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr'},translations});
+ for(const mode of ['pma','days']){
+  const entry=engine.calculate(input({growthProfile:'intergrowth',ageMode:mode,postmenstrualDays:mode==='pma'?224:'',ageDays:mode==='days'?14:'',gestationalAgeWeeks:mode==='days'?30:'',gestationalAgeDays:mode==='days'?0:'',weight:1600,height:42,headCircumference:29}));
+  const html=app.batchOtherFieldsHTML({entry,draft:entry.child,units:{weight:'g',height:'cm'}});
+  assert.ok(html.includes('name="'+(mode==='pma'?'postmenstrualDays':'gestationalAgeWeeks')+'"'));
+  assert.ok(!html.includes('name="tricepsSkinfold"'));
+ }
+});
+
+test('compact screening filters cover every stored category and notes stay below identity, without modifying scores',()=>{
+ const entry=engine.calculate(input()),categories=['nutritionModerateCriteria','nutritionSevere','nutritionNoCriteria','nutritionIncomplete','nutritionAgeUnsupported','intergrowthNoScreening'];
+ const entries=[{child:entry.child,result:null},...categories.map(category=>({child:entry.child,result:{...entry.result,nutrition:{...entry.result.nutrition,category}}}))];
+ entries[1].result.imported=true;entries[1].result.warnings=['estimatedAge','oedemaWarning'];
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:0});
+ const before=JSON.stringify(app.state),options=app.batchKpiOptions();
+ assert.deepEqual(options.map(k=>k.key),['pending',...categories]);assert.ok(options.every(k=>k.count===1));
+ const filters=app.batchKpisHTML();assert.ok(!filters.includes('data-value="quality"'));assert.ok(filters.includes('data-value="all"'));
+ for(const [i,key] of ['pending',...categories].entries()){app.batchFilter=key;assert.deepEqual(app.batchDisplayView().indices,[i]);}
+ const html=app.batchRecordsHTML([entries[1]],[1]);
+ const notes=html.indexOf('class="batch-record-notes"'),body=html.indexOf('class="batch-record-body"');
+ assert.ok(notes>html.indexOf('class="batch-record-person"')&&notes<body);
+ assert.ok(html.slice(notes,body).includes(app.esc(app.t('oedemaWarning'))));
+ assert.ok(html.includes('Œdèmes bilatéraux\nau godet'));
+ assert.equal(JSON.stringify(app.state),before);
+});
+
+test('compact contextual dialog places escaped identity, accessible SVG actions and help in header; retains conditional groups in all languages',()=>{
+ const entry=engine.calculate(input({name:'<TEST>',careProtocol:'niger2025'}));
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations});
+  const context={entry,draft:entry.child,units:{weight:'g',height:'cm'}},html=app.batchCorrectionDialogHTML(context);
+  const top=html.slice(0,html.indexOf('<div class="dialog-body"'));
+  assert.ok(top.includes('id="dialog-title"'));assert.ok(top.includes('&lt;TEST&gt;'));assert.ok(!top.includes('<TEST>'));
+  assert.ok(top.indexOf('other-fields-help')<top.indexOf('id="dialog-title"'));
+  assert.ok(top.indexOf('data-action="save-batch-correction"')<top.indexOf('data-action="close-dialog"'));
+  assert.equal((html.match(/data-action="save-batch-correction"/g)||[]).length,1);
+  assert.equal((html.match(/data-action="close-dialog"/g)||[]).length,1);
+  assert.ok(top.includes('aria-label="'+app.esc(app.t('batchSaveChanges'))+'"'));assert.ok(top.includes('<svg'));
+  assert.ok(!html.includes('class="toolbar"'));assert.ok(!html.slice(top.length).includes(app.esc(app.t('batchOtherFieldsHelp'))));
+  for(const kind of ['references','age','units','supplements','clinical'])assert.ok(html.includes('other-fields-'+kind));
+  assert.ok(html.includes('id="correction-progress"'));assert.ok(html.includes('id="correction-error"'));assert.ok(html.includes('name="maternalDanger"'));
+ }
+});
+
+test('row selection is absolute across pages, removal preserves other entries and previous workspace',()=>{
+ const base=engine.calculate(input()),entries=Array.from({length:13},(_,i)=>({child:{...base.child,caseId:'T-'+i},result:null})),state=workspace(entries),before=JSON.stringify(state);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language:'fr'},translations,batchPage:1});
+ app.batchSelectionSet().add(9);
+ const view=app.batchDisplayView(),html=app.batchRecordsHTML(view.entries,view.indices);
+ assert.ok(html.includes('data-batch-select="9"'));assert.ok(html.includes('data-batch-select="9" aria-label="Sélectionner la ligne 10" checked'));
+ assert.ok(html.includes('data-action="batch-delete-row"'));
+ const next=WorkspaceApp.batchWithoutRows(state,[0,9,9]);
+ assert.equal(next.batch.length,11);assert.deepEqual(next.batch.map(e=>e.child.caseId),entries.filter((_,i)=>i!==0&&i!==9).map(e=>e.child.caseId));assert.equal(JSON.stringify(state),before);
+ assert.throws(()=>WorkspaceApp.batchWithoutRows(state,[13]));
+ app.state=next;assert.equal(app.batchSelectionSet().size,0);
+});
+test('history filters classify stored versions with the same predicate for counters and filtering',()=>{
+ const sessions=[{summary:{mode:'batch',records:3,calculated:1},metadata:{importedAt:'2026-11-25'}},{summary:{mode:'single',records:1,calculated:1},metadata:{}},{summary:{mode:'batch',records:0,calculated:0},metadata:{}},{summary:{mode:'batch',records:1,calculated:0},metadata:{}}];
+ const counts=Object.fromEntries(['all','single','batch','imported','draft','pending','complete','mixed'].map(k=>[k,sessions.filter(s=>WorkspaceApp.historyMatches(s,k)).length]));
+ assert.deepEqual(counts,{all:4,single:1,batch:3,imported:1,draft:1,pending:1,complete:1,mixed:1});
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{sessions,prefs:{language:'fr'},translations});
+ assert.equal((app.historyKpisHTML().match(/data-action="history-kpi"/g)||[]).length,8);
+ const html=app.historyHTML();assert.ok(html.includes('id="history-view-versions" data-workspace-panel="history" data-view="versions" hidden'));assert.ok(html.includes('id="history-view-backup"'));
+ const toolbar=html.slice(html.indexOf('<div class="history-filter-bar">'),html.indexOf('<div id="history-list"'));
+ assert.ok(toolbar.includes('id="history-search" placeholder="'));assert.ok(toolbar.includes('id="history-filter"'));assert.equal((toolbar.match(/data-action="history-kpi"/g)||[]).length,8);assert.ok(toolbar.endsWith('</div></div>'));
+});
+test('quality counter filters keep review expanded and select matching technical signals',()=>{
+ const entry=engine.calculate(input()),state=workspace([{child:entry.child,result:null},entry]);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language:'fr'},translations});
+ const html=app.qualityHTML({open:true});assert.ok(html.includes('class="lot-analysis quality-review" open'));assert.ok(html.includes('data-action="quality-filter"'));
+ const code=LotQuality.build(state.batch).rows[0].codes[0];app.qualityFilter=code;
+ const filtered=app.qualityHTML({open:true});assert.ok(filtered.includes('data-value="'+code+'" aria-pressed="true"'));assert.ok(filtered.includes('class="lot-analysis quality-review" open'));
+});
+
+test('confirmed removals archive the full previous lot before publishing the new state; cancellation and storage failure preserve current data',async()=>{
+ const one=engine.calculate(input()),two=engine.calculate(input({caseId:'FICTIF-SECOND'})),state=workspace([one,two]),before=JSON.stringify(state),previous=global.window;
+ const h=ui(state,{});h.app.batchCorrection=null;h.app.syncBatchSelection=()=>{};
+ try{
+  global.window={confirm:()=>false};
+  await h.app.deleteBatchRows([1]);assert.equal(h.store.writes,0);assert.equal(h.app.state,state);
+  global.window={confirm:()=>true};
+  await h.app.deleteBatchRows([1]);
+  assert.equal(h.store.writes,2);assert.equal(h.app.state.batch.length,1);assert.deepEqual(h.app.state.batch[0],one);assert.equal(JSON.stringify(state),before);
+  const versions=h.store.records.sessions.map(s=>s.metadata.workspace.batch.length);assert.deepEqual(versions,[2,1]);
+ }finally{h.restore();if(previous===undefined)delete global.window;else global.window=previous;}
+ const failed=ui(state,{});failed.app.batchCorrection=null;failed.app.syncBatchSelection=()=>{};
+ try{
+  global.window={confirm:()=>true};failed.store.beforeWrite=()=>{throw Error('disk unavailable');};
+  await assert.rejects(()=>failed.app.deleteBatchRows([0]),/disk unavailable/);assert.equal(failed.app.state,state);assert.equal(JSON.stringify(state),before);assert.equal(failed.app.batchDeleting,false);
+ }finally{failed.restore();if(previous===undefined)delete global.window;else global.window=previous;}
 });
