@@ -414,3 +414,18 @@ test('batch contextual help and list filters preserve data and distinct referenc
   assert.equal(app.state.batch[0].result,null);
  }
 });
+
+test('lot section headers carry exports, complementary help and compact score ranges, without changing results',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input({headCircumference:48,muac:145,tricepsSkinfold:9,subscapularSkinfold:7}));
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[entry],paste:'name,weight'};app.batchPane='statistics';
+  const before=JSON.stringify(app.state),html=app.batchHTML();
+  assert.ok(/<summary><span class="lot-heading-layout">[^]*?class="toolbar compact-toolbar lot-heading-actions"[^]*?<\/summary>/.test(html));
+  assert.ok(html.includes('class="lot-score-range"'));assert.ok(html.includes(app.esc(app.t('lotMeanShort'))));
+  assert.ok(html.includes('lot-indicator-help-'));assert.ok(html.includes('class="quality-heading-title"'));
+  assert.ok(html.indexOf('id="csv-parse-button"')<html.indexOf('id="csv-tools-body"'));
+  assert.equal((html.match(/id="csv-parse-button"/g)||[]).length,1);
+  assert.equal(JSON.stringify(app.state),before);
+ }
+});
