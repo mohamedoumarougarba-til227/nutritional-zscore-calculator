@@ -426,7 +426,7 @@ class WorkspaceApp {
     }
     installHTML() {
         const ready=this.offlineState==='offlineReady',prompt=globalThis.ReleaseGuard?.installPrompt;
-        return `<section class="card"><h2>${this.t('installHelp')}</h2><p role="status">${this.t(ready?'installReady':'installPending')}</p>${prompt?`<button class="btn primary" data-action="install-app" ${ready?'':'disabled'}>${this.t('installApp')}</button>`:''}<p>${this.t('installInstructions')}</p></section>`;
+        return `<section class="card settings-install"><h2>${this.icon('system')}${this.t('installHelp')}</h2><p role="status">${this.t(ready?'installReady':'installPending')}</p>${prompt?`<button class="btn primary" data-action="install-app" ${ready?'':'disabled'}>${this.t('installApp')}</button>`:''}<details class="settings-install-guide"><summary>${this.t('installInstructionsTitle')}</summary><p>${this.t('installInstructions')}</p></details></section>`;
     }
     updateInstallStatus(){const section=document.getElementById('install-status');if(section)section.innerHTML=this.installHTML();}
     async installApp(){
@@ -441,7 +441,7 @@ class WorkspaceApp {
         const label=kind=>kind==='growthProfile'?'growthProfileDefault':kind==='careProtocol'?'careProtocolDefault':kind;
         const value=kind=>kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':kind==='careProtocol'?this.prefs.careProtocol==='niger2025'?'careNiger2025':this.prefs.careProtocol==='niger2023'?'careNiger2023':'careWHO':this.prefs.theme);
         const picker=kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(label(kind))}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='theme'?this.prefs.theme:kind==='careProtocol'?'references':'language')}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(value(kind))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
-        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}</div><div class="settings-clinical"><h3>${this.t('settingsClinical')}</h3><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></div></section><div class="settings-device"><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><button class="btn" data-action="check-update" ${!this.updateChecking?'':'disabled'}>${this.t(this.updateChecking?'settingsChecking':'updateCheck')}</button></section><div id="install-status">${this.installHTML()}</div></div></div>`;
+        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div></div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -1014,11 +1014,12 @@ class WorkspaceApp {
         document.querySelector('[data-action="history-next"]').disabled = this.historyPage >= pages-1;
     }
     quickGuideHTML() {
-        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2>${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</section>`;
+        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2><div class="quick-guide-grid">${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</div></section>`;
     }
     referencesHTML() {
         const links = [['sourceClinical2023','https://www.who.int/publications/i/item/9789240082830'],['sourceClinical2026','https://www.who.int/publications/i/item/9789240122840'],['sourceWHO','https://www.who.int/tools/child-growth-standards/standards'],['sourceAnthro','https://www.who.int/toolkits/child-growth-standards/software'],['sourceClassification','https://www.who.int/data/nutrition/nlis/info/malnutrition-in-children/'],['sourceCode','https://github.com/WorldHealthOrganization/anthro/tree/'+this.engine.data.sourceCommit+'/data-raw/growthstandards'],['sourceLicense','data/LICENSE-anthro.txt'],['sourceWHO2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],['sourceLicense2007','data/LICENSE-anthroplus.txt'],['sourceCDC','https://www.cdc.gov/growthcharts/cdc-data-files.htm'],['sourceCDC2022','https://www.cdc.gov/growthcharts/extended-bmi-data-files.htm'],['sourceIntergrowth','https://intergrowth21.com/tools-resources/postnatal-growth-preterm-infants'],['sourceIntergrowthUse','https://globalhealthtrainingcentre.tghn.org/preterm-infant-feeding-and-growth-monitoring-implementation-intergrowth-21st-protocol/faqs/'],['sourceIntergrowthCode','https://github.com/ropensci/gigs/blob/fb58fe6596d4b289d5362c5efe00f882984d3186/R/ig_png.R']];
-        return `<div class="field reference-search"><label for="reference-search">${this.t('search')}</label><input id="reference-search" type="search"></div><div class="reference-grid">${this.quickGuideHTML()}<section class="card full"><span class="eyebrow">OMS / WHO · 2006 / 2007 · CDC 2000 / 2022 · INTERGROWTH</span><h2>${this.t('references')}</h2><div class="source-links">${links.map(([k,url])=>`<a href="${url}" target="_blank" rel="noopener noreferrer">${this.t(k)} ↗</a>`).join('')}</div><p>${this.t('referenceBoth')}</p><p class="meta">${this.esc(this.manifest.referenceVersion)}<br>SHA-256 : ${this.manifest.sha256}</p>${this.olderManifest?`<p class="meta">${this.esc(this.olderManifest.referenceVersion)}<br>SHA-256 : ${this.olderManifest.sha256}</p>`:''}${this.cdcManifest?`<p class="meta">${this.esc(this.cdcManifest.referenceVersion)}<br>SHA-256 : ${this.cdcManifest.sha256}</p>`:''}<p class="meta">${this.esc(PretermUI.reference)} · ${this.esc(PretermUI.version)}</p></section>${[['scope','scopeText'],['method','methodText'],['measurementHelp','measurementHelpText'],['privacyTitle','privacyText'],['validationTitle','validationText']].map(([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`).join('')}<section class="card"><h2>${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</h2><button class="btn" data-action="check-update" ${this.offlineRegistration?'':'disabled'}>${this.t('updateCheck')}</button></section></div>`;
+        const sourceGroups=[['referenceCare',links.slice(0,2)],['referenceWHO',links.slice(2,9)],['referenceCDC',links.slice(9,11)],['referencePreterm',links.slice(11)]]; 
+        return `<div class="reference-grid">${this.quickGuideHTML()}<section class="card full"><span class="eyebrow">OMS / WHO · 2006 / 2007 · CDC 2000 / 2022 · INTERGROWTH</span><h2>${this.t('references')}</h2><div class="source-groups">${sourceGroups.map(([title,items])=>`<section class="source-group"><h3>${this.t(title)}</h3><ul class="source-links">${items.map(([k,url])=>`<li><a href="${url}" target="_blank" rel="noopener noreferrer">${this.t(k)} <span aria-hidden="true">↗</span></a></li>`).join('')}</ul></section>`).join('')}</div><details class="reference-integrity"><summary>${this.t('referenceBoth')}</summary><p class="meta">${this.esc(this.manifest.referenceVersion)}<br>SHA-256 : ${this.manifest.sha256}</p>${this.olderManifest?`<p class="meta">${this.esc(this.olderManifest.referenceVersion)}<br>SHA-256 : ${this.olderManifest.sha256}</p>`:''}${this.cdcManifest?`<p class="meta">${this.esc(this.cdcManifest.referenceVersion)}<br>SHA-256 : ${this.cdcManifest.sha256}</p>`:''}<p class="meta">${this.esc(PretermUI.reference)} · ${this.esc(PretermUI.version)}</p></details></section>${[['scope','scopeText'],['method','methodText'],['measurementHelp','measurementHelpText'],['privacyTitle','privacyText'],['validationTitle','validationText']].map(([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`).join('')}<section class="card"><h2>${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</h2><button class="btn" data-action="check-update" ${this.offlineRegistration?'':'disabled'}>${this.t('updateCheck')}</button></section></div>`;
     }
     events() {
         this.choicePopup();
@@ -1072,7 +1073,6 @@ class WorkspaceApp {
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
             if(event.target.id==='batch-search'){if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state){event.target.value=this.batchSearch||'';return;}this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
-            if(event.target.id==='reference-search'){const query=this.historySearchKey(event.target.value);document.querySelectorAll('.reference-grid>section').forEach(section=>{section.hidden=!!query&&!this.historySearchKey(section.textContent).includes(query);});return;}
             if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
             if (event.target.closest('#single-form,#batch-form') || event.target.id === 'paste-data') {
                 this.readForms(); if (event.target.closest('#single-form') && this.state.single) { this.state.stale = true; const target=document.getElementById('single-results'); if(target&&!target.querySelector('[data-stale-notice]')){const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');target.querySelector('.dashboard-toolbar')?.after(notice);} }
@@ -1196,6 +1196,7 @@ class WorkspaceApp {
     updateToast(){const el=document.getElementById('toast');if(el){el.textContent=this.toastKey?(this.t(this.toastKey)===this.toastKey?this.t('error'):this.t(this.toastKey)):'';el.setAttribute('role',this.toastIsError?'alert':'status');}}
     toast(key,error=false) { this.toastKey=key;this.toastIsError=error;this.updateToast();clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>{this.toastKey=null;this.updateToast();},6500); }
     async action(action,button) {
+        if(action==='dismiss-update-notice'){this.dismissUpdateNotice();return;}
         if(this.batchDeleting||this.batchInlineEdit?.busy)return;
         if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
         if(action==='batch-inline-save'){await this.saveBatchInline();return;}
@@ -1620,18 +1621,41 @@ class WorkspaceApp {
     }
     updateConnection(){const badge=document.getElementById('connection');if(badge){const online=navigator.onLine;badge.dataset.connection=online?'online':'offline';badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(online?'online':'offline')}`;}}
     updateOfflineStatus(){document.querySelectorAll('[data-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState);});this.updateInstallStatus();}
-    updateHTML(){
-        if(!this.offlineRegistration?.waiting&&!this.reloadAvailable&&!this.updateError)return '';
-        const available=!!this.offlineRegistration?.waiting||this.reloadAvailable;
-        return `<div class="notice ${this.updateError?'warn':'recovery'}" role="status"><div><strong>${this.t(available?'updateReady':'updateFailed')}</strong><p>${this.t(available?'updateHelp':'updateFailedHelp')}</p>${this.updateError&&(available||this.updateError!=='updateFailedHelp')?`<p>${this.esc(this.t(this.updateError))}</p>`:''}</div>${this.updateError&&this.updateAssetError?`<p class="hint"><bdi>${this.esc(this.updateAssetError)}</bdi></p>`:''}<button class="btn" data-action="${available?'apply-update':'check-update'}" ${this.updateApplying?'disabled':''}>${this.t(this.updateApplying?'updateSaving':available?'updateApply':'updateRetry')}</button></div>`;
+    updateNoticeState(){
+        const available=!!this.offlineRegistration?.waiting||!!this.reloadAvailable;
+        const error=this.updateError||'';
+        return {available,error,key:available||error?JSON.stringify([available,error,this.updateAssetError||'']):''};
     }
-    updateUpdateStatus(){const el=document.getElementById('update-notice');if(el)el.innerHTML=this.updateHTML();document.querySelectorAll('#page-content [data-action="check-update"]').forEach(button=>{button.disabled=!!this.updateChecking||!('serviceWorker' in navigator);button.textContent=this.t(this.updateChecking?'settingsChecking':'updateCheck');});}
+    updateHTML(){
+        const {available,error,key}=this.updateNoticeState();
+        if(!key||this.updateNoticeDismissed===key)return '';
+        return `<div class="notice update-toast ${error?'warn':'recovery'}" role="${error?'alert':'status'}"><div class="update-toast-heading"><strong>${this.t(error?'updateFailed':'updateReady')}</strong>${this.toolButton('close','close','dismiss-update-notice')}</div><p>${this.t(error?'updateFailedHelp':'updateHelp')}</p>${error&&error!=='updateFailedHelp'?`<p>${this.esc(this.t(error))}</p>`:''}<button class="btn" data-action="${available?'apply-update':'check-update'}" ${this.updateApplying?'disabled':''}>${this.t(this.updateApplying?'updateSaving':available?'updateApply':'updateRetry')}</button></div>`;
+    }
+    dismissUpdateNotice(){
+        this.updateNoticeDismissed=this.updateNoticeState().key;
+        clearTimeout(this.updateNoticeTimer);this.updateNoticeTimer=null;
+        const el=document.getElementById('update-notice');if(el)el.innerHTML='';
+    }
+    updateSettingsHTML(){
+        const {available,error}=this.updateNoticeState();
+        return `${available||error?`<div class="settings-update-state ${error?'update-state-warning':''}" role="status"><strong>${this.t(error?'updateFailed':'updateReady')}</strong><details><summary>${this.t('updateDetailsTitle')}</summary><p>${this.t(error?'updateFailedHelp':'updateHelp')}</p>${error&&error!=='updateFailedHelp'?`<p>${this.esc(this.t(error))}</p>`:''}${error&&this.updateAssetError?`<p><bdi>${this.esc(this.updateAssetError)}</bdi></p>`:''}</details></div>`:''}<div class="toolbar settings-update-actions"><button class="btn" data-action="check-update" ${this.updateChecking||this.updateApplying?'disabled':''}>${this.t(this.updateChecking?'settingsChecking':'updateCheck')}</button>${available?`<button class="btn primary" data-action="apply-update" ${this.updateApplying||this.updateChecking?'disabled':''}>${this.t(this.updateApplying?'updateSaving':'updateApply')}</button>`:''}</div>`;
+    }
+    updateUpdateStatus(){
+        const {key}=this.updateNoticeState();
+        if(key!==this.updateNoticeKey){
+            clearTimeout(this.updateNoticeTimer);this.updateNoticeKey=key;this.updateNoticeDismissed='';
+            if(key)this.updateNoticeTimer=setTimeout(()=>this.dismissUpdateNotice(),5000);
+        }
+        const el=document.getElementById('update-notice');if(el)el.innerHTML=this.updateHTML();
+        const settings=document.getElementById('settings-update-status');if(settings)settings.innerHTML=this.updateSettingsHTML();
+        document.querySelectorAll('#page-content [data-action="check-update"]').forEach(button=>{button.disabled=!!this.updateChecking||!!this.updateApplying||!('serviceWorker' in navigator);button.textContent=this.t(this.updateChecking?'settingsChecking':'updateCheck');});
+    }
     async checkUpdate(){
-        if(this.updateChecking)return;
+        if(this.updateChecking||this.updateApplying)return;
         if(!navigator.onLine){this.toast('settingsUpdateOffline',true);return;}
         if(!this.offlineRegistration){await this.registerOffline();if(!this.offlineRegistration)return;}
-        this.updateChecking=true;this.updateUpdateStatus();
-        try{this.updateError=null;await this.offlineRegistration.update();if(!this.updateError)this.toast('updateChecked');}
+        this.updateChecking=true;this.updateError=null;this.updateAssetError='';this.updateNoticeKey=null;this.updateUpdateStatus();
+        try{await this.offlineRegistration.update();if(!this.updateError)this.toast('updateChecked');}
         catch(error){this.updateError='updateFailedHelp';console.warn('Service worker update failed',error);}
         finally{this.updateChecking=false;this.updateUpdateStatus();}
     }

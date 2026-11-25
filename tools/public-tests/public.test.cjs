@@ -357,3 +357,20 @@ test('numeric draft controls restored as strings do not create a duplicate archi
     restored.batchDraft.muac='121';assert.ok(await history.save(restored,'automatic'));
     assert.equal(store.records.sessions.length,1);
 });
+
+test('update notices dismiss without removing update or retry actions from Settings',()=>{
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language:'fr',theme:'light',growthProfile:'who'},updateError:'updateFailedHelp',offlineRegistration:{waiting:{}}});
+ const old=global.document;global.document={getElementById:()=>null};
+ try{
+  assert.ok(app.updateHTML().includes('dismiss-update-notice'));assert.ok(app.updateHTML().includes('update-toast'));
+  app.dismissUpdateNotice();assert.equal(app.updateHTML(),'');assert.equal(app.updateError,'updateFailedHelp');assert.ok(app.offlineRegistration.waiting);
+  assert.ok(app.settingsHTML().includes('data-action="apply-update"'));assert.ok(app.settingsHTML().includes('data-action="check-update"'));
+  app.updateError=null;assert.ok(app.updateHTML().includes(translations.fr.updateReady));
+ }finally{global.document=old;}
+});
+test('reference help keeps all fourteen sources and verification metadata without backup search in every language',()=>{
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language},engine,manifest:{referenceVersion:'test-version',sha256:'test-sha'}});
+  const html=app.referencesHTML();assert.ok(!html.includes('id="reference-search"'));assert.ok(html.includes('quick-guide-grid'));assert.equal((html.match(/class="source-group"/g)||[]).length,4);assert.equal((html.match(/target="_blank"/g)||[]).length,14);assert.ok(html.includes('test-sha'));assert.ok(html.includes('reference-integrity'));
+ }
+});
