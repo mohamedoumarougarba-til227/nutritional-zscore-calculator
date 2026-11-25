@@ -36,7 +36,7 @@ test('feedback links route FR EN AR on every view without embedding local record
             for(const page of ['single','batch','history','references','settings']){
                 const state={single:null,draft:{caseId:'FICTIF-NOT-FOR-TALLY',weight:8500},batch:[]};
                 const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations,page,state,history:{recoveryErrors:[]}}),before=JSON.stringify(state);
-                for(const method of ['closeChoice','closeInfo','observeHeader','updateConnection','updateSaveStatus','updateToast','syncImportNotice','renderHistoryList','refreshCapacity','enhanceSelects','updateCSVControls'])app[method]=()=>{};
+                for(const method of ['closeChoice','closeInfo','observeHeader','updateConnection','updateSaveStatus','updateToast','syncImportNotice','renderHistoryList','refreshCapacity','enhanceSelects','updateCSVControls','syncBatchSelection'])app[method]=()=>{};
                 for(const method of ['updateHTML','singleHTML','batchHTML','historyHTML','referencesHTML','settingsHTML','toolButton','icon'])app[method]=()=>'';
                 app.render();
                 const github=root.innerHTML.match(/<a class="github-footer-link"([^>]*)>([^<]*)<\/a>/);assert(github);assert.equal(github[2],translations[language].githubProject);assert(github[1].includes('href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator"'));assert(github[1].includes('rel="noopener noreferrer"'));assert(!github[0].includes('FICTIF-NOT-FOR-TALLY'));

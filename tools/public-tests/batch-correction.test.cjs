@@ -293,3 +293,21 @@ test('quality counter filters keep review expanded and select matching technical
  const code=LotQuality.build(state.batch).rows[0].codes[0];app.qualityFilter=code;
  const filtered=app.qualityHTML({open:true});assert.ok(filtered.includes('data-value="'+code+'" aria-pressed="true"'));assert.ok(filtered.includes('class="lot-analysis quality-review" open'));
 });
+
+test('confirmed removals archive the full previous lot before publishing the new state; cancellation and storage failure preserve current data',async()=>{
+ const one=engine.calculate(input()),two=engine.calculate(input({caseId:'FICTIF-SECOND'})),state=workspace([one,two]),before=JSON.stringify(state),previous=global.window;
+ const h=ui(state,{});h.app.batchCorrection=null;h.app.syncBatchSelection=()=>{};
+ try{
+  global.window={confirm:()=>false};
+  await h.app.deleteBatchRows([1]);assert.equal(h.store.writes,0);assert.equal(h.app.state,state);
+  global.window={confirm:()=>true};
+  await h.app.deleteBatchRows([1]);
+  assert.equal(h.store.writes,2);assert.equal(h.app.state.batch.length,1);assert.deepEqual(h.app.state.batch[0],one);assert.equal(JSON.stringify(state),before);
+  const versions=h.store.records.sessions.map(s=>s.metadata.workspace.batch.length);assert.deepEqual(versions,[2,1]);
+ }finally{h.restore();if(previous===undefined)delete global.window;else global.window=previous;}
+ const failed=ui(state,{});failed.app.batchCorrection=null;failed.app.syncBatchSelection=()=>{};
+ try{
+  global.window={confirm:()=>true};failed.store.beforeWrite=()=>{throw Error('disk unavailable');};
+  await assert.rejects(()=>failed.app.deleteBatchRows([0]),/disk unavailable/);assert.equal(failed.app.state,state);assert.equal(JSON.stringify(state),before);assert.equal(failed.app.batchDeleting,false);
+ }finally{failed.restore();if(previous===undefined)delete global.window;else global.window=previous;}
+});

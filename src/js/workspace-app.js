@@ -268,7 +268,7 @@ class WorkspaceApp {
     openMobileActions() {
         if(!['single','batch'].includes(this.page))return;
         this.closeInfo();this.closeChoice();
-        const selector=this.page==='batch'?(document.getElementById('measure-card')?.hidden?'.batch-actions button':'.form-top-actions button,.batch-actions button'):this.state.single&&!this.singleEditing?'.result-toolbar button':'.form-top-actions button,.result-toolbar [data-action="show-results"]';
+        const selector=this.page==='batch'?(document.getElementById('measure-card')?.hidden?'.batch-actions button':'.form-top-actions button'):this.state.single&&!this.singleEditing?'.result-toolbar button':'.form-top-actions button,.result-toolbar [data-action="show-results"]';
         const buttons=[...document.querySelectorAll('#page-content '+selector.split(',').join(',#page-content '))];
         const d=document.getElementById('header-dialog');d.classList.remove('app-info-dialog');d.classList.add('mobile-actions-dialog');d.dataset.opener='mobile-actions-button';
         d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title">${this.t('mobileActions')}</h2>${this.toolButton('close','close','close-header')}</div><div class="mobile-actions-grid"></div>`;
