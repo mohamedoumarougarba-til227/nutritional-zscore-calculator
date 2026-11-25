@@ -410,12 +410,14 @@ class PDFManager {
             const legend=()=>{
                 const labels=['pdfVisitMark','pdfMedianMark','pdfTwoMark','pdfThreeMark'].map(t);
                 const segments=[[],[],[1.4,.8],[.35,.85]];
+                const cellWidth=width/labels.length;
                 ensure(14);
                 for(let i=0;i<labels.length;i++){
-                    const left=margin+(rtl?3-i:i)*46.5;
-                    doc.setDrawColor(45).setLineWidth(i===0?.55:.24).setLineDashPattern(segments[i],0).line(left,y-1,left+7,y-1);
-                    if(i===0)doc.setFillColor(35).circle(left+3.5,y-1,.65,'F');
-                    place(labels[i],rtl?left+45:left+9,y,{size:8.5});
+                    const left=margin+(rtl?labels.length-1-i:i)*cellWidth;
+                    const mark=rtl?left+cellWidth-7:left;
+                    doc.setDrawColor(45).setLineWidth(i===0?.55:.24).setLineDashPattern(segments[i],0).line(mark,y-1,mark+7,y-1);
+                    if(i===0)doc.setFillColor(35).circle(mark+3.5,y-1,.65,'F');
+                    place(labels[i],rtl?mark-2:mark+9,y,{size:8.5});
                 }
                 doc.setLineDashPattern([],0);y+=5;
                 line(t('pdfPointStyles'),{size:8.5});

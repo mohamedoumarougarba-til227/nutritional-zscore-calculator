@@ -3,8 +3,8 @@
   "version": "5.13.0",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8775760,
-  "sha256": "f88162dad6f9f687353edca7ff3b1ad237442f654424eee877fbb32ec006f7d6",
+  "bytes": 8775889,
+  "sha256": "1b5a48788e8c3edf0fb3e09b216f61e5649ee6fd722fd6ff31ed1c9be05ce1c5",
   "files": [
     {
       "file": ".gitattributes",
@@ -408,8 +408,8 @@
     },
     {
       "file": "src/js/services/pdf-manager.js",
-      "bytes": 57612,
-      "sha256": "d1ef4b65fe499a31398f219bcef7f0819597f2271770bc94b0584eb322aa0a8c"
+      "bytes": 57741,
+      "sha256": "3492641adbbd2cafbc55b529bce183d88b204140af7d6eade0fbd266995cbb42"
     },
     {
       "file": "src/js/services/percentile-display.js",
