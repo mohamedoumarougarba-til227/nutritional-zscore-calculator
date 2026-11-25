@@ -668,3 +668,13 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  #single-view-summary .summary-print-help{display:block!important;max-width:none}
  #single-view-summary .field-info{display:none!important}
 }
+
+/* The lot overview belongs to the list, not to the global workspace header. */
+@media screen{
+ #batch-view-results>.batch-kpis{margin-block:0 10px;gap:8px;grid-template-columns:repeat(4,minmax(0,1fr))}
+ #batch-view-results .batch-kpi{flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;min-height:38px;border-radius:8px}
+ #batch-view-results .batch-kpi span{font-size:12px;line-height:1.3;min-width:0;overflow-wrap:anywhere}
+ #batch-view-results .batch-kpi strong{font-size:18px;line-height:1.2;flex-shrink:0}
+ @container batch-panel (max-width:720px){#batch-view-results>.batch-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+ @container batch-panel (max-width:300px){#batch-view-results>.batch-kpis{grid-template-columns:minmax(0,1fr)}}
+}

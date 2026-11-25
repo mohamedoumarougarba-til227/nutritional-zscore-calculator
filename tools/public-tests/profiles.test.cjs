@@ -385,3 +385,17 @@ test('compact individual screening merges only matching MUAC criteria and expose
     }
     assert.equal(JSON.stringify(entry),before);
 });
+
+test('lot counters belong only to the list panel and do not consume entry, quality or statistics space',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input());
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[entry]};
+  for(const pane of ['entry','results','quality','statistics']){
+   app.batchPane=pane;const html=app.batchHTML(),start=html.indexOf('id="batch-view-results"'),end=html.indexOf('id="batch-view-quality"'),overview=html.indexOf('class="batch-kpis"');
+   assert.ok(start>=0&&overview>start&&overview<end);
+   assert.equal((html.match(/class="batch-kpi"/g)||[]).length,4);
+   assert.ok(html.indexOf('class="workspace-view-nav"')<html.indexOf('id="measure-card"'));
+  }
+ }
+});
