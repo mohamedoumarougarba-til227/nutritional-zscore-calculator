@@ -821,7 +821,8 @@
     "uiScreeningFilter": "Filtrer le dépistage",
     "uiAll": "Toutes les fiches",
     "uiNoMatch": "Aucune fiche ne correspond à la recherche.",
-    "uiScreening": "Dépistage"
+    "uiScreening": "Dépistage",
+    "uiMonthsShort": "Mois"
   },
   "en": {
     "pdfOedemaSuspended": "Withheld (oedema)",
@@ -1645,7 +1646,8 @@
     "uiScreeningFilter": "Screening filter",
     "uiAll": "All records",
     "uiNoMatch": "No matching records.",
-    "uiScreening": "Screening"
+    "uiScreening": "Screening",
+    "uiMonthsShort": "Months"
   },
   "ar": {
     "pdfOedemaSuspended": "معلّق (الوذمة)",
@@ -2469,6 +2471,7 @@
     "uiScreeningFilter": "تصفية التحري",
     "uiAll": "جميع السجلات",
     "uiNoMatch": "لا توجد سجلات مطابقة.",
-    "uiScreening": "التحري"
+    "uiScreening": "التحري",
+    "uiMonthsShort": "الأشهر"
   }
 }

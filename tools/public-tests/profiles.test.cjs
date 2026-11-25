@@ -294,3 +294,20 @@ test('clinical workspace visual tabs preserve fields and original filtered lot i
         assert.equal(JSON.stringify(app.state),before);
     }
 });
+
+
+test('individual compact entry keeps each original input and age mode across profiles and languages',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar'])for(const profile of ['who','us','intergrowth']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:profile}});
+        const draft=app.emptyDraft(profile);
+        for(const mode of profile==='intergrowth'?['days','dates','pma']:['days','dates','months','totalMonths']){
+            const current={...draft,ageMode:mode},before=JSON.stringify(current),html=app.formHTML('single',current),batch=app.formHTML('batch',current,true);
+            assert.ok(html.includes('entry-two-columns'));assert.ok(html.includes('entry-age-panel'));assert.ok(html.includes('entry-measure-panel'));
+            assert.ok(!batch.includes('entry-two-columns'));
+            const fields=v=>[...v.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort();assert.deepEqual(fields(html),fields(batch));
+            assert.ok(html.includes('data-age="'+mode+'" '));assert.equal(JSON.stringify(current),before);
+            assert.ok(html.includes('max="19"'));assert.ok(html.includes('max="11"'));assert.ok(html.includes('max="'+(profile==='intergrowth'?448:profile==='us'?7304:6970)+'"'));
+        }
+    }
+});
