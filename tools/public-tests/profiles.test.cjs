@@ -330,7 +330,9 @@ test('individual age and unit selectors share their input field and preserve nat
         assert.ok(html.includes('class="field title-age" data-field="ageMode"'));
         assert.equal((html.match(/class="field title-measurement"/g)||[]).length,2);
         assert.ok(!batch.includes('data-title-choice'));
+        assert.ok(html.includes('class="entry-primary-row"'));assert.ok(html.includes('class="entry-measure-row"'));
+        assert.ok(html.includes('placeholder="'+app.t('ageYears')+'"'));assert.ok(html.includes('placeholder="'+app.t('uiMonthsShort')+'"'));assert.ok(!batch.includes('class="entry-primary-row"'));
         assert.equal(app.choiceDisplay({dataset:{choicePrefix:app.t('weightMeasure')},selectedOptions:[{textContent:'kg'}]}),app.t('weightMeasure')+' (kg)');
-        assert.equal(app.choiceDisplay({dataset:{choiceBirthLabel:app.t('birthDate')},value:'dates',selectedOptions:[{textContent:app.t('dates')}]}),app.t('dates')+' · '+app.t('birthDate'));
+        assert.equal(app.choiceDisplay({dataset:{choiceBirthLabel:app.t('birthDate')},value:'dates',selectedOptions:[{textContent:app.t('dates')}]}),app.t('birthDate'));
     }
 });

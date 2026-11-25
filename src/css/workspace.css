@@ -576,3 +576,44 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 }
 @media(pointer:coarse){.individual-compact-form .entry-flow-grid .title-choice,.individual-compact-form .entry-flow-grid select[data-title-choice]{min-height:38px}}
 @media screen and (max-width:680px){.individual-compact-form .entry-flow-grid .title-choice{min-height:32px}}
+
+/* Final individual-field sizing: flexible identity, intrinsic short controls, no additional section labels. */
+@media screen{
+.individual-compact-form .entry-flow-grid>.entry-primary-row,.individual-compact-form .entry-flow-grid>.entry-measure-row{display:contents}
+.individual-compact-form .entry-flow-grid .title-age .age-fields[data-age="months"] .field-label{position:absolute!important;width:1px;height:1px;min-height:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;margin:0;inset:auto}
+.individual-compact-form .entry-flow-grid .title-age .age-fields[data-age="months"] input{padding-inline:8px}
+.individual-compact-form .entry-flow-grid .title-age .age-fields[data-age="months"] input::placeholder{color:var(--muted);opacity:1;font-size:12px}
+.individual-compact-form .entry-flow-grid .title-age .age-fields[data-age="months"]{gap:5px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.individual-compact-form .entry-flow-grid .title-age .age-fields>.field{min-inline-size:0}
+.individual-compact-form .entry-flow-grid .title-age input{max-inline-size:100%}
+}
+@container measure-panel (min-width:720px){
+.individual-compact-form .entry-flow-grid .title-age{inline-size:164px;max-inline-size:100%}
+.individual-compact-form .entry-flow-grid [data-field="measurementDate"]{inline-size:145px;max-inline-size:100%}
+.individual-compact-form .entry-flow-grid [data-field="gender"]{inline-size:125px;max-inline-size:100%}
+.individual-compact-form .entry-flow-grid [data-field="weight"]{inline-size:118px;min-inline-size:0}
+.individual-compact-form .entry-flow-grid [data-field="height"]{inline-size:150px;min-inline-size:0}
+.individual-compact-form .entry-flow-grid [data-field="muac"]{inline-size:96px;min-inline-size:0}
+.individual-compact-form .entry-flow-grid [data-field="oedema"]{inline-size:215px}
+.individual-compact-form .entry-flow-grid [data-field="position"]{inline-size:190px}
+.individual-compact-form .entry-flow-grid .title-age .age-fields:not([data-age="months"]){inline-size:145px;max-inline-size:100%}
+.individual-compact-form .entry-flow-grid .title-age .age-fields[data-age="months"]{inline-size:148px;max-inline-size:100%}
+.individual-compact-form .entry-flow-grid .title-age .age-fields>.field{inline-size:auto;min-inline-size:0}
+.individual-compact-form .entry-flow-grid [data-field="name"]{flex:1 1 240px;inline-size:240px;min-inline-size:180px;max-inline-size:100%}
+}
+@container measure-panel (min-width:1130px){
+.clinical-workspace .individual-compact-form>.entry-flow-grid:not(.entry-flow-preterm){display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.individual-compact-form .entry-flow-grid>.entry-primary-row,.individual-compact-form .entry-flow-grid>.entry-measure-row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:start;min-width:0}
+.individual-compact-form .entry-primary-row>.field,.individual-compact-form .entry-measure-row>.field{flex:0 1 auto;min-width:0;max-inline-size:100%}
+.individual-compact-form .entry-primary-row>[data-field="caseId"]{inline-size:180px}
+.individual-compact-form .entry-primary-row>[data-field="name"]{flex:1 1 260px;inline-size:auto;min-inline-size:180px;max-inline-size:none}
+.individual-compact-form .entry-measure-row{column-gap:clamp(14px,2cqi,28px)}
+.individual-compact-form .entry-measure-row>.field{flex:0 1 auto}
+}
+
+@container measure-panel (max-width:719px){
+.clinical-workspace .individual-compact-form>.entry-flow-grid:not(.entry-flow-preterm){grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 8px}
+.individual-compact-form .entry-primary-row>.field,.individual-compact-form .entry-measure-row>.field{grid-column:span 1;min-width:0;max-inline-size:100%}
+.individual-compact-form .entry-primary-row>.title-age{grid-column:1/-1}
+.individual-compact-form .entry-primary-row>.title-age .age-fields{max-inline-size:164px}
+}
