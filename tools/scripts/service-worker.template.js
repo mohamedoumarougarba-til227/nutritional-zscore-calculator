@@ -3,6 +3,9 @@ const STATIC_CACHE_NAME = 'zscore-release-' + RELEASE.id + '-' + self.registrati
 const STATIC_ASSETS = Object.keys(RELEASE.assets);
 const assetURLs = STATIC_ASSETS.map(asset => new URL(asset, self.registration.scope).href);
 const hashes = new Map(STATIC_ASSETS.map((asset,i)=>[assetURLs[i],RELEASE.assets[asset]]));
+// The corresponding source archives remain verified downloads. A slow download must not block the calculator's offline install.
+const sourceArchives = ['data/zscore-sources.zip','data/who-data-sources.zip'];
+const precacheURLs = assetURLs.filter((_,index)=>!sourceArchives.includes(STATIC_ASSETS[index]));
 async function verifiedResponse(url) {
     const fetchURL=url===self.registration.scope&&hashes.get(url)===hashes.get(new URL('index.html',self.registration.scope).href)?new URL('index.html',self.registration.scope).href:url;
     const response = await fetch(new Request(fetchURL,{cache:'reload',credentials:'same-origin'}));
@@ -18,10 +21,10 @@ async function verifyResponse(url,response) {
 self.addEventListener('install', event => {
     event.waitUntil((async()=>{
         // Validate the entire set before writing. A rejected install leaves the active release alone.
-        const responses = new Array(assetURLs.length);let cursor=0;
-        async function download(){while(cursor<assetURLs.length){const i=cursor++;responses[i]=await verifiedResponse(assetURLs[i]);}}
+        const responses = new Array(precacheURLs.length);let cursor=0;
+        async function download(){while(cursor<precacheURLs.length){const i=cursor++;responses[i]=await verifiedResponse(precacheURLs[i]);}}
         // Avoid dozens of concurrent transfers on weak mobile connections.
-        try{await Promise.all(Array.from({length:Math.min(3,assetURLs.length)},download));}
+        try{await Promise.all(Array.from({length:Math.min(3,precacheURLs.length)},download));}
         catch(error){
             // Report only the failing application resource, never URLs with user data or contents.
             try{const clients=await self.clients?.matchAll({type:'window',includeUncontrolled:true})||[];
@@ -32,7 +35,7 @@ self.addEventListener('install', event => {
             throw error;
         }
         const cache = await caches.open(STATIC_CACHE_NAME);
-        await Promise.all(assetURLs.map((url,i)=>cache.put(url,responses[i])));
+        await Promise.all(precacheURLs.map((url,i)=>cache.put(url,responses[i])));
         // No automatic skipWaiting: open work stays on its current release.
     })());
 });

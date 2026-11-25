@@ -1,10 +1,10 @@
 {
   "format": 1,
-  "version": "5.13.0",
+  "version": "5.13.1",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8775889,
-  "sha256": "1b5a48788e8c3edf0fb3e09b216f61e5649ee6fd722fd6ff31ed1c9be05ce1c5",
+  "bytes": 8778061,
+  "sha256": "c82b50e807759fff4909fb8898b6bbdec91c319b6dcd621564332fe80e1ec6f4",
   "files": [
     {
       "file": ".gitattributes",
@@ -54,7 +54,7 @@
     {
       "file": "README.md",
       "bytes": 11597,
-      "sha256": "7517763a152eb11bd424d1fd4db83bbf83aef2fe492ee571432761038046753f"
+      "sha256": "1a4b9bb1270d82d77886bc525a76b25cee3175d9f2d7a255b7fb95b985e4189e"
     },
     {
       "file": "SECURITY.md",
@@ -148,8 +148,8 @@
     },
     {
       "file": "docs/references/DISTRIBUTION_GPL.md",
-      "bytes": 6586,
-      "sha256": "7bd27006cd3e61d76279d0fe0e4900299951bf4339c99be8516148558ffa73a5"
+      "bytes": 6810,
+      "sha256": "8bfd5ed56c8a7c4bc59ec9a5c067a949e553ac46c25b86879ac024a033aa11b9"
     },
     {
       "file": "docs/references/DROITS_ET_LICENCES.md",
@@ -209,12 +209,12 @@
     {
       "file": "package-lock.json",
       "bytes": 722,
-      "sha256": "0746f748f700cdfc2a97718271ce06e045d5bbd269bd8a2fc097cbd6f6fa1cf3"
+      "sha256": "68246bf0fc1457bc566929762a6206e433e428036fc193f2e69fef333370321b"
     },
     {
       "file": "package.json",
       "bytes": 984,
-      "sha256": "3c9aba3c67bfb7e9dbdffb2187f07a79fc3f7fc7502682e0c3712421cb3561c0"
+      "sha256": "68e4ec53478afa2ff5b0b3828c911971d3b5b6b1c83b3a7e4cdf525f69b36b8a"
     },
     {
       "file": "src/assets/icons/icon-128.png",
@@ -454,7 +454,7 @@
     {
       "file": "src/js/workspace-app.js",
       "bytes": 214530,
-      "sha256": "af7186160b652d89d3069f4eb296244385f99880d70f6f3077da5c6eb8ed07f0"
+      "sha256": "854771cf7a6ffa4a5606f273f3acb1a17ab6f73dae2dd3d54bc3cd4051bfc4af"
     },
     {
       "file": "src/js/workspace-bootstrap.js",
@@ -593,8 +593,8 @@
     },
     {
       "file": "tools/public-tests/public.test.cjs",
-      "bytes": 33247,
-      "sha256": "ed4326913fc58fa1765642e2bbfa74c1ff0e27da40975dce8bce128f8f224d43"
+      "bytes": 34873,
+      "sha256": "78d8da13ed5504db6349169f9ea3f9263d0f2003deaf08537347b2a6e8c5622f"
     },
     {
       "file": "tools/public-tests/reporting.test.cjs",
@@ -993,8 +993,8 @@
     },
     {
       "file": "tools/scripts/service-worker.template.js",
-      "bytes": 4738,
-      "sha256": "eadac3a506696bdbdf8b3eed386b39777b7ee59eed252cd82abecd679cdd10a0"
+      "bytes": 5060,
+      "sha256": "8b6262842f9adbfc4b419f983e8c079bf66f643ac084638e8978a02fe0f2f118"
     },
     {
       "file": "tools/scripts/test-public.cjs",
