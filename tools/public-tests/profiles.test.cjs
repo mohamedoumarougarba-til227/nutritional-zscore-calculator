@@ -166,7 +166,7 @@ test('Settings growth profile selector reaches popup through header action',asyn
         assert.ok(settings.includes('data-action="check-update"'));
         assert.ok(settings.includes('settings-layout'));
         assert.ok(form.includes(app.t('growthProfileVisit')));
-        assert.ok(form.includes(app.t('growthProfileVisitHelp')));
+        assert.ok(form.includes('data-info="growthProfileVisitHelp"'));
         assert.ok(!form.includes('name=\"growthProfile\" disabled'));
     }
 });

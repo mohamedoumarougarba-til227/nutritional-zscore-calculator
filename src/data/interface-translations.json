@@ -823,8 +823,8 @@
     "uiNoMatch": "Aucune fiche ne correspond à la recherche.",
     "uiScreening": "Dépistage",
     "uiMonthsShort": "Mois",
-    "uiClinicalWhoBrief": "OMS 2023 · 6–59 mois · Inconnu ≠ non · Confirmation clinique requise · Aucune prescription automatique",
-    "uiClinicalPcimaBrief": "Appui PCIMA limité · Inconnu ≠ non · Confirmation clinique requise · Aucune décision automatique",
+    "uiClinicalWhoBrief": "OMS 2023 · 6–59 mois · Inconnu ne signifie pas non · Confirmation clinique requise · Aucune prescription automatique",
+    "uiClinicalPcimaBrief": "Appui PCIMA limité · Inconnu ne signifie pas non · Confirmation clinique requise · Aucune décision automatique",
     "uiClinicalPretermBrief": "Prématurés : seuils OMS de dépistage 6–59 mois non applicables."
   },
   "en": {
@@ -1651,8 +1651,8 @@
     "uiNoMatch": "No matching records.",
     "uiScreening": "Screening",
     "uiMonthsShort": "Months",
-    "uiClinicalWhoBrief": "WHO 2023 · 6–59 months · Unknown ≠ no · Clinical confirmation required · No automatic prescription",
-    "uiClinicalPcimaBrief": "Limited PCIMA support · Unknown ≠ no · Clinical confirmation required · No automatic decision",
+    "uiClinicalWhoBrief": "WHO 2023 · 6–59 months · Unknown does not mean no · Clinical confirmation required · No automatic prescription",
+    "uiClinicalPcimaBrief": "Limited PCIMA support · Unknown does not mean no · Clinical confirmation required · No automatic decision",
     "uiClinicalPretermBrief": "Preterm infants: WHO screening thresholds for 6–59 months do not apply."
   },
   "ar": {
