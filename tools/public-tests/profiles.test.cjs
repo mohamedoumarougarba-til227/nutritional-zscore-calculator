@@ -434,3 +434,19 @@ test('lot section headers carry exports, complementary help and compact score ra
   assert.equal(JSON.stringify(app.state),before);
  }
 });
+
+test('individual desktop opens optional sections by default without changing batch or mobile visibility',t=>{
+ const old=global.matchMedia;t.after(()=>{if(old===undefined)delete global.matchMedia;else global.matchMedia=old;});
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',growthProfile:'who'},translations:data('interface-translations.json')});
+ const draft=app.emptyDraft('who'),before=JSON.stringify(draft);
+ global.matchMedia=q=>({matches:q==='(min-width: 681px)'});
+ const single=app.formHTML('single',draft),batch=app.formHTML('batch',draft,true);
+ for(const key of ['clinical-fields','additional-fields']){
+  assert.ok(single.includes('class="'+key+'" open'));
+  assert.ok(batch.includes('class="'+key+'"'));
+ }
+ global.matchMedia=()=>({matches:false});
+ const mobile=app.formHTML('single',draft);
+ for(const key of ['clinical-fields','additional-fields'])assert.ok(mobile.includes('class="'+key+'"'));
+ assert.equal(JSON.stringify(draft),before);
+});

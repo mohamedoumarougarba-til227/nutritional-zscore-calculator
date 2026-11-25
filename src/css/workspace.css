@@ -993,3 +993,21 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 @media(max-width:1050px){.settings-layout .settings-grid{grid-template-columns:1fr}.quick-guide-grid,.source-groups{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.settings-layout,.reference-grid,.quick-guide-grid,.source-groups{grid-template-columns:minmax(0,1fr)}.settings-layout .card,.settings-layout .settings-clinical,.reference-grid>.card{padding:12px}.settings-layout .choice-trigger{min-height:44px}.quick-guide-grid summary{min-height:44px}#update-notice{inset-inline:8px;width:auto;top:calc(var(--workspace-header-height,64px) + 6px)}}
 @media print{#update-notice{display:none!important}}
+
+/* Desktop: a natural bottom footer and independently stacked reference columns. */
+.reference-help-column,.source-column{display:flex;flex-direction:column;gap:10px;min-width:0;align-self:start}
+.reference-help-column>.card{padding:16px 18px;border-radius:10px;box-shadow:none;min-width:0;margin:0}
+.reference-help-column>.card>p{margin:8px 0 0;line-height:1.55}
+.reference-help-column>.card h2{margin:0 0 10px}
+.source-groups{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.source-column>.source-group{margin:0}
+@media screen and (min-width:681px){
+ .shell>#main{display:flex;flex-direction:column;min-height:calc(100dvh - var(--workspace-header-height,64px));padding-block-end:12px}
+ #main>#page-content{flex:1 0 auto;min-width:0}
+ #main>.compact-footer{flex-shrink:0;margin-block-start:14px;padding-block-start:6px}
+ .reference-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+}
+@media(max-width:680px){
+ .source-groups,.reference-grid{grid-template-columns:minmax(0,1fr)}
+ .reference-help-column>.card{padding:12px}
+}
