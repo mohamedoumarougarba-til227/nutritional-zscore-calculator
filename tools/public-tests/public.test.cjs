@@ -13,6 +13,35 @@ const {WorkspaceApp}=require('../../src/js/workspace-app.js');
 const {SupplementaryGrowth}=require('../../src/js/services/supplementary-growth.js');
 const {LotAnalysis}=require('../../src/js/components/lot-analysis.js');
 const json=file=>JSON.parse(fs.readFileSync(path.join(__dirname,'../..',file),'utf8'));
+
+test('offline installation does not wait for the pinned GPL source downloads',async()=>{
+    const vm=require('node:vm'),scope='https://example.test/',handlers={},writes=new Map(),requests=[];
+    const read=name=>fs.readFileSync(path.join(__dirname,'../../src',name));
+    const worker={
+        URL,Request,Response,crypto:crypto.webcrypto,
+        self:{registration:{scope},location:{origin:'https://example.test'},addEventListener:(name,fn)=>handlers[name]=fn},
+        caches:{open:async()=>({put:async(url,response)=>writes.set(url,response),match:async url=>writes.get(url)?.clone()})},
+        fetch:async request=>{
+            const name=new URL(request.url).pathname.slice(1)||'index.html';
+            requests.push(name);
+            if(name.endsWith('.zip'))throw Error('Archive connection unavailable');
+            return new Response(read(name));
+        }
+    };
+    vm.runInNewContext(read('sw.js').toString(),worker);
+    let install;handlers.install({waitUntil:promise=>{install=promise;}});
+    await install;
+    for(const file of ['data/zscore-sources.zip','data/who-data-sources.zip']){
+        assert.ok(json('src/release-manifest.json').assets[file]);
+        assert.ok(!requests.includes(file));
+    }
+    assert.equal(writes.size,Object.keys(json('src/release-manifest.json').assets).length-2);
+    assert.ok(writes.has(scope+'js/workspace-app.js'));
+    let request;
+    handlers.fetch({request:new Request(scope+'data/zscore-sources.zip'),respondWith:promise=>{request=promise;}});
+    assert.equal((await request).status,503);
+    assert.ok(requests.includes('data/zscore-sources.zip'));
+});
 test('public Markdown local links stay inside the distributed file selection',()=>{
     const root=path.resolve(__dirname,'../..'),files=new Set(json('tools/git-sync-allowlist.json').files);
     for(const source of [...files].filter(file=>file.endsWith('.md'))){
