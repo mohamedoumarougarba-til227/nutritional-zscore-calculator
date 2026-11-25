@@ -754,7 +754,7 @@ class WorkspaceApp {
     static correctionAgeChange(draft,mode,original){
         const next=WorkspaceApp.draftForAgeMode(draft,mode);
         for(const key of ['birthDate','ageDays','ageYears','ageMonths','ageTotalMonths','postmenstrualDays'])next[key]='';
-        for(const key of WorkspaceApp.correctionAgeFields(mode))if(mode===original.ageMode)next[key]=original[key]??(key==='ageTotalMonths'?original.totalAgeMonths:'')??'';
+        if(mode===original.ageMode)for(const key of ['birthDate','ageDays','ageYears','ageMonths','ageTotalMonths','postmenstrualDays'])next[key]=original[key]??(key==='ageTotalMonths'&&mode==='totalMonths'?original.totalAgeMonths:'')??'';
         if(next.growthProfile==='intergrowth'&&mode!=='pma'&&original.growthProfile==='intergrowth'&&original.ageMode!=='pma'){
             next.gestationalAgeWeeks=draft.gestationalAgeWeeks??original.gestationalAgeWeeks;
             next.gestationalAgeDays=draft.gestationalAgeDays??original.gestationalAgeDays;
@@ -797,7 +797,7 @@ class WorkspaceApp {
         const oldAge=ageOldKeys.map(k=>t(k)+' : '+this.esc(k==='birthDate'&&original[k]?this.calendarDate(original[k]):original[k]??(k==='ageTotalMonths'?original.totalAgeMonths:null)??this.t('unknown'))).join(' · ');
         const oldAgeHTML='<p class="hint other-age-original">'+t('batchPreviousAge')+' : '+t(original.ageMode)+' · '+oldAge+'</p>';
         const ageChanged=d.ageMode!==original.ageMode;
-        const ageInputs=ageChanged?WorkspaceApp.correctionAgeFields(d.ageMode).map(k=>field(k,k==='birthDate'?'date':'text',k==='birthDate'?'max="'+ClinicalEngine.today()+'"':'inputmode="decimal"')).join(''):'';
+        const ageInputs=(ageChanged||ig&&d.ageMode==='pma')?WorkspaceApp.correctionAgeFields(d.ageMode).map(k=>field(k,k==='birthDate'?'date':'text',k==='birthDate'?'max="'+ClinicalEngine.today()+'"':'inputmode="decimal"')).join(''):'';
         const gestation=ig&&d.ageMode!=='pma'?field('gestationalAgeWeeks','number','min="0" max="36" step="1"')+field('gestationalAgeDays','number','min="0" max="6" step="1"'):'';
         const unit=(key,units,label)=>select('display'+(key==='weight'?'Weight':'Height')+'Unit',units.map(u=>{
             const value=WorkspaceApp.batchDisplayMeasure(original[key],key,u);

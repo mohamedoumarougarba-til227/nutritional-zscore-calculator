@@ -220,3 +220,13 @@ test('unchanged other-fields dialog saves display units only and keeps historica
  h.app.batchCorrection.initialDraft=structuredClone(h.app.batchCorrection.draft);h.app.batchCorrection.units={weight:'kg',height:'m'};
  try{await h.app.saveBatchCorrection();assert.equal(h.store.writes,0);assert.equal(h.app.state,state);assert.equal(h.app.state.batch[0].result,original.result);assert.equal(h.app.batchUnit('height',original.child),'m');assert.equal(h.app.notice.key,'batchDisplaySaved');}finally{h.restore();}
 });
+
+test('preterm contextual editor always shows the applicable PMA or birth gestation and preserves an explicitly recorded age',()=>{
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr'},translations});
+ for(const mode of ['pma','days']){
+  const entry=engine.calculate(input({growthProfile:'intergrowth',ageMode:mode,postmenstrualDays:mode==='pma'?224:'',ageDays:mode==='days'?14:'',gestationalAgeWeeks:mode==='days'?30:'',gestationalAgeDays:mode==='days'?0:'',weight:1600,height:42,headCircumference:29}));
+  const html=app.batchOtherFieldsHTML({entry,draft:entry.child,units:{weight:'g',height:'cm'}});
+  assert.ok(html.includes('name="'+(mode==='pma'?'postmenstrualDays':'gestationalAgeWeeks')+'"'));
+  assert.ok(!html.includes('name="tricepsSkinfold"'));
+ }
+});
