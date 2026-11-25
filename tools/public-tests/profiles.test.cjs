@@ -361,3 +361,27 @@ test('shared entry presentation preserves every field, screening help and correc
         }
     }
 });
+
+test('compact individual screening merges only matching MUAC criteria and exposes complete help in FR EN AR',()=>{
+    const translations=data('interface-translations.json');
+    const entry=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',ageYears:2,weight:8000,height:84,muac:112}));
+    const before=JSON.stringify(entry);
+    const normal=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',muac:150}));
+    const unknown=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',muac:''}));
+    for(const language of ['fr','en','ar']){
+        const ui=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'}});
+        const html=ui.nutritionHTML(entry.child,entry.result,true);
+        assert.ok(html.includes('data-info="pcima2025Help"'));assert.ok(html.includes('clinical-method-note summary-print-help'));
+        assert.ok(html.includes(ui.esc(ui.t('pcima2025Help'))));
+        assert.ok(html.includes(ui.esc(ui.t('criterionMuacSevere'))+' ('+ui.esc(ui.number(112,1))+' mm)'));
+        assert.ok(!html.includes(ui.esc(ui.t('muacSevere'))));
+        assert.ok(ui.nutritionHTML(normal.child,normal.result,true).includes(ui.esc(ui.t('muacNotLow'))));
+        assert.ok(ui.nutritionHTML(unknown.child,unknown.result,true).includes(ui.esc(ui.t('muacMissing'))));
+        assert.ok(ui.nutritionHTML(entry.child,entry.result).includes(ui.esc(ui.t('muacSevere'))));
+        const additional=ui.additionalResultsHTML(entry.result,true,false);
+        assert.ok(additional.includes('data-info="additionalResultHelp"'));
+        assert.ok(additional.includes(ui.esc(ui.t('additionalResultHelp'))));
+        assert.ok(additional.includes('summary-print-help'));
+    }
+    assert.equal(JSON.stringify(entry),before);
+});

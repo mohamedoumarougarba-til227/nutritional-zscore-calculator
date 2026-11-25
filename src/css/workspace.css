@@ -652,3 +652,19 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 .detail-record .detail-references dd{font-size:14px;line-height:1.4}
 .detail-record .profile-context{margin-block-start:12px;border-block-start:1px solid var(--line);padding-block-start:8px;font-size:13px}
 @container result-dashboard (max-width:479px){.detail-record .detail-measures{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-record .detail-measures dt{min-height:0}}
+
+/* Individual summary: discreet emphasis, with clinical severity still encoded by the leading border. */
+@media screen {
+ #single-view-summary>.nutrition-result{background:color-mix(in srgb,var(--surface) 65%,var(--accent-soft))}
+ #single-view-summary .nutrition-result>h3 .field-info,#single-view-summary .additional-results>summary .field-info{margin-inline-start:6px;vertical-align:middle}
+ #single-view-summary .nutrition-result .clinical-missing{background:color-mix(in srgb,var(--surface) 74%,var(--warn-bg));border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-block:10px}
+ #single-view-summary .clinical-missing>strong{display:block;margin-block-end:4px}
+ #single-view-summary .clinical-missing ul{margin-block:4px 0;gap:5px 18px}
+ #single-view-summary .clinical-method-note{max-width:none}
+ #single-view-summary .summary-print-help{display:none}
+}
+@media print{
+ #single-view-summary>.nutrition-result,#single-view-summary .clinical-missing{background:transparent}
+ #single-view-summary .summary-print-help{display:block!important;max-width:none}
+ #single-view-summary .field-info{display:none!important}
+}
