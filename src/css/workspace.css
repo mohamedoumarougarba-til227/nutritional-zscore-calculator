@@ -481,49 +481,60 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 
 @media screen and (min-width:1050px){.clinical-workspace.batch-workspace>.workspace-view-nav{position:sticky;top:var(--workspace-header-height,64px);z-index:7;background:var(--surface)}.clinical-workspace.batch-workspace #measure-card>.card-top,.clinical-workspace.batch-workspace .batch-results-card>.card-top{top:calc(var(--workspace-header-height,64px) + 58px)}}
 
-/* Individual entry: compact intrinsic controls, stacked on narrow content widths. */
+
+/* Individual entry: continuous flow, no redundant section headings. */
 @media screen{
-.individual-compact-form .entry-two-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-block:12px 0}
-.individual-compact-form .entry-age-panel,.individual-compact-form .entry-measure-panel{min-width:0}
-.individual-compact-form .entry-age-grid,.individual-compact-form .entry-measure-grid{gap:8px 12px}
-.individual-compact-form .entry-age-hint{grid-column:1/-1}
-.individual-compact-form .entry-measure-grid .measurement-entry{grid-template-columns:minmax(0,1fr) 58px}
-.individual-compact-form .entry-measure-grid .measurement-entry .choice-trigger{gap:3px;padding-inline:5px}
-.individual-compact-form .entry-two-columns .choice-value{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;line-height:1.2}
-.individual-compact-form .entry-two-columns .choice-trigger{height:auto;min-height:36px}
-.individual-compact-form .entry-two-columns .entry-group-title{margin:0 0 2px;padding:0;border:0}
-.individual-compact-form .entry-identity-grid .entry-group-title{margin-bottom:0}
+.individual-compact-form .entry-flow-grid{align-items:start;gap:9px 12px;margin-block:5px 12px}
+.individual-compact-form .entry-flow-grid .measurement-entry{grid-template-columns:minmax(0,1fr) 58px}
+.individual-compact-form .entry-flow-grid .choice-trigger{height:auto;min-height:36px;padding-inline:8px;gap:5px}
+.individual-compact-form .entry-flow-grid .choice-value{white-space:normal;overflow:visible;overflow-wrap:anywhere;text-overflow:clip;line-height:1.2}
+.individual-compact-form .entry-flow-grid .measurement-entry .choice-trigger{padding-inline:4px;gap:2px}
+.individual-compact-form .entry-flow-grid .measurement-entry .choice-trigger>.ui-icon{width:13px}
+.individual-compact-form .entry-flow-grid .field-label{min-height:23px}
+.individual-compact-form .entry-flow-grid [hidden]{display:none!important}
+.individual-compact-form .reference-profile,.individual-compact-form .clinical-fields,.individual-compact-form .additional-fields{padding:6px 12px;margin-block:8px}
+.individual-compact-form details>.form-section-summary{min-height:34px;line-height:1.4;align-content:center}
+.individual-compact-form .form-section-title,.individual-compact-form .form-section-summary .field-info{vertical-align:middle}
+.individual-compact-form .form-section-summary .field-info{display:inline-flex;margin-inline-start:5px}
+.individual-compact-form .form-section-brief{display:inline;font-size:11px;font-weight:400;color:var(--muted);margin-inline-start:10px;overflow-wrap:anywhere}
+.individual-compact-form details>.form-grid{margin-block:5px 7px}
 }
-@container measure-panel (min-width:850px){
-.individual-compact-form .entry-two-columns{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;margin-block:12px 8px;padding-block:10px;border-block:1px solid var(--line)}
-.individual-compact-form .entry-age-panel{padding-inline-end:16px;border-inline-end:1px solid var(--line)}
-.individual-compact-form .entry-measure-panel{padding-inline-start:16px}
-.individual-compact-form .entry-age-grid,.individual-compact-form .entry-measure-grid{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 12px}
-.individual-compact-form .entry-two-columns .entry-group-title{flex:0 0 100%;margin-bottom:0}
-.individual-compact-form .entry-two-columns .field-label{min-height:23px}
-.individual-compact-form .entry-two-columns .field{flex:0 1 auto;max-inline-size:100%}
-.individual-compact-form .entry-age-grid>.field[data-field="ageMode"]{inline-size:21ch}
-.individual-compact-form .entry-age-grid>.field[data-field="gender"]{inline-size:15ch}
-.individual-compact-form .entry-age-grid>.field[data-field="measurementDate"],.individual-compact-form [data-field="birthDate"]{inline-size:18ch}
-.individual-compact-form .entry-age-grid>.age-fields{display:flex;flex:0 1 auto;gap:8px;max-inline-size:100%;align-items:start}
-.individual-compact-form [data-field="ageYears"],.individual-compact-form [data-field="ageMonths"]{inline-size:8ch;min-inline-size:72px}
-.individual-compact-form [data-field="ageDays"],.individual-compact-form [data-field="ageTotalMonths"]{inline-size:13ch;min-inline-size:105px}
-.individual-compact-form [data-field="postmenstrualDays"]{inline-size:20ch}
-.individual-compact-form [data-gestation]{flex-wrap:wrap}
-.individual-compact-form [data-field="gestationalAgeWeeks"],.individual-compact-form [data-field="gestationalAgeDays"]{inline-size:20ch}
-.individual-compact-form .entry-age-hint{flex:0 0 100%}
-.individual-compact-form .entry-measure-grid>[data-field="weight"],.individual-compact-form .entry-measure-grid>[data-field="height"]{inline-size:22ch;min-inline-size:158px}
-.individual-compact-form .entry-measure-grid>[data-field="muac"],.individual-compact-form .entry-measure-grid>[data-field="headCircumference"]{inline-size:13ch;min-inline-size:102px}
-.individual-compact-form .entry-measure-grid>[data-field="oedema"]{inline-size:27ch}
-.individual-compact-form .entry-measure-grid>[data-field="position"]{inline-size:23ch}
-.individual-compact-form .entry-two-columns .choice-trigger{padding-inline:8px;gap:5px}
-.individual-compact-form .entry-measure-grid .measurement-entry .choice-trigger{padding-inline:4px;gap:2px}
-.individual-compact-form .entry-measure-grid .measurement-entry .choice-trigger>.ui-icon{width:13px}
-.individual-compact-form .entry-identity-grid>.field{max-inline-size:400px}
-.individual-compact-form .reference-profile{margin-block-start:8px}
+@container measure-panel (min-width:720px){
+.individual-compact-form>.entry-flow-grid,.clinical-workspace .individual-compact-form>.entry-flow-grid{display:flex;flex-wrap:wrap;gap:9px 12px;align-items:start}
+.individual-compact-form .entry-flow-grid>.field,.individual-compact-form .entry-flow-grid>.age-fields{flex:0 1 auto;max-inline-size:100%;min-width:0}
+.individual-compact-form .entry-flow-grid>.age-fields{display:flex;gap:8px;align-items:start}
+.individual-compact-form .entry-flow-grid [data-field="caseId"]{inline-size:19ch}
+.individual-compact-form .entry-flow-grid [data-field="name"]{inline-size:26ch}
+.individual-compact-form .entry-flow-grid [data-field="ageMode"]{inline-size:21ch}
+.individual-compact-form .entry-flow-grid [data-field="gender"]{inline-size:15ch}
+.individual-compact-form .entry-flow-grid [data-field="measurementDate"],.individual-compact-form .entry-flow-grid [data-field="birthDate"]{inline-size:18ch}
+.individual-compact-form .entry-flow-grid [data-field="ageYears"],.individual-compact-form .entry-flow-grid [data-field="ageMonths"]{inline-size:8ch;min-inline-size:70px}
+.individual-compact-form .entry-flow-grid [data-field="ageDays"],.individual-compact-form .entry-flow-grid [data-field="ageTotalMonths"]{inline-size:13ch;min-inline-size:100px}
+.individual-compact-form .entry-flow-grid [data-field="postmenstrualDays"],.individual-compact-form .entry-flow-grid [data-field="gestationalAgeWeeks"],.individual-compact-form .entry-flow-grid [data-field="gestationalAgeDays"]{inline-size:20ch}
+.individual-compact-form .entry-flow-grid [data-gestation]{flex-wrap:wrap}
+.individual-compact-form .entry-flow-grid [data-field="weight"],.individual-compact-form .entry-flow-grid [data-field="height"]{inline-size:21ch;min-inline-size:150px}
+.individual-compact-form .entry-flow-grid [data-field="muac"],.individual-compact-form .entry-flow-grid [data-field="headCircumference"]{inline-size:13ch;min-inline-size:100px}
+.individual-compact-form .entry-flow-grid [data-field="oedema"]{inline-size:27ch}
+.individual-compact-form .entry-flow-grid [data-field="position"]{inline-size:23ch}
 }
-@media screen and (max-width:680px){
-.individual-compact-form .entry-two-columns .choice-trigger{min-height:42px}
-.individual-compact-form .entry-two-columns .field-label{min-height:24px}
+@container measure-panel (min-width:1130px){
+.clinical-workspace .individual-compact-form>.entry-flow-grid:not(.entry-flow-preterm){display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:9px 8px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="caseId"]{grid-column:span 4}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="name"]{grid-column:span 5}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="ageMode"]{grid-column:span 4}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>.age-fields{grid-column:span 4}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="measurementDate"]{grid-column:span 4}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="gender"]{grid-column:span 3}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="weight"],.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="height"]{grid-column:span 5}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="muac"]{grid-column:span 3}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="oedema"]{grid-column:span 6}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="position"]{grid-column:span 5}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>.field{inline-size:100%;max-inline-size:var(--entry-field-max,260px);min-inline-size:0}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="weight"],.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="height"]{--entry-field-max:190px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="muac"]{--entry-field-max:115px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="measurementDate"]{--entry-field-max:170px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="gender"]{--entry-field-max:145px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>.age-fields>.field{max-inline-size:100%;min-inline-size:0;flex:0 1 auto}
 }
-@media(pointer:coarse){.individual-compact-form .entry-two-columns .choice-trigger{min-height:44px}}
+@media screen and (max-width:680px){.individual-compact-form .entry-flow-grid .choice-trigger{min-height:42px}.individual-compact-form .form-section-brief{display:block;margin-inline-start:0;margin-block-start:3px}}
+@media(pointer:coarse){.individual-compact-form .entry-flow-grid .choice-trigger{min-height:44px}.individual-compact-form details>.form-section-summary{min-height:44px}}

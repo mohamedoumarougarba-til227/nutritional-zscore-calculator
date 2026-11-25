@@ -303,11 +303,19 @@ test('individual compact entry keeps each original input and age mode across pro
         const draft=app.emptyDraft(profile);
         for(const mode of profile==='intergrowth'?['days','dates','pma']:['days','dates','months','totalMonths']){
             const current={...draft,ageMode:mode},before=JSON.stringify(current),html=app.formHTML('single',current),batch=app.formHTML('batch',current,true);
-            assert.ok(html.includes('entry-two-columns'));assert.ok(html.includes('entry-age-panel'));assert.ok(html.includes('entry-measure-panel'));
-            assert.ok(!batch.includes('entry-two-columns'));
+            assert.ok(html.includes('entry-flow-grid'));assert.ok(!html.includes('entry-group-title'));
+            assert.ok(!batch.includes('entry-flow-grid'));
+            assert.ok(html.includes('data-info="growthProfileVisitHelp"'));assert.ok(html.includes('form-section-brief'));assert.ok(html.includes('data-info="'+(profile==='intergrowth'?'intergrowthNoScreening':'clinicalHelp')+'"'));
+            if(profile!=='intergrowth')assert.ok(html.includes('data-info="additionalMeasureHelp"'));
             const fields=v=>[...v.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort();assert.deepEqual(fields(html),fields(batch));
             assert.ok(html.includes('data-age="'+mode+'" '));assert.equal(JSON.stringify(current),before);
             assert.ok(html.includes('max="19"'));assert.ok(html.includes('max="11"'));assert.ok(html.includes('max="'+(profile==='intergrowth'?448:profile==='us'?7304:6970)+'"'));
         }
     }
+});
+
+
+test('section help routes to the existing information popup for every screening context',()=>{
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{openInfo(key,opener){this.seen=[key,opener];}});
+    for(const key of ['growthProfileVisitHelp','clinicalHelp','pcimaHelp','pcima2025Help','intergrowthNoScreening','additionalMeasureHelp','intergrowthUnsupportedMeasures','muacHelp','pcimaMuacHelp','pcima2025MuacHelp']){app.showInfo(key,'demo');assert.deepEqual(app.seen,[key,'demo']);}
 });
