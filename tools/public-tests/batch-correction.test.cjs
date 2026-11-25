@@ -182,3 +182,17 @@ test('display unit conversions are exact and never mutate stored measurements; i
         assert.ok(!app.tableHTML([pending]).includes('data-batch-unit'));
     }
 });
+
+test('compact records merge pending scores with measures and KPI filters use original indices, not page indices',()=>{
+ const base=engine.calculate(input()),entries=Array.from({length:20},(_,i)=>({child:{...base.child,caseId:'TEST-'+i,name:'TEST-'+i},result:i===11?{...base.result,nutrition:{...base.result.nutrition,category:'nutritionSevere'}}:i===14?{...base.result,nutrition:{...base.result.nutrition,category:'nutritionModerateCriteria'}}:null}));
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:workspace(entries),prefs:{language:'fr'},translations,batchPage:0});
+ const before=JSON.stringify(app.state),html=app.batchRecordsHTML([entries[0]],[0]);
+ assert.ok(!html.includes('batch-record-results'));assert.ok(!html.includes('batch-record-toolbar'));assert.ok(html.includes('batch-record-id-date'));
+ assert.ok(html.includes('data-field="measurementDate"'));assert.ok(html.includes('Longueur /\ntaille (cm)'));
+ assert.equal((html.match(/class="batch-record-field batch-record-score"/g)||[]).length,4);
+ app.batchFilter='nutritionSevere';assert.deepEqual(app.batchDisplayView().indices,[11]);
+ app.batchFilter='nutritionModerateCriteria';assert.deepEqual(app.batchDisplayView().indices,[14]);
+ app.batchFilter='quality';assert.equal(app.batchDisplayView().total,LotQuality.build(entries).signalledRows);
+ app.batchFilter='all';assert.equal(app.batchDisplayView().total,20);
+ assert.equal(JSON.stringify(app.state),before);
+});

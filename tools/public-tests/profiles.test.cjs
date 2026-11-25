@@ -408,7 +408,10 @@ test('batch contextual help and list filters preserve data and distinct referenc
   const html=app.batchHTML();
   assert.ok(html.indexOf('batch-header-filters')<html.indexOf('class="toolbar compact-toolbar batch-actions"'));
   assert.ok(html.includes('class="batch-record-list"'));assert.ok(html.includes(app.esc(app.t('notCalculated'))));
-  app.batchRecordLayout='table';assert.ok(app.batchBrowserHTML().includes('class="pending-score"'));
+  assert.ok(!app.batchBrowserHTML().includes('batch-record-toolbar'));
+  assert.ok(!app.batchBrowserHTML().includes('batch-record-results'));
+  assert.ok(html.includes('data-action="batch-kpi-filter"'));
+  assert.ok(html.includes('value="quality"'));
   assert.ok(html.includes('data-info="qualityHelp"'));
   assert.ok(html.includes('data-info="qualityExportHelp"'));assert.ok(html.includes('data-info="analysisPreparationHelp"'));
   assert.ok(html.includes('data-info="lotHelpWho"'));assert.ok(html.includes('class="lot-summary-reference"'));
