@@ -533,7 +533,7 @@ class WorkspaceApp {
           }).join('');
         const warnings=`${(result.warnings || []).map(w => `<p class="notice warn">${this.esc(this.t(w))}</p>`).join('')}${['WHO2007','CDC2000'].includes(result.referenceFamily)?`<p class="hint">${this.t(result.referenceFamily==='CDC2000'?'cdcCoverage':'coverage2007')}</p>`:''}`;
         const measures=`<div class="meta result-measures"><p>${this.t('caseId')} : ${this.esc(child.caseId || this.t('unknown'))} · ${this.t('measurementDate')} : ${this.calendarDate(child.measurementDate)}</p><p>${this.t('ageDays')} : ${this.esc(child.ageDays ?? this.t('unknown'))} · ${this.t('weight')} : ${this.number(child.weight,0)} · ${this.t('height')} : ${this.number(child.height,1)}${result.schemaVersion===4&&Number.isFinite(result.bmi)?` · ${this.t('bmi')} : ${this.number(result.bmi,2)} kg/m²`:''}</p><p>${this.t('gender')} : ${this.t(child.gender === 'M' ? 'male' : child.gender === 'F' ? 'female' : 'unknown')} · ${this.t('position')} : ${this.t(child.position === 'L' ? 'lying' : child.position === 'H' ? 'standing' : 'unknown')} · ${this.t('oedema')} : ${this.t(child.oedema === 'y' ? 'yes' : child.oedema === 'n' ? 'no' : 'unknown')}</p>${result.correctedHeight ? `<p>${this.t('adjustedHeight')} : ${this.number(result.correctedHeight,1)} ${this.t('unitCm')}</p>` : ''}<p>${this.t('calculatedAt')} : ${this.date(result.calculatedAt)}</p><p>${this.t('referenceVersion')} : ${this.esc(result.referenceVersion || 'unknown')} · ${this.t('engineVersion')} : ${this.esc(result.engineVersion || this.t('unknown'))}</p>${this.profileDetailsHTML(child,result)}</div>`;
-        if(preview)return `${status}${notices}${this.nutritionHTML(child,result)}<h3 class="growth-heading">${this.t(result.referenceFamily==='CDC2000'?'growthResultsCdc':'growthResults')}</h3>${indicators}${this.additionalResultsHTML(result)}${warnings}${measures}`;
+        if(preview)return `<div class="record-preview">${status}${notices}${this.nutritionHTML(child,result,true)}${warnings}<h3 class="growth-heading">${this.t(result.referenceFamily==='CDC2000'?'growthResultsCdc':'growthResults')}</h3><div class="indicator-grid">${indicators}</div>${this.additionalResultsHTML(result,true)}<details class="result-record" open><summary>${this.t('calculationDetails')}</summary>${measures}</details></div>`;
         const value=v=>this.esc(v??this.t('unknown'));
         const pairs=[['measurementDate',this.calendarDate(child.measurementDate)],...(result.intergrowthContext?[['postmenstrualDays',result.intergrowthContext.age.postmenstrualDays]]:[['ageDays',child.ageDays]]),['gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')],['weight',this.number(child.weight,0)],['height',this.number(child.height,1)],['muac',result.nutrition?.muacMm==null?this.t('unknown'):this.number(result.nutrition.muacMm,1)+' mm'],...(Number.isFinite(result.bmi)?[['bmi',this.number(result.bmi,2)+' kg/m²']]:[]),['oedemaShort',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')],['position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')]];
         const detailMeasures=[['caseId',child.caseId||this.t('unknown')],...pairs,...(result.correctedHeight?[['adjustedHeight',this.number(result.correctedHeight,1)+' '+this.t('unitCm')]]:[])];
@@ -592,7 +592,8 @@ class WorkspaceApp {
         const hide=key=>active===key?'':' hidden';
         const filters=['all','pending',...new Set(this.state.batch.map(e=>e.result?.nutrition?.category).filter(Boolean))];
         const counts=[['lotRows',view.total],['nutritionModerateCriteriaShort',this.state.batch.filter(e=>e.result?.nutrition?.category==='nutritionModerateCriteria').length],['nutritionSevereShort',this.state.batch.filter(e=>e.result?.nutrition?.category==='nutritionSevere').length],['qualityTitle',QualityUI.build(this.state.batch).signalledRows]];
-        const overview=`<div class="batch-kpis">${counts.map(([key,count])=>`<div class="batch-kpi"><span>${this.t(key)}</span><strong>${this.number(count,0)}</strong></div>`).join('')}</div>`;
+        const pending=this.state.batch.filter(e=>!e.result).length,assessed=this.state.batch.filter(e=>!!e.result?.nutrition).length;
+        const overview=`<div class="batch-kpis">${counts.map(([key,count],i)=>`<div class="batch-kpi"><span>${this.t(key)}</span><strong${(i===1||i===2)&&!assessed?' title="'+this.esc(this.t('notCalculated'))+'"':''}>${(i===1||i===2)&&!assessed?'—':this.number(count,0)}</strong></div>`).join('')}${pending&&assessed?`<p class="hint batch-pending-count">${this.esc(this.t('notCalculated'))} : ${this.number(pending,0)}</p>`:''}</div>`;
         const nav=this.viewNav('batch',[['entry','uiEntry','plus'],['results','batchList','batch'],['quality','qualityTitle','check'],['statistics','uiStatistics','chart']],active);
         return `<div class="workspace-grid batch-workspace clinical-workspace">${nav}<section class="card" id="measure-card" data-workspace-panel="batch" data-view="entry"${hide('entry')}><div class="card-top"><h2>${this.t('formTitle')}</h2><div class="toolbar compact-toolbar form-top-actions">${this.toolButton('addBatch','plus','',{primary:true,submit:true,showLabel:true,attrs:'form="batch-form"'})}</div></div>${this.formHTML('batch',this.state.batchDraft,true)}<section class="csv-tools" aria-labelledby="csv-tools-toggle"><div class="csv-tools-heading"><div class="csv-heading-label"><button type="button" class="csv-tools-toggle" id="csv-tools-toggle" data-action="toggle-csv" aria-expanded="${!!this.state.paste}" aria-controls="csv-tools-body csv-heading-actions"><span>${this.t('csvTools')}</span></button>${this.infoButton('csvHelp','csvTools','csv-help-button')}</div><div id="csv-heading-actions" class="toolbar compact-toolbar csv-heading-actions"${this.state.paste?'':' hidden'}><label class="icon-button action-with-label file-label desktop-format-action" title="${this.esc(this.t('importCSV'))}">${this.icon('csv')}${this.actionLabelHTML('importCSV',true)}<input class="file-input" type="file" id="csv-file" aria-label="${this.esc(this.t('importCSV'))}" accept=".csv,text/csv"></label>${this.toolButton('csvTemplate','csv','csv-template',{showLabel:true,labelKey:'csvTemplateShort'})}<button id="csv-parse-button" class="btn" data-action="parse-csv">${this.t('parseCSV')}</button></div></div><div id="csv-tools-body" class="csv-tools-body"${this.state.paste?'':' hidden'}><div class="field"><label for="paste-data">${this.t('pasteLabel')}</label><textarea id="paste-data" rows="3">${this.esc(this.state.paste)}</textarea></div><p id="csv-progress" role="status" aria-live="polite"></p></div></section></section>
           <section class="card batch-results-card"><div class="card-top"><div class="batch-heading"><h2 id="batch-results-title" class="flow-focus" tabindex="-1">${this.t('batchList')} <span class="batch-count">(${this.number(view.total,0)})</span></h2>${this.batchContextNotes().length?this.infoButton('batchContext','batchList','batch-context-info'):''}</div><div class="batch-filter-bar batch-header-filters" data-workspace-panel="batch" data-view="results"${hide('results')}><label><span class="sr-only">${this.t('uiSearchLot')}</span><input placeholder="${this.esc(this.t('uiSearchLot'))}" id="batch-search" type="search" value="${this.esc(this.batchSearch||'')}" autocomplete="off"></label><label><span class="sr-only">${this.t('uiScreeningFilter')}</span><select title="${this.esc(this.t('uiScreeningFilter'))}" id="batch-filter">${filters.map(key=>`<option value="${key}" ${(this.batchFilter||'all')===key?'selected':''}>${this.t(key==='all'?'uiAll':key==='pending'?'notCalculated':this.t(key+'Short')===key+'Short'?key:key+'Short')}</option>`).join('')}</select></label></div><div class="toolbar compact-toolbar batch-actions">${this.toolButton('computeBatch','run','calculate-batch',{primary:true,disabled,showLabel:true,labelKey:'calculateShort'})}${this.toolButton('exportCSV','csv','csv-results',{disabled,showLabel:true,labelKey:'csvShort'})}${this.toolButton('exportPDF','pdf','export-pdf',{disabled:disabled||this.pdfBusy,showLabel:true,labelKey:'pdfShort'})}${this.toolButton('exportPDFCompact','compact','export-pdf',{disabled:disabled||this.pdfBusy,attrs:'data-layout="compact"',showLabel:true,labelKey:'pdfCompactShort'})}${this.toolButton('print','print','print',{disabled,showLabel:true})}${this.toolButton('saveNow','save','save',{showLabel:true,labelKey:'saveShort'})}</div></div><div id="batch-view-results" data-workspace-panel="batch" data-view="results"${hide('results')}>${overview}<div class="batch-browser" id="batch-browser-live">${this.batchBrowserHTML()}</div></div><div id="batch-view-quality" data-workspace-panel="batch" data-view="quality"${hide('quality')}><div data-lot-quality>${view.total?this.qualityHTML({open:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></div><div id="batch-view-statistics" data-workspace-panel="batch" data-view="statistics"${hide('statistics')}>${view.total?this.lotSummaryHTML({compactHelp:true}):`<p class="hint">${this.t('emptyBatch')}</p>`}</div></section></div><div id="batch-print" class="print-only"></div>`;
@@ -691,7 +692,7 @@ class WorkspaceApp {
         }).join('')}</tbody></table>`;
     }
     historyHTML() {
-        return `<div class="toolbar"><button class="btn primary" data-action="export-backup">${this.t('exportAll')}</button><button class="btn" data-action="password-export">${this.t('exportEncrypted')}</button><label class="btn file-label">${this.t('importBackup')}<input class="file-input" type="file" id="backup-file" accept=".zscore,.enc,application/x-ndjson,application/octet-stream"></label></div><p class="hint">${this.t('exportSensitive')}</p><p class="hint">${this.t('transferHelp')}</p><p id="transfer-status" role="status" aria-live="polite"></p><section id="storage-capacity" class="card capacity" aria-labelledby="storage-capacity-title" aria-live="polite">${this.capacityHTML()}</section><div class="field search"><label for="history-search">${this.t('search')}</label><input type="search" id="history-search" value="${this.esc(this.search)}"></div><div id="history-list" class="list"></div><div id="history-pages"></div><p class="meta">${this.t('allPreserved')}</p>`;
+        return `<div class="toolbar"><button class="btn primary" data-action="export-backup">${this.t('exportAll')}</button><button class="btn" data-action="password-export">${this.t('exportEncrypted')}</button><label class="btn file-label">${this.t('importBackup')}<input class="file-input" type="file" id="backup-file" accept=".zscore,.enc,application/x-ndjson,application/octet-stream"></label></div><p class="hint">${this.t('exportSensitive')}</p><p class="hint">${this.t('transferHelp')}</p><p id="transfer-status" role="status" aria-live="polite"></p><section id="storage-capacity" class="card capacity" aria-labelledby="storage-capacity-title" aria-live="polite">${this.capacityHTML()}</section><div class="history-filter-bar"><div class="field search"><label for="history-search">${this.t('search')}</label><input type="search" id="history-search" value="${this.esc(this.search)}"></div><div class="field"><label for="history-filter">${this.t('historyFilter')}</label><select id="history-filter">${['all','single','batch','imported','draft','pending','complete','mixed'].map(k=>`<option value="${k}"${(this.historyFilter||'all')===k?' selected':''}>${this.t(({all:'historyAll',pending:'notCalculated',complete:'historyComplete',mixed:'historyMixed'}[k]||k))}</option>`).join('')}</select></div></div><div id="history-list" class="list"></div><div id="history-pages"></div><p class="meta">${this.t('allPreserved')}</p>`;
     }
     formatBytes(value) {
         if(!Number.isSafeInteger(value)||value<0)return this.t('storageUnknown');
@@ -731,7 +732,13 @@ class WorkspaceApp {
     }
     renderHistoryList() {
         const query = this.historySearchKey(this.search);
-        const filtered = query ? this.sessions.filter(s => this.historySearchText(s).includes(query)) : this.sessions;
+        const filter=this.historyFilter||'all';
+        const filtered=this.sessions.filter(s=>{
+            if(query&&!this.historySearchText(s).includes(query))return false;
+            const w=s.metadata?.workspace,entries=w?[...(w.single?[w.single]:[]),...(w.batch||[])]:[];
+            const mode=s.summary?.mode||w?.mode,records=s.summary?.records??entries.length,calculated=s.summary?.calculated??entries.filter(e=>!!e.result).length;
+            return filter==='all'||filter===mode||filter==='imported'&&!!s.metadata?.importedAt||filter==='draft'&&!records||filter==='pending'&&records>0&&!calculated||filter==='complete'&&records>0&&calculated===records||filter==='mixed'&&calculated>0&&calculated<records;
+        });
         const pages = Math.max(1, Math.ceil(filtered.length / 8)); this.historyPage = Math.max(0, Math.min(Number.isFinite(this.historyPage) ? this.historyPage : 0,pages-1));
         const rows = filtered.slice(this.historyPage*8,(this.historyPage+1)*8);
         document.getElementById('history-list').innerHTML = rows.length ? rows.map(s => {
@@ -739,7 +746,9 @@ class WorkspaceApp {
             const reason = s.metadata.importedAt ? 'imported' : s.metadata.reason || 'automatic';
             const name = this.historyName(s);
             const detail = `${this.date(s.createdAt)} · ${this.t(reason)} · ${count} ${this.t('count')}`;
-            return `<article class="history-item"><div><div class="item-title">${this.esc(name)}</div><div class="item-sub">${this.esc(detail)}</div></div><button class="btn" data-action="preview" data-id="${this.esc(s.id)}" aria-label="${this.esc(`${this.t('preview')} · ${name} · ${detail}`)}">${this.t('preview')}</button></article>`;
+            const mode=s.summary?.mode||w?.mode,records=s.summary?.records??((w?.single?1:0)+(w?.batch?.length||0)),calculated=s.summary?.calculated??((w?.single?.result?1:0)+(w?.batch||[]).filter(e=>!!e.result).length);
+            const state=!records?'draft':!calculated?'notCalculated':calculated===records?'historyComplete':'historyMixed';
+            return `<article class="history-item"><div><div class="item-title">${this.esc(name)}</div><div class="item-sub">${this.esc(detail)}</div><div class="history-tags"><span>${this.t(mode==='batch'?'batch':'single')}</span><span>${this.t(state)}${records?' · '+this.number(calculated,0)+' / '+this.number(records,0):''}</span></div></div><button class="btn" data-action="preview" data-id="${this.esc(s.id)}" aria-label="${this.esc(`${this.t('preview')} · ${name} · ${detail}`)}">${this.t('preview')}</button></article>`;
         }).join('') : `<div class="card empty">${this.t('emptyHistory')}</div>`;
         const view={current:this.historyPage,pages,total:filtered.length,from:filtered.length?this.historyPage*8+1:0,to:Math.min(filtered.length,(this.historyPage+1)*8)};
         document.getElementById('history-pages').innerHTML=this.paginationHTML(view,{action:'history-page',previousAction:'history-previous',nextAction:'history-next',statusId:'history-pagination'});
@@ -752,7 +761,7 @@ class WorkspaceApp {
     }
     referencesHTML() {
         const links = [['sourceClinical2023','https://www.who.int/publications/i/item/9789240082830'],['sourceClinical2026','https://www.who.int/publications/i/item/9789240122840'],['sourceWHO','https://www.who.int/tools/child-growth-standards/standards'],['sourceAnthro','https://www.who.int/toolkits/child-growth-standards/software'],['sourceClassification','https://www.who.int/data/nutrition/nlis/info/malnutrition-in-children/'],['sourceCode','https://github.com/WorldHealthOrganization/anthro/tree/'+this.engine.data.sourceCommit+'/data-raw/growthstandards'],['sourceLicense','data/LICENSE-anthro.txt'],['sourceWHO2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],['sourceLicense2007','data/LICENSE-anthroplus.txt'],['sourceCDC','https://www.cdc.gov/growthcharts/cdc-data-files.htm'],['sourceCDC2022','https://www.cdc.gov/growthcharts/extended-bmi-data-files.htm'],['sourceIntergrowth','https://intergrowth21.com/tools-resources/postnatal-growth-preterm-infants'],['sourceIntergrowthUse','https://globalhealthtrainingcentre.tghn.org/preterm-infant-feeding-and-growth-monitoring-implementation-intergrowth-21st-protocol/faqs/'],['sourceIntergrowthCode','https://github.com/ropensci/gigs/blob/fb58fe6596d4b289d5362c5efe00f882984d3186/R/ig_png.R']];
-        return `<div class="reference-grid">${this.quickGuideHTML()}<section class="card full"><span class="eyebrow">OMS / WHO · 2006 / 2007 · CDC 2000 / 2022 · INTERGROWTH</span><h2>${this.t('references')}</h2><div class="source-links">${links.map(([k,url])=>`<a href="${url}" target="_blank" rel="noopener noreferrer">${this.t(k)} ↗</a>`).join('')}</div><p>${this.t('referenceBoth')}</p><p class="meta">${this.esc(this.manifest.referenceVersion)}<br>SHA-256 : ${this.manifest.sha256}</p>${this.olderManifest?`<p class="meta">${this.esc(this.olderManifest.referenceVersion)}<br>SHA-256 : ${this.olderManifest.sha256}</p>`:''}${this.cdcManifest?`<p class="meta">${this.esc(this.cdcManifest.referenceVersion)}<br>SHA-256 : ${this.cdcManifest.sha256}</p>`:''}<p class="meta">${this.esc(PretermUI.reference)} · ${this.esc(PretermUI.version)}</p></section>${[['scope','scopeText'],['method','methodText'],['measurementHelp','measurementHelpText'],['privacyTitle','privacyText'],['validationTitle','validationText']].map(([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`).join('')}<section class="card"><h2>${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</h2><button class="btn" data-action="check-update" ${this.offlineRegistration?'':'disabled'}>${this.t('updateCheck')}</button></section></div>`;
+        return `<div class="field reference-search"><label for="reference-search">${this.t('search')}</label><input id="reference-search" type="search"></div><div class="reference-grid">${this.quickGuideHTML()}<section class="card full"><span class="eyebrow">OMS / WHO · 2006 / 2007 · CDC 2000 / 2022 · INTERGROWTH</span><h2>${this.t('references')}</h2><div class="source-links">${links.map(([k,url])=>`<a href="${url}" target="_blank" rel="noopener noreferrer">${this.t(k)} ↗</a>`).join('')}</div><p>${this.t('referenceBoth')}</p><p class="meta">${this.esc(this.manifest.referenceVersion)}<br>SHA-256 : ${this.manifest.sha256}</p>${this.olderManifest?`<p class="meta">${this.esc(this.olderManifest.referenceVersion)}<br>SHA-256 : ${this.olderManifest.sha256}</p>`:''}${this.cdcManifest?`<p class="meta">${this.esc(this.cdcManifest.referenceVersion)}<br>SHA-256 : ${this.cdcManifest.sha256}</p>`:''}<p class="meta">${this.esc(PretermUI.reference)} · ${this.esc(PretermUI.version)}</p></section>${[['scope','scopeText'],['method','methodText'],['measurementHelp','measurementHelpText'],['privacyTitle','privacyText'],['validationTitle','validationText']].map(([title,text])=>`<section class="card"><h2>${this.t(title)}</h2><p>${this.t(text)}</p></section>`).join('')}<section class="card"><h2>${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</h2><button class="btn" data-action="check-update" ${this.offlineRegistration?'':'disabled'}>${this.t('updateCheck')}</button></section></div>`;
     }
     events() {
         this.choicePopup();
@@ -800,6 +809,7 @@ class WorkspaceApp {
         document.getElementById('app-root').addEventListener('input', event => {
             if(event.target.id==='batch-search'){this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
+            if(event.target.id==='reference-search'){const query=this.historySearchKey(event.target.value);document.querySelectorAll('.reference-grid>section').forEach(section=>{section.hidden=!!query&&!this.historySearchKey(section.textContent).includes(query);});return;}
             if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
             if (event.target.closest('#single-form,#batch-form') || event.target.id === 'paste-data') {
                 this.readForms(); if (event.target.closest('#single-form') && this.state.single) { this.state.stale = true; const target=document.getElementById('single-results'); if(target&&!target.querySelector('[data-stale-notice]')){const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');target.querySelector('.dashboard-toolbar')?.after(notice);} }
@@ -807,6 +817,7 @@ class WorkspaceApp {
             }
         });
         document.getElementById('app-root').addEventListener('change', async event => {
+            if(event.target.id==='history-filter'){this.historyFilter=event.target.value;this.historyPage=0;this.renderHistoryList();return;}
             if(event.target.id==='batch-filter'){this.batchFilter=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.name === 'ageMode') {
                 const form = event.target.closest('form'); form.querySelectorAll('[data-age]').forEach(div => { div.hidden = div.dataset.age !== event.target.value; });
@@ -968,7 +979,7 @@ class WorkspaceApp {
             if(child.growthProfile==='intergrowth')Object.assign(this.state.draft,{gestationalAgeWeeks:child.gestationalAgeWeeks,gestationalAgeDays:child.gestationalAgeDays,postmenstrualDays:'',ageDays:''});
             this.page='single';await this.saveImmediate('automatic');this.render('single-caseId');
         }
-        else if(action==='view-case'){this.search=button.dataset.caseId;this.historyPage=0;this.sessions=await this.history.catalog();this.page='history';this.render('history-search');}
+        else if(action==='view-case'){this.historyFilter='all';this.search=button.dataset.caseId;this.historyPage=0;this.sessions=await this.history.catalog();this.page='history';this.render('history-search');}
         else if(action==='calculate-batch'){
             if(this.batchComputing||this.csvBusy||this.csvReading)return;
             button.disabled=true;const workspace=this.state,entries=[];this.batchComputing=true;
@@ -992,7 +1003,7 @@ class WorkspaceApp {
         else if(action==='save-batch-correction')await this.saveBatchCorrection();
         else if(action==='quality-view'){
             const index=Number(button.dataset.index),entry=this.state.batch[index];
-            if(Number.isInteger(index)&&index>=0&&entry)this.dialog('qualityRecord',`<p>${this.t('qualityRecord')} ${this.number(index+1,0)} · ${this.t('qualityReadOnly')}</p>${entry.result?this.resultsHTML(entry,false,true):this.tableHTML([entry])}`,`<button class="btn" data-action="batch-correct" data-index="${index}">${this.icon('edit')}${this.t('batchCorrectionEdit')}</button>`);
+            if(Number.isInteger(index)&&index>=0&&entry)this.dialog('qualityRecord',`<p>${this.t('qualityRecord')} ${this.number(index+1,0)} · ${this.t('qualityReadOnly')}</p>${entry.result?this.resultsHTML(entry,false,true):this.previewDraft(entry.child,'batch')+`<p class="notice">${this.t('pdfUncalculated')}</p>`}`,`<button class="btn" data-action="batch-correct" data-index="${index}">${this.icon('edit')}${this.t('batchCorrectionEdit')}</button>`);
         }
         else if(action==='quality-csv'||action==='analysis-csv')this.downloadQuality(action==='analysis-csv');
         else if(action==='reporting')this.reportingDialog();
@@ -1000,7 +1011,15 @@ class WorkspaceApp {
         else if(action==='download-dhis2')this.downloadReport(true);
         else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+ClinicalEngine.today()+'.csv','text/csv');}
         else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats.csv','text/csv'); }
-        else if(action==='print'){if(this.page==='single')await this.individualReportDialog(true);else window.print();}
+        else if(action==='print'){
+            if(this.page==='single')await this.individualReportDialog(true);
+            else if(this.page==='batch'&&this.state.batch.length&&!this.pdfBusy){
+                const printWindow=window.open('about:blank','_blank');
+                if(!printWindow){this.toast('pdfPrintPopup',true);return;}
+                printWindow.opener=null;printWindow.document.body.textContent=this.t('pdfPreparing');
+                await this.exportPDF('detailed',{printWindow});
+            }else if(this.page!=='batch')window.print();
+        }
         else if(action==='export-pdf'){if(this.page==='single')await this.individualReportDialog(false);else await this.exportPDF(button.dataset.layout);}
         else if(action==='individual-report-confirm')await this.confirmIndividualReport();
         else if(action==='password-export')this.passwordDialog();
@@ -1261,7 +1280,7 @@ class WorkspaceApp {
         // A stored source is already durable; resuming it alone is not a new version.
         // A journal-only recovery must still be durably saved before exposing the copy.
         const origin=this.sessions?.find(row=>row.id===session.id)?.origin;
-        if(origin?.kind==='stored'&&typeof this.history.resumeSaved==='function')await this.history.resumeSaved(workspace);
+        if(['stored','memory'].includes(origin?.kind)&&typeof this.history.resumeSaved==='function')await this.history.resumeSaved(workspace);
         else await this.history.save(workspace,'restoreCopy',true);
         this.state=workspace;this.singleEditing=!!workspace.stale;this.singleView='summary';this.batchPane=workspace.batch.length?'results':'entry';this.batchSearch='';this.batchFilter='all';this.batchPage=0;this.checkpoint(false);this.page=workspace.mode==='batch'?'batch':'single';document.getElementById('workspace-dialog').close();this.render('main');this.toast('restored');
     }
@@ -1315,7 +1334,7 @@ class WorkspaceApp {
     updateHTML(){
         if(!this.offlineRegistration?.waiting&&!this.reloadAvailable&&!this.updateError)return '';
         const available=!!this.offlineRegistration?.waiting||this.reloadAvailable;
-        return `<div class="notice ${this.updateError?'warn':'recovery'}" role="status"><div><strong>${this.t(available?'updateReady':'updateFailed')}</strong><p>${this.t(available?'updateHelp':'updateFailedHelp')}</p>${this.updateError&&(available||this.updateError!=='updateFailedHelp')?`<p>${this.esc(this.t(this.updateError))}</p>`:''}</div><button class="btn" data-action="${available?'apply-update':'check-update'}" ${this.updateApplying?'disabled':''}>${this.t(this.updateApplying?'updateSaving':available?'updateApply':'updateRetry')}</button></div>`;
+        return `<div class="notice ${this.updateError?'warn':'recovery'}" role="status"><div><strong>${this.t(available?'updateReady':'updateFailed')}</strong><p>${this.t(available?'updateHelp':'updateFailedHelp')}</p>${this.updateError&&(available||this.updateError!=='updateFailedHelp')?`<p>${this.esc(this.t(this.updateError))}</p>`:''}</div>${this.updateError&&this.updateAssetError?`<p class="hint"><bdi>${this.esc(this.updateAssetError)}</bdi></p>`:''}<button class="btn" data-action="${available?'apply-update':'check-update'}" ${this.updateApplying?'disabled':''}>${this.t(this.updateApplying?'updateSaving':available?'updateApply':'updateRetry')}</button></div>`;
     }
     updateUpdateStatus(){const el=document.getElementById('update-notice');if(el)el.innerHTML=this.updateHTML();document.querySelectorAll('#page-content [data-action="check-update"]').forEach(button=>{button.disabled=!!this.updateChecking||!('serviceWorker' in navigator);button.textContent=this.t(this.updateChecking?'settingsChecking':'updateCheck');});}
     async checkUpdate(){
@@ -1357,7 +1376,16 @@ class WorkspaceApp {
             const registration=await navigator.serviceWorker.register('sw.js',{updateViaCache:'none'});
             this.offlineRegistration=registration;
             const controlled=!!navigator.serviceWorker.controller;
-            navigator.serviceWorker.addEventListener('controllerchange',()=>{this.offlineState='offlineReady';this.reloadAvailable=true;this.updateOfflineStatus();this.updateUpdateStatus();});
+            if(!this.offlineListeners){
+                this.offlineListeners=true;
+                navigator.serviceWorker.addEventListener('message',event=>{
+                    if(event.data?.type!=='RELEASE_INSTALL_FAILED')return;
+                    const asset=String(event.data.asset||'');
+                    this.updateAssetError=/^[a-zA-Z0-9_./-]{1,200}$/.test(asset)?asset:'';
+                    this.updateError='updateFailedHelp';this.updateUpdateStatus();
+                });
+                navigator.serviceWorker.addEventListener('controllerchange',()=>{this.offlineState='offlineReady';this.updateAssetError='';this.updateError=null;this.reloadAvailable=true;this.updateOfflineStatus();this.updateUpdateStatus();});
+            }
             const inspect=()=>{
                 if(registration.active){this.offlineState='offlineReady';this.updateOfflineStatus();}
                 this.updateUpdateStatus();
@@ -1370,7 +1398,7 @@ class WorkspaceApp {
                     // A successfully installed worker becoming obsolete is normal replacement,
                     // not a failed download. An uncontrolled first-load tab may see an update
                     // activate immediately, so it must still offer the saved-work reload.
-                    if(['installed','activating','activated'].includes(worker.state)){installed=true;this.updateError=null;}
+                    if(['installed','activating','activated'].includes(worker.state)){installed=true;this.updateError=null;this.updateAssetError='';}
                     if(worker.state==='redundant'&&!installed){if(!registration.active)this.offlineState='offlineFailed';this.updateError='updateFailedHelp';this.updateOfflineStatus();}
                     if(worker.state==='activated'){
                         if(isUpdate)this.reloadAvailable=true;

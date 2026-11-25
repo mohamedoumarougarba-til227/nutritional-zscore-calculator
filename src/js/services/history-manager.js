@@ -101,7 +101,7 @@ class HistoryManager {
         const w=session.metadata?.workspace||{},entries=[...(w.batch||[]),...(w.single?[w.single]:[])],people=[w.draft,w.batchDraft,...entries.map(e=>e.child)];
         const name=session.name||w.draft?.name||w.draft?.caseId||w.batchDraft?.name||w.batchDraft?.caseId||w.single?.child?.caseId||'';
         return {id:session.id,name,createdAt:session.createdAt,metadata:{kind:session.metadata?.kind,reason:session.metadata?.reason,importedAt:session.metadata?.importedAt},
-            summary:{count:new Set(entries.map(e=>e.child.id)).size,caseIds:[...new Set(entries.map(e=>e.child.caseId).filter(Boolean))],searchText:`${session.name||''} ${people.map(c=>`${c?.name||''} ${c?.caseId||''}`).join(' ')} ${session.createdAt||''}`.toLocaleLowerCase()},origin};
+            summary:{mode:w.mode==='batch'?'batch':'single',records:entries.length,calculated:entries.filter(e=>!!e.result).length,count:new Set(entries.map(e=>e.child.id)).size,caseIds:[...new Set(entries.map(e=>e.child.caseId).filter(Boolean))],searchText:`${session.name||''} ${people.map(c=>`${c?.name||''} ${c?.caseId||''}`).join(' ')} ${session.createdAt||''}`.toLocaleLowerCase()},origin};
     }
     async catalog() {
         if(typeof this.storage.scanHistory!=='function')return (await this.list()).map(s=>HistoryManager.summary(s,{kind:'memory',record:s}));

@@ -112,3 +112,18 @@ test('individual layout preserves identity, localised age and dates, and numeric
     assert.ok(seen.some(item=>item.text==='+3'));
     assert.equal(JSON.stringify(entry),before);
 });
+
+test('batch reports use a wide list and traceable annex, keep pending results, and do not recalculate',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entries=Array.from({length:13},(_,i)=>visit(i,{caseId:'BATCH-DEMO-'+i,careProtocol:i===1?'niger2025':'',oedema:i===4?'y':'n'}));
+    const pending=entries.map(e=>({child:e.child,result:null})),before=JSON.stringify(entries);
+    for(const language of ['fr','en','ar']){
+        for(const layout of ['detailed','compact']){
+            const result=PDFManager.build(entries,{mode:'batch',layout,language,translations},{jsPDF,autoTable,fonts});
+            assert.equal(result.entries,13);assert.ok(result.pages>0&&result.pages<15);assert.ok(result.bytes.byteLength>1000);
+            const uncalculated=PDFManager.build(pending,{mode:'batch',layout,language,translations},{jsPDF,autoTable,fonts});
+            assert.equal(uncalculated.entries,13);assert.ok(uncalculated.pages>0);
+        }
+    }
+    assert.equal(JSON.stringify(entries),before);
+});

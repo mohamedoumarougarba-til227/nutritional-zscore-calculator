@@ -39,6 +39,7 @@ class PDFManager {
             if (c.ageMode === 'months') age.push(field('ageYears', c.ageYears), field('ageMonths', c.ageMonths), t('approximateAge'));
             if(c.ageMode==='totalMonths')age.push(field('ageTotalMonths',c.totalAgeMonths),t('approximateAge'));
             if (c.ageMode === 'dates') age.push(field('birthDate', c.birthDate));
+            if(c.ageMode==='pma'&&!r?.intergrowthContext)age.push(field('postmenstrualDays',number(c.postmenstrualDays,0)));
             const measures = [...age, field('weight', number(c.weight, 0)), field('height', number(c.height, 1)),
                 field('gender', t(c.gender === 'M' ? 'male' : c.gender === 'F' ? 'female' : 'unknown')),
                 field('position', t(c.position === 'L' ? 'lying' : c.position === 'H' ? 'standing' : 'unknown')),
@@ -101,12 +102,13 @@ class PDFManager {
             if(r?.schemaVersion===4 && typeof r.bmi==='number' && Number.isFinite(r.bmi))compactMeasures.push(field('bmi',number(r.bmi,2)+' kg/m²'));
             const heightPair=number(c.height,1)+(typeof r?.correctedHeight==='number'?' / '+number(r.correctedHeight,1):'');
             const briefMeasures=[number(c.weight,0)+' g | '+heightPair+' cm',number(c.ageDays,0)+' '+t('pdfDaysUnit')+' ('+t(c.ageMode||'unknown')+') | '+this.clean(c.gender||t('unknown'))+' | '+this.clean(c.position||t('unknown')),t('pdfOedema')+' : '+t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown')];
-            if(r?.intergrowthContext)briefMeasures.unshift(field('postmenstrualDays',number(r.intergrowthContext.age.postmenstrualDays,0)));
+            if(r?.intergrowthContext||c.ageMode==='pma')briefMeasures.unshift(field('postmenstrualDays',number(r?.intergrowthContext?.age.postmenstrualDays??c.postmenstrualDays,0)));
             if(c.ageMode==='totalMonths')briefMeasures.push(field('ageTotalMonths',c.totalAgeMonths),t('approximateAge'));
             if(c.ageMode==='months')briefMeasures.push(field('ageYears',c.ageYears)+' | '+field('ageMonths',c.ageMonths),t('approximateAge'));
             if(c.ageMode==='dates')briefMeasures.push(field('birthDate',c.birthDate));
             if(r?.schemaVersion===4 && typeof r.bmi==='number' && Number.isFinite(r.bmi))briefMeasures.push(field('bmi',number(r.bmi,2)+' kg/m²'));
             if(c.muac!==undefined&&c.muac!==''){const pb=field('muac',number(c.muac,1)+' mm');compactMeasures.push(pb);briefMeasures.push(pb);}
+            if(!r)for(const key of SupplementaryPDF.fields)if(SupplementaryPDF.present(c[key]))briefMeasures.push(field(key,number(c[key],1)));
             return {index:i+1,identity,measures,compactMeasures,briefMeasures,briefIdentity:[this.clean(c.name||t('unknown')),this.clean(c.caseId||t('unknown'))],measurementDate:this.clean(c.measurementDate||t('unknown')),scores,percentiles,notes:[...new Set(notes.filter(Boolean))],provenance,calculatedAt:this.clean(r?.calculatedAt||t('unknown'))};
         });
         const hasPercentiles=rows.some(row=>row.percentiles.some(Boolean))||entries.some(entry=>Object.values(entry.result?.additionalGrowth?.indicators||{}).some(value=>CentilePDF.text(value)!==null));
@@ -580,66 +582,84 @@ class PDFManager {
             });
             return {bytes:doc.output('arraybuffer'),pages:doc.getNumberOfPages(),entries:1};
         }
-        const text = (value, y, size = 10, bold = false) => {
-            doc.setFont('Amiri',bold?'bold':'normal');doc.setFontSize(size);
-            const lines = doc.splitTextToSize(safe(value),width-2*margin);
+        // A wide summary table first, then an independent annex. Never pack clinical prose
+        // into a narrow score column or create an orphan table header before the first record.
+        const normalize=value=>this.clean(value).replace(/[\u202f\u00a0]/g,' ').replace(/−/g,'-').replace(/≥/g,'>=').replace(/≤/g,'<=');
+        const western=value=>/^[\x20-\x7e\xa0-\xff\nœŒ‘’“”–—…€]*$/u.test(normalize(value));
+        const strings=[...Object.values(options.translations[language]),...rows.flatMap(r=>[...r.identity,...r.measures,...r.scores,...r.percentiles,...r.notes])];
+        const font=!rtl&&strings.every(western)?'helvetica':'Amiri',render=font==='helvetica'?normalize:safe;
+        doc.setFont(font,'normal');doc.setLineHeightFactor(1.13);
+        const text=(value,y,size=9,bold=false,color=[35,50,45])=>{
+            doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
+            const lines=doc.splitTextToSize(render(value),width-2*margin);
             doc.text(lines,rtl?width-margin:margin,y,{align:rtl?'right':'left'});
-            return y + lines.length * size / doc.internal.scaleFactor * 1.15 + 2;
+            return y+lines.length*size/doc.internal.scaleFactor*1.13+2;
         };
-        const headed=new Set();
-        const header = () => {
+        const headed=new Set(),usable=width-2*margin;
+        const header=()=>{
             const page=doc.internal.getCurrentPageInfo().pageNumber;if(headed.has(page))return;headed.add(page);
-            doc.setTextColor(23,99,72); text(t('brand')+' - '+title,12,15,true);
-            doc.setTextColor(35); text(t('pdfStoredOnly')+' | '+issued,20,9);
-            doc.setDrawColor(190); doc.line(margin,25,width-margin,25);
+            doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,7,8,8,1.3,1.3,'F');
+            doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,12.8,{align:'center'});
+            doc.setTextColor(23,99,72);doc.setFontSize(14);doc.text(render(t('brand')+' - '+title),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
+            text(t('pdfStoredOnly')+' | '+issued,19,8);
+            doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
         };
-        header();let y=29;
-        y=text(t('appUsageNotice'),y,10);
-        if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,9);
-        if(model.stale) y=text(t('stale'),y,10,true);
-        const base = {theme:'grid',margin:{top:29,bottom:compact?24:19,left:margin,right:margin},startY:y,
-            styles:{font:'Amiri',fontStyle:'normal',fontSize:11,textColor:25,lineColor:210,lineWidth:.15,cellPadding:2,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
-            headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},
-            rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
-            didParseCell:data=>{data.cell.text=data.cell.text.map(safe);}};
-        {
-            if(model.provenances.length){
-                autoTable(doc,{...base,head:[[t('referenceVersion')+' / '+t('engineVersion')]],body:model.provenances.map((p,i)=>['R'+(i+1)+' | '+p[0]+' | '+p[1]]),styles:{...base.styles,fontSize:9,cellPadding:1.5}});
-                y=doc.lastAutoTable.finalY+3;
-            }
-            let widths,head,body;
-            if(compact){
-                const reduced=this.compact(model);
-                autoTable(doc,{...base,startY:y,head:[[t('pdfCompactLegend')]],body:[[t('pdfCompactHelp')]],styles:{...base.styles,fontSize:10,cellPadding:1.5}});y=doc.lastAutoTable.finalY+3;
-                let legendHead=[t('pdfCompactCode'),t('pdfCompactMeaning')],legend=reduced.legend;
-                if(rtl){legendHead.reverse();legend=legend.map(row=>[...row].reverse());}
-                autoTable(doc,{...base,startY:y,head:[legendHead],body:legend,styles:{...base.styles,fontSize:10,cellPadding:1.5}});y=doc.lastAutoTable.finalY+3;
-                widths=model.indicators.length===4?[8,35,22,57,20,20,20,20,71]:model.indicators.length===2?[8,42,25,62,31.5,31.5,73]:[8,42,25,62,21,21,21,73];
-                head=['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures',...model.indicators,'pdfNotes'].map(t);body=reduced.body;
-            }else{
-                widths=model.indicators.length===4?[9,40,48,29,29,29,29,60]:model.indicators.length===2?[9,45,56,51,51,61]:[9,45,56,34,34,34,61];head=model.keys.map(t);body=rows.map(r=>[String(r.index),r.identity.join('\n'),r.compactMeasures.join('\n'),...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),[r.provenance||'',r.calculatedAt,...r.notes].join('\n')]);
-            }
-            if(rtl){head.reverse();body=body.map(r=>r.reverse());widths.reverse();}
+        header();let y=28;
+        const calculated=entries.filter(e=>!!e.result).length;
+        y=text(t('lotRows')+' : '+rows.length+'   |   '+t('pdfBatchCalculated')+' : '+calculated+'   |   '+t('notCalculated')+' : '+(rows.length-calculated),y,11,true,[23,99,72]);
+        y=text(t('appUsageNotice'),y,8);
+        if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,8);
+        if(model.stale)y=text(t('stale'),y,9,true);
+        const base={theme:'grid',margin:{top:28,bottom:18,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
+            headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
+            didParseCell:data=>{data.cell.text=data.cell.text.map(render);}};
+        const ensure=space=>{if(y+space>height-18){doc.addPage();header();y=28;}};
+        const section=key=>{ensure(25);y=text(t(key),y,11,true,[23,99,72]);};
+        const table=(head,body,widths,overrides={})=>{
+            if(!body.length)return;
+            if(rtl){head=[...head].reverse();body=body.map(row=>[...row].reverse());widths=[...widths].reverse();}
             const continuedPages=new Set();
-            autoTable(doc,{...base,startY:y,styles:{...base.styles,fontSize:compact?9:10,cellPadding:compact?1:1.5},head:[head],body,columnStyles:Object.fromEntries(widths.map((cellWidth,i)=>[i,{cellWidth}])),
+            autoTable(doc,{...base,startY:y,head:[head],body,columnStyles:Object.fromEntries(widths.map((cellWidth,i)=>[i,{cellWidth}])),...overrides,
                 didDrawCell:data=>{
+                    if(overrides.didDrawCell)overrides.didDrawCell(data);
                     const index=this.continuedRowIndex(data,rtl),page=doc.internal.getCurrentPageInfo().pageNumber;
-                    if(index===null||continuedPages.has(page))return;
-                    continuedPages.add(page);
-                    const size=doc.getFontSize(),color=doc.getTextColor();
-                    doc.setFontSize(8);doc.setTextColor(35);
-                    doc.text(safe(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,27.5,{align:rtl?'right':'left'});
-                    doc.setFontSize(size);doc.setTextColor(color);
+                    if(!overrides.recordRows||index===null||continuedPages.has(page))return;
+                    continuedPages.add(page);const size=doc.getFontSize(),color=doc.getTextColor();
+                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,26,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
                 }});
+            y=doc.lastAutoTable.finalY+5;
+        };
+        const reduced=compact?this.compact(model):null;
+        const count=model.indicators.length,scoreWidth=(usable-(compact?8+39+23+57+29:9+47+56+25))/Math.max(1,count);
+        const shortMeasures=r=>r.briefMeasures.filter(line=>line!==t('approximateAge')).join('\n');
+        if(compact){
+            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>row.map((cell,j)=>j===3?shortMeasures(rows[i]):cell)),[8,39,23,57,...model.indicators.map(()=>scoreWidth),29],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
+        }else{
+            const body=rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),shortMeasures(r),...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),r.provenance||t('notCalculated')]);
+            table(['pdfNumber','pdfIdentity','pdfMeasures',...model.indicators,'pdfRefShort'].map(t),body,[9,47,56,...model.indicators.map(()=>scoreWidth),25],{recordRows:true});
+        }
+        if(model.provenances.length){
+            section('pdfReferences');
+            table([t('pdfCompactCode'),t('referenceVersion'),t('engineVersion')],model.provenances.map((p,i)=>['R'+(i+1),p[0],p[1]]),[18,usable-57,39],{styles:{...base.styles,fontSize:9,cellPadding:1.2}});
+        }
+        if(compact){
+            section('pdfCompactLegend');y=text(t('pdfCompactHelp'),y,8);
+            table([t('pdfCompactCode'),t('pdfCompactMeaning')],reduced.legend,[19,usable-19],{styles:{...base.styles,fontSize:8.5,cellPadding:1.2}});
+        }else{
+            // Keep all stored clinical notes, raw supplementary observations and provenance in a
+            // wide annex. Row numbers refer to the unfiltered order of the main table.
+            section('pdfBatchAnnex');
+            table([t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('pdfNotes')],rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),r.measures.join('\n'),[r.provenance||'',r.calculatedAt,...r.notes].join('\n')]),[9,39,72,usable-120],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.3}});
         }
         const pages=doc.getNumberOfPages();
         for(let i=1;i<=pages;i++){
-            doc.setPage(i);doc.setTextColor(60);doc.setFont('Amiri','normal');doc.setFontSize(9);
-            doc.setDrawColor(190);doc.line(margin,height-(compact?20:15),width-margin,height-(compact?20:15));
-            if(compact)doc.text(safe(t('pdfCompactSeeLegend')),rtl?width-margin:margin,height-15,{align:rtl?'right':'left'});
-            doc.text(safe(t('pdfSensitive')),rtl?width-margin:margin,height-10,{align:rtl?'right':'left'});
-            doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-10,{align:rtl?'left':'right'});
+            doc.setPage(i);doc.setTextColor(65);doc.setFont(font,'normal');doc.setFontSize(8);
+            doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
+            doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+            doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
+            if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
         }
+        if(options.print)doc.internal.events.subscribe('putPage',({pageNumber})=>{if(pageNumber===1)doc.internal.write('/AA << /O << /S /Named /N /Print >> >>');});
         return {bytes:doc.output('arraybuffer'),pages,entries:rows.length};
     }
 }

@@ -748,3 +748,21 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  @media(pointer:coarse){.compact-lot-summary .lot-heading-actions .action-with-label,.csv-heading-actions #csv-parse-button{min-height:44px}}
 }
 @media print{.lot-heading-actions,.lot-indicator .field-info{display:none!important}.quality-heading-counts{display:grid!important}.lot-heading-layout>.lot-summary-reference{display:inline!important}}
+
+/* Backup browsing, contextual previews and quiet motion. */
+.history-filter-bar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-block:12px}
+.history-filter-bar>.field{flex:1 1 230px;min-width:0;margin:0}
+.history-tags{display:flex;gap:5px;flex-wrap:wrap;margin-block-start:5px}
+.history-tags>span{border:1px solid var(--line);border-radius:5px;padding:2px 7px;color:var(--muted);font-size:11px}
+.reference-search{max-width:520px;margin-block:0 14px}
+.batch-pending-count{grid-column:1/-1;margin:0;font-size:12px}
+.record-preview>.indicator-grid{margin-block:8px 12px}
+.record-preview>.result-record{margin-block:10px;padding:10px 12px}
+.record-preview .summary-print-help{display:none}
+.record-preview .nutrition-result{background:color-mix(in srgb,var(--surface) 65%,var(--accent-soft))}
+@media screen and (prefers-reduced-motion:no-preference){
+ .history-item,.btn,.workspace-view-nav button{transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+ #workspace-dialog[open] .dialog-body{animation:record-dialog-enter .16s ease-out}
+ @keyframes record-dialog-enter{from{opacity:.72;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+}
+@media print{.record-preview .summary-print-help{display:block!important}}
