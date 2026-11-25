@@ -1,6 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {ReportingExport:R}=require('../../src/js/services/reporting-export.js');
+const {NutritionAssessment}=require('../../src/js/services/nutrition-assessment.js');
+const {PcimaNiger}=require('../../src/js/services/pcima-niger.js');
+const {PcimaNiger2025}=require('../../src/js/services/pcima-niger-2025.js');
 const profile=()=>({format:'zscore-dhis2-mapping',version:1,unit:'measurement-rows',orgUnit:'A0000000001',dataSet:'A0000000002',mappings:[{metric:'rows',dataElement:'A0000000003',categoryOptionCombo:'A0000000004'}]});
 const visit=extra=>({child:{name:'FICTIF-PUBLIC',caseId:'FICTIF-MEME-DOSSIER',measurementDate:'2024-02-29',totalAgeMonths:12},result:{nutrition:{version:1,muac:'muacSevere',category:'nutritionSevere',reasons:[]}},...extra});
 
@@ -42,4 +45,20 @@ test('DHIS2 mapping refuses duplicate coordinates, malformed codes and unsupport
         const changed=profile();mutate(changed);assert.throws(()=>R.dhis2(report,changed),/reportMappingInvalid/);
     }
     assert.equal(JSON.stringify(report),before);
+});
+
+test('DHIS2 requires an explicit mapping for either national edition and retains mixed provenance',()=>{
+    const references=[PcimaNiger.reference,PcimaNiger2025.reference,NutritionAssessment.reference];
+    for(const selected of [[references[0]],[references[1]],references]){
+        const entries=selected.map(reference=>{
+            const entry=visit();
+            entry.result.nutrition.reference=reference;
+            return entry;
+        });
+        const report=R.aggregate(entries,'202402');
+        assert.deepEqual(report.assessmentReferences,selected.slice().sort());
+        assert.throws(()=>R.dhis2(report,profile()),/reportProtocolMappingRequired/);
+        assert.throws(()=>R.dhis2(report,{...profile(),assessmentReferences:[references[2]]}),/reportProtocolMappingRequired/);
+        assert.equal(R.dhis2(report,{...profile(),assessmentReferences:report.assessmentReferences}).dataValues[0].value,String(selected.length));
+    }
 });

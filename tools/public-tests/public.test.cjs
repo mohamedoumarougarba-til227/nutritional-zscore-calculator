@@ -36,7 +36,7 @@ test('feedback links route FR EN AR on every view without embedding local record
             for(const page of ['single','batch','history','references','settings']){
                 const state={single:null,draft:{caseId:'FICTIF-NOT-FOR-TALLY',weight:8500},batch:[]};
                 const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations,page,state,history:{recoveryErrors:[]}}),before=JSON.stringify(state);
-                for(const method of ['closeChoice','closeInfo','observeHeader','updateConnection','updateSaveStatus','updateToast','syncImportNotice','renderHistoryList','refreshCapacity','enhanceSelects','updateCSVControls'])app[method]=()=>{};
+                for(const method of ['closeChoice','closeInfo','observeHeader','updateConnection','updateSaveStatus','updateToast','syncImportNotice','renderHistoryList','refreshCapacity','enhanceSelects','updateCSVControls','syncBatchSelection'])app[method]=()=>{};
                 for(const method of ['updateHTML','singleHTML','batchHTML','historyHTML','referencesHTML','settingsHTML','toolButton','icon'])app[method]=()=>'';
                 app.render();
                 const github=root.innerHTML.match(/<a class="github-footer-link"([^>]*)>([^<]*)<\/a>/);assert(github);assert.equal(github[2],translations[language].githubProject);assert(github[1].includes('href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator"'));assert(github[1].includes('rel="noopener noreferrer"'));assert(!github[0].includes('FICTIF-NOT-FOR-TALLY'));
@@ -294,4 +294,99 @@ test('PDF continuation markers use the original lot row in LTR and RTL and ignor
         {section:'body',row:{index:-1,raw:['<FICTIF>']}}, {section:'body',row:{index:-1,raw:{}}}])assert.equal(PDFManager.continuedRowIndex(data),null);
     assert.equal(JSON.stringify(raw),before);
     for(const language of ['fr','en','ar'])assert.ok(translations[language].pdfRowContinuation.replace('{number}','6').includes('6'));
+});
+
+
+test('manual and forced safety saves never create empty or unchanged versions',async()=>{
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{growthProfile:'who',careProtocol:'niger2025'}}),store=new MemoryHistory(),history=new HistoryManager(store);
+    for(const profile of ['who','us','intergrowth'])for(const ageMode of ['days','months','totalMonths','dates','pma']){
+        const work=app.emptyWorkspace();work.draft={...app.emptyDraft(profile),ageMode,measurementDate:'2026-01-01',name:'  '};work.batchDraft=app.emptyDraft(profile);
+        assert.equal(HistoryManager.hasWork(work),false);assert.equal(await history.save(work,'manual',true),null);assert.equal(await history.save(work,'beforeUpdate',true),null);
+    }
+    assert.equal(store.records.sessions.length,0);
+    const work=app.emptyWorkspace();work.draft.name='FICTIF';assert.ok(await history.save(work,'automatic'));
+    assert.equal(await history.save(work,'manual',true),null);work.mode='batch';work.batchDraft.ageMode='days';work.batchDraft.measurementDate='2026-01-01';assert.equal(await history.save(work,'manual',true),null);
+    work.draft.cannotDrink='n';assert.ok(await history.save(work,'manual',true));work.draft.ageMonths=0;assert.ok(await history.save(work,'automatic'));
+    assert.equal(store.records.sessions.length,3);assert.equal(store.records.sessions[0].metadata.workspace.draft.cannotDrink,undefined);
+    for(const draft of [{ageDays:0},{oedema:'n'},{muac:'122'},{birthDate:'2026-01-01'},{caseId:'FICTIF'}])assert.ok(HistoryManager.hasWork({draft}));
+});
+test('real clinical versions and pending drafts survive deduplication, failed writes can retry',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    const original=JSON.stringify(work);assert.ok(await history.save(work,'calculated'));assert.equal(await history.save(work,'manual',true),null);
+    const second=structuredClone(work);second.single.result.calculatedAt='2026-11-25T01:00:00.000Z';assert.ok(await history.save(second,'calculated'));
+    const third=structuredClone(second);third.draft.name='FICTIF-NEW';const write=store.addArchive.bind(store);store.addArchive=async()=>{throw Error('quota');};await assert.rejects(history.save(third,'manual',true),/quota/);store.addArchive=write;assert.ok(await history.save(third,'manual',true));
+    assert.equal(store.records.sessions.length,3);assert.equal(JSON.stringify(store.records.sessions[0].metadata.workspace),original);
+});
+test('repeated recovery checkpoints retain the same journal and skip blank forms',()=>{
+    const previous=global.localStorage,storage=new Map();global.localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
+    try{const history=new HistoryManager(new MemoryHistory()),app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{growthProfile:'who'}}),work=app.emptyWorkspace();
+        work.draft.ageMode='days';history.checkpoint(work);assert.equal(storage.size,0);work.draft.ageDays=0;history.checkpoint(work);const first=storage.get(history.journalKey);assert.ok(first);work.mode='batch';history.checkpoint(work);assert.equal(storage.get(history.journalKey),first);work.draft.ageDays=1;history.checkpoint(work);assert.notEqual(storage.get(history.journalKey),first);
+        const last=storage.get(history.journalKey);history.checkpoint(app.emptyWorkspace());assert.equal(storage.get(history.journalKey),last);
+    }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
+});
+
+
+test('parallel unchanged saves serialize and restored durable content does not create a new version',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    const writes=await Promise.all([history.save(work,'automatic'),history.save(work,'manual',true),history.save(work,'beforeUpdate',true)]);
+    assert.equal(writes.filter(Boolean).length,1);assert.equal(store.records.sessions.length,1);
+    const restored=structuredClone(work);restored.single.child.id='child_restored';restored.single.result.id='result_restored';restored.single.result.childId='child_restored';
+    await history.resumeSaved(restored);assert.equal(await history.save(restored,'manual',true),null);
+    restored.draft.name='FICTIF-EDIT';assert.ok(await history.save(restored,'automatic'));assert.equal(store.records.sessions.length,2);
+    assert.equal(store.records.sessions[0].metadata.workspace.single.child.id,work.single.child.id);
+});
+
+ test('hidden result form is not reread as changed work after restoring a durable snapshot',async t=>{
+ const original=global.document;t.after(()=>{global.document=original;});
+ const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:work,page:'single',history});
+ await history.resumeSaved(work);const before=JSON.stringify(work);
+ global.document={getElementById:id=>id==='single-form'?{closest:selector=>selector==='[hidden]'?{}:null}:null};
+ app.readForms();assert.equal(JSON.stringify(work),before);assert.equal(await history.save(work,'automatic'),null);
+ assert.equal(store.records.sessions.length,0);
+ });
+
+test('numeric draft controls restored as strings do not create a duplicate archive',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    work.batchDraft={name:'FICTIF-DRAFT',weight:8500,height:77.5,ageYears:2,ageMonths:0,muac:120};
+    await history.resumeSaved(work);
+    const restored=HistoryManager.clone(work);
+    for(const k of ['weight','height','ageYears','ageMonths','muac'])restored.batchDraft[k]=String(restored.batchDraft[k]);
+    assert.equal(HistoryManager.signature(work),HistoryManager.signature(restored));
+    assert.equal(await history.save(restored,'automatic'),null);
+    restored.batchDraft.muac='121';assert.ok(await history.save(restored,'automatic'));
+    assert.equal(store.records.sessions.length,1);
+});
+
+test('equivalent measurement units do not create a new version but a changed quantity does',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    work.draft={name:'FICTIF-UNIT',weight:'12710',weightUnit:'g',height:'77,5',heightUnit:'cm'};
+    assert.ok(await history.save(work,'automatic'));
+    const formatted=structuredClone(work);
+    Object.assign(formatted.draft,{weight:'12,71',weightUnit:'kg',height:'٠٫٧٧٥',heightUnit:'m'});
+    assert.equal(await history.save(formatted,'manual',true),null);
+    formatted.draft.height='0.776';
+    assert.ok(await history.save(formatted,'automatic'));
+    formatted.draft.height='unfinished';
+    const signature=HistoryManager.signature(formatted);
+    formatted.draft.heightUnit='cm';
+    assert.notEqual(HistoryManager.signature(formatted),signature);
+    assert.equal(store.records.sessions.length,2);
+});
+
+test('update notices dismiss without removing update or retry actions from Settings',()=>{
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language:'fr',theme:'light',growthProfile:'who'},updateError:'updateFailedHelp',offlineRegistration:{waiting:{}}});
+ const old=global.document;global.document={getElementById:()=>null};
+ try{
+  assert.ok(app.updateHTML().includes('dismiss-update-notice'));assert.ok(app.updateHTML().includes('update-toast'));
+  app.dismissUpdateNotice();assert.equal(app.updateHTML(),'');assert.equal(app.updateError,'updateFailedHelp');assert.ok(app.offlineRegistration.waiting);
+  assert.ok(app.settingsHTML().includes('data-action="apply-update"'));assert.ok(app.settingsHTML().includes('data-action="check-update"'));
+  app.updateError=null;assert.ok(app.updateHTML().includes(translations.fr.updateReady));
+ }finally{global.document=old;}
+});
+test('reference help keeps all fourteen sources and verification metadata without backup search in every language',()=>{
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language},engine,manifest:{referenceVersion:'test-version',sha256:'test-sha'}});
+  const html=app.referencesHTML();assert.ok(!html.includes('id="reference-search"'));assert.ok(html.includes('quick-guide-grid'));assert.equal((html.match(/class="source-group"/g)||[]).length,4);assert.equal((html.match(/target="_blank"/g)||[]).length,14);assert.ok(html.includes('test-sha'));assert.ok(html.includes('reference-integrity'));
+ }
 });

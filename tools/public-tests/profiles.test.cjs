@@ -162,8 +162,11 @@ test('Settings growth profile selector reaches popup through header action',asyn
         const settings=app.settingsHTML(),form=app.formHTML('single',app.emptyDraft('who'));
         assert.ok(settings.includes(app.t('growthProfileDefault')));
         assert.ok(settings.includes(app.t('growthProfileDefaultHelp')));
+        assert.ok(settings.includes(app.t('careProtocolDefault')));
+        assert.ok(settings.includes('data-action="check-update"'));
+        assert.ok(settings.includes('settings-layout'));
         assert.ok(form.includes(app.t('growthProfileVisit')));
-        assert.ok(form.includes(app.t('growthProfileVisitHelp')));
+        assert.ok(form.includes('data-info="growthProfileVisitHelp"'));
         assert.ok(!form.includes('name=\"growthProfile\" disabled'));
     }
 });
@@ -260,4 +263,190 @@ test('PDF supplementary centiles use the same bounds and omit flagged or unavail
         if(expected)assert.ok(note.includes(expected));else assert.ok(!note.includes(' | P '));
         assert.equal(JSON.stringify(copy),before);
     }
+});
+
+
+test('screening preference applies to new drafts only and PCIMA is restricted to WHO',t=>{
+    const previous=global.document;t.after(()=>{global.document=previous;});global.document={getElementById:()=>({close(){}})};
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',theme:'dark',growthProfile:'who',careProtocol:''},page:'settings',readForms(){},persistPreferences(){},applyPreferences(){},render(){},toast(){}});
+    app.state=app.emptyWorkspace();app.state.draft.name='FICTIF';const before=JSON.stringify(app.state.draft);
+    app.setPreference('careProtocol','niger2025');assert.equal(app.prefs.careProtocol,'niger2025');assert.equal(JSON.stringify(app.state.draft),before);
+    assert.equal(app.emptyDraft().careProtocol,'niger2025');assert.equal(app.state.batchDraft.careProtocol,'niger2025');
+    app.setPreference('careProtocol','niger2023');assert.equal(app.state.batchDraft.careProtocol,'niger2023');
+    app.setPreference('growthProfile','us');assert.equal(app.prefs.careProtocol,'');assert.equal(app.emptyDraft().careProtocol,'');assert.equal(app.state.batchDraft.careProtocol,'');
+    app.setPreference('careProtocol','niger2025');assert.equal(app.prefs.careProtocol,'');assert.equal(JSON.stringify(app.state.draft),before);
+    assert.equal(WorkspaceApp.defaultCareProtocol('intergrowth','niger2023'),'');
+    assert.equal(WorkspaceApp.defaultCareProtocol('who','unknown'),'');
+});
+
+
+test('clinical workspace visual tabs preserve fields and original filtered lot indices',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'}});
+        const draft=app.emptyDraft();const html=app.formHTML('single',draft);
+        for(const field of ['caseId','name','ageMode','measurementDate','weight','height','gender','position','oedema','muac','careProtocol','growthProfile','appetite'])assert.equal((html.match(new RegExp('name="'+field+'"','g'))||[]).length,1,field);
+        const first=engine.calculate(input({name:'FICTIF A',caseId:'A'})),second=engine.calculate(input({name:'FICTIF B',caseId:'B'}));
+        app.state={...app.emptyWorkspace(),batch:[first,second]};app.batchSearch='FICTIF B';const before=JSON.stringify(app.state);
+        const view=app.batchDisplayView();assert.deepEqual(view.indices,[1]);assert.equal(view.entries[0],second);
+        const table=app.tableHTML(view.entries,{compact:true,editable:true,indices:view.indices});assert.ok(table.includes('data-action="batch-correct" data-index="1"'));assert.ok(table.includes('data-action="quality-view" data-index="1"'));
+        const result=app.resultsHTML(first);for(const key of ['summary','charts','details'])assert.ok(result.includes('id="single-view-'+key+'"'));assert.ok(!result.includes('id="single-view-history"'));assert.ok(result.includes('data-single-history'));assert.ok(result.includes('data-action="view-case"'));
+        const summaryStart=result.indexOf('id="single-view-summary"'),chartsStart=result.indexOf('id="single-view-charts"'),detailsStart=result.indexOf('id="single-view-details"');
+        assert.ok(result.indexOf('class="workspace-view-nav"')<summaryStart);
+        assert.ok(result.indexOf('class="nutrition-result')>summaryStart&&result.indexOf('class="nutrition-result')<chartsStart);
+        assert.ok(!result.slice(summaryStart,chartsStart).includes('measurement-snapshot detail-'));
+        assert.ok(result.slice(detailsStart).includes('detail-measures'));assert.ok(result.slice(detailsStart).includes('detail-references'));
+        assert.ok(!result.slice(chartsStart,detailsStart).includes('nutrition-result'));
+        assert.equal(JSON.stringify(app.state),before);
+    }
+});
+
+
+test('individual compact entry keeps each original input and age mode across profiles and languages',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar'])for(const profile of ['who','us','intergrowth']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:profile}});
+        const draft=app.emptyDraft(profile);
+        for(const mode of profile==='intergrowth'?['days','dates','pma']:['days','dates','months','totalMonths']){
+            const current={...draft,ageMode:mode},before=JSON.stringify(current),html=app.formHTML('single',current),batch=app.formHTML('batch',current,true);
+            assert.ok(html.includes('entry-flow-grid'));assert.ok(!html.includes('entry-group-title'));
+            assert.equal(batch.replaceAll('batch-','single-').replaceAll('data-prefix="batch"','data-prefix="single"'),html);
+            assert.ok(html.includes('data-info="growthProfileVisitHelp"'));assert.ok(html.includes('form-section-brief'));assert.ok(html.includes('data-info="'+(profile==='intergrowth'?'intergrowthNoScreening':'clinicalHelp')+'"'));
+            if(profile!=='intergrowth')assert.ok(html.includes('data-info="additionalMeasureHelp"'));
+            const fields=v=>[...v.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort();assert.deepEqual(fields(html),fields(batch));
+            assert.ok(html.includes('data-age="'+mode+'" '));assert.equal(JSON.stringify(current),before);
+            assert.ok(html.includes('max="19"'));assert.ok(html.includes('max="11"'));assert.ok(html.includes('max="'+(profile==='intergrowth'?448:profile==='us'?7304:6970)+'"'));
+        }
+    }
+});
+
+
+test('section help routes to the existing information popup for every screening context',()=>{
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{openInfo(key,opener){this.seen=[key,opener];}});
+    for(const key of ['growthProfileVisitHelp','clinicalHelp','pcimaHelp','pcima2025Help','intergrowthNoScreening','additionalMeasureHelp','intergrowthUnsupportedMeasures','muacHelp','pcimaMuacHelp','pcima2025MuacHelp']){app.showInfo(key,'demo');assert.deepEqual(app.seen,[key,'demo']);}
+});
+
+
+test('individual age and unit selectors share their input field and preserve native choices',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:'who'}});
+        const draft=app.emptyDraft(),html=app.formHTML('single',draft),batch=app.formHTML('batch',draft,true);
+        assert.equal((html.match(/ data-title-choice/g)||[]).length,3);
+        assert.ok(html.includes('class="field title-age" data-field="ageMode"'));
+        assert.equal((html.match(/class="field title-measurement"/g)||[]).length,2);
+        assert.equal((batch.match(/ data-title-choice/g)||[]).length,3);
+        assert.ok(html.includes('class="entry-primary-row"'));assert.ok(html.includes('class="entry-measure-row"'));
+        assert.ok(html.includes('placeholder="'+app.t('ageYears')+'"'));assert.ok(html.includes('placeholder="'+app.t('uiMonthsShort')+'"'));assert.ok(batch.includes('class="entry-primary-row"'));
+        assert.equal(app.choiceDisplay({dataset:{choicePrefix:app.t('weightMeasure')},selectedOptions:[{textContent:'kg'}]}),app.t('weightMeasure')+' (kg)');
+        assert.equal(app.choiceDisplay({dataset:{choiceBirthLabel:app.t('birthDate')},value:'dates',selectedOptions:[{textContent:app.t('dates')}]}),app.t('birthDate'));
+    }
+});
+
+
+test('shared entry presentation preserves every field, screening help and correction dialog',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar'])for(const profile of ['who','us','intergrowth']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:profile}});
+        for(const careProtocol of profile==='who'?['','niger2023','niger2025']:['']){
+            const draft={...app.emptyDraft(profile),careProtocol,name:'FICTIF',caseId:'DEMO',weight:'9.2',weightUnit:'kg',height:'78.5',heightUnit:'cm',muac:'122',tricepsSkinfold:'7.5'};
+            for(const ageMode of profile==='intergrowth'?['days','dates','pma']:['days','totalMonths','months','dates']){
+                const current={...draft,ageMode},before=JSON.stringify(current);
+                const individual=app.formHTML('single',current),batch=app.formHTML('batch',current,true),correction=app.formHTML('correction',current);
+                assert.equal(batch.replaceAll('batch-','single-').replaceAll('data-prefix="batch"','data-prefix="single"'),individual);
+                assert.equal(JSON.stringify(current),before);
+                assert.ok(!correction.includes('data-title-choice'));assert.ok(correction.includes('entry-group-title'));
+                assert.deepEqual([...batch.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort(),[...correction.matchAll(/ name="([^"]+)"/g)].map(m=>m[1]).sort());
+            }
+        }
+    }
+});
+
+test('compact individual screening merges only matching MUAC criteria and exposes complete help in FR EN AR',()=>{
+    const translations=data('interface-translations.json');
+    const entry=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',ageYears:2,weight:8000,height:84,muac:112}));
+    const before=JSON.stringify(entry);
+    const normal=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',muac:150}));
+    const unknown=engine.calculate(input({growthProfile:'who',careProtocol:'niger2025',muac:''}));
+    for(const language of ['fr','en','ar']){
+        const ui=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'}});
+        const html=ui.nutritionHTML(entry.child,entry.result,true);
+        assert.ok(html.includes('data-info="pcima2025Help"'));assert.ok(html.includes('clinical-method-note summary-print-help'));
+        assert.ok(html.includes(ui.esc(ui.t('pcima2025Help'))));
+        assert.ok(html.includes(ui.esc(ui.t('criterionMuacSevere'))+' ('+ui.esc(ui.number(112,1))+' mm)'));
+        assert.ok(!html.includes(ui.esc(ui.t('muacSevere'))));
+        assert.ok(ui.nutritionHTML(normal.child,normal.result,true).includes(ui.esc(ui.t('muacNotLow'))));
+        assert.ok(ui.nutritionHTML(unknown.child,unknown.result,true).includes(ui.esc(ui.t('muacMissing'))));
+        assert.ok(ui.nutritionHTML(entry.child,entry.result).includes(ui.esc(ui.t('muacSevere'))));
+        const additional=ui.additionalResultsHTML(entry.result,true,false);
+        assert.ok(additional.includes('data-info="additionalResultHelp"'));
+        assert.ok(additional.includes(ui.esc(ui.t('additionalResultHelp'))));
+        assert.ok(additional.includes('summary-print-help'));
+    }
+    assert.equal(JSON.stringify(entry),before);
+});
+
+test('lot counters belong only to the list panel and do not consume entry, quality or statistics space',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input());
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[entry]};
+  for(const pane of ['entry','results','quality','statistics']){
+   app.batchPane=pane;const html=app.batchHTML(),start=html.indexOf('id="batch-view-results"'),end=html.indexOf('id="batch-view-quality"'),overview=html.indexOf('class="batch-kpis"');
+   assert.ok(start>=0&&overview>start&&overview<end);
+   assert.equal((html.match(/class="batch-kpi"/g)||[]).length,7);
+   assert.ok(html.indexOf('class="workspace-view-nav"')<html.indexOf('id="measure-card"'));
+  }
+ }
+});
+
+test('batch contextual help and list filters preserve data and distinct reference summaries',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input());
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[{child:entry.child,result:null}]};app.batchPane='results';
+  const html=app.batchHTML();
+  assert.ok(html.indexOf('batch-header-filters')<html.indexOf('class="toolbar compact-toolbar batch-actions"'));
+  assert.ok(html.includes('class="batch-record-list"'));assert.ok(html.includes(app.esc(app.t('notCalculated'))));
+  assert.ok(!app.batchBrowserHTML().includes('batch-record-toolbar'));
+  assert.ok(!app.batchBrowserHTML().includes('batch-record-results'));
+  assert.ok(html.includes('data-action="batch-kpi-filter"'));
+  assert.ok(!html.includes('id="batch-filter"'));assert.ok(!html.includes('data-value="quality"'));assert.ok(html.includes('data-value="pending"'));
+  assert.ok(html.includes('data-info="qualityHelp"'));
+  assert.ok(html.includes('data-info="qualityExportHelp"'));assert.ok(html.includes('data-info="analysisPreparationHelp"'));
+  assert.ok(html.includes('data-info="lotHelpWho"'));assert.ok(html.includes('class="lot-summary-reference"'));
+  assert.ok(app.t('qualityExportHelp')!=='qualityExportHelp');
+  assert.equal(app.state.batch[0].result,null);
+ }
+});
+
+test('lot section headers carry exports, complementary help and compact score ranges, without changing results',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input({headCircumference:48,muac:145,tricepsSkinfold:9,subscapularSkinfold:7}));
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[entry],paste:'name,weight'};app.batchPane='statistics';
+  const before=JSON.stringify(app.state),html=app.batchHTML();
+  assert.ok(/<summary><span class="lot-heading-layout">[^]*?class="toolbar compact-toolbar lot-heading-actions"[^]*?<\/summary>/.test(html));
+  assert.ok(html.includes('class="lot-score-range"'));assert.ok(html.includes(app.esc(app.t('lotMeanShort'))));
+  assert.ok(html.includes('lot-indicator-help-'));assert.ok(html.includes('class="quality-heading-title"'));
+  assert.ok(html.indexOf('id="csv-parse-button"')<html.indexOf('id="csv-tools-body"'));
+  assert.equal((html.match(/id="csv-parse-button"/g)||[]).length,1);
+  assert.equal(JSON.stringify(app.state),before);
+ }
+});
+
+test('individual desktop opens optional sections by default without changing batch or mobile visibility',t=>{
+ const old=global.matchMedia;t.after(()=>{if(old===undefined)delete global.matchMedia;else global.matchMedia=old;});
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',growthProfile:'who'},translations:data('interface-translations.json')});
+ const draft=app.emptyDraft('who'),before=JSON.stringify(draft);
+ global.matchMedia=q=>({matches:q==='(min-width: 681px)'});
+ const single=app.formHTML('single',draft),batch=app.formHTML('batch',draft,true);
+ for(const key of ['clinical-fields','additional-fields']){
+  assert.ok(single.includes('class="'+key+'" open'));
+  assert.ok(batch.includes('class="'+key+'"'));
+ }
+ global.matchMedia=()=>({matches:false});
+ const mobile=app.formHTML('single',draft);
+ for(const key of ['clinical-fields','additional-fields'])assert.ok(mobile.includes('class="'+key+'"'));
+ assert.equal(JSON.stringify(draft),before);
 });

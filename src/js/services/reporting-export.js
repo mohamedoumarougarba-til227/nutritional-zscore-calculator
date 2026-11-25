@@ -1,6 +1,7 @@
 /** Offline aggregate interchange. Counts measurement rows, never admissions or unique people.
  * DHIS2 metadata must come from the receiving organisation. No remote requests.
  */
+const ReportingNutrition=typeof module!=='undefined'&&module.exports?require('./nutrition-assessment.js').NutritionAssessment:globalThis.NutritionAssessment;
 class ReportingExport {
     static metrics=['rows','eligible6to59','muacMissing','muacSevere','muacModerate','muacNotLow','nutritionSevere','nutritionModerateCriteria','nutritionIncomplete','dangerPresent'];
     static validPeriod(period) { return typeof period==='string'&&/^\d{4}(0[1-9]|1[0-2])$/.test(period); }
@@ -41,14 +42,14 @@ class ReportingExport {
         }
         const report={format:'zscore-measurement-aggregate',version:1,period,unit:'measurement-rows',counts,excluded,unassessed};
         // Keep legacy reports unchanged; new national contexts must retain their provenance.
-        if(assessmentReferences.has('Niger-PCIMA-2023-screening-v1'))report.assessmentReferences=[...assessmentReferences].sort();
+        if([...assessmentReferences].some(reference=>ReportingNutrition.isNational({reference})))report.assessmentReferences=[...assessmentReferences].sort();
         this.checkReport(report);return report;
     }
     static dhis2(report,profile) {
         this.checkReport(report);
         const uid=value=>typeof value==='string'&&/^[A-Za-z][A-Za-z0-9]{10}$/.test(value);
         if(!profile||profile.format!=='zscore-dhis2-mapping'||profile.version!==1||profile.unit!=='measurement-rows'||!uid(profile.orgUnit)||!uid(profile.dataSet)||!Array.isArray(profile.mappings)||!profile.mappings.length||profile.mappings.length>this.metrics.length)throw new Error('reportMappingInvalid');
-        if(report.assessmentReferences?.includes('Niger-PCIMA-2023-screening-v1')&&JSON.stringify(profile.assessmentReferences)!==JSON.stringify(report.assessmentReferences))throw new Error('reportProtocolMappingRequired');
+        if(report.assessmentReferences?.some(reference=>ReportingNutrition.isNational({reference}))&&JSON.stringify(profile.assessmentReferences)!==JSON.stringify(report.assessmentReferences))throw new Error('reportProtocolMappingRequired');
         const seen=new Set(),metrics=new Set();
         const dataValues=profile.mappings.map(m=>{
             if(!this.metrics.includes(m.metric)||!uid(m.dataElement)||!uid(m.categoryOptionCombo)||metrics.has(m.metric))throw new Error('reportMappingInvalid');
