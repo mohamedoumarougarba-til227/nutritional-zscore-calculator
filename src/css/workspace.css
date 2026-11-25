@@ -538,3 +538,41 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 }
 @media screen and (max-width:680px){.individual-compact-form .entry-flow-grid .choice-trigger{min-height:42px}.individual-compact-form .form-section-brief{display:block;margin-inline-start:0;margin-block-start:3px}}
 @media(pointer:coarse){.individual-compact-form .entry-flow-grid .choice-trigger{min-height:44px}.individual-compact-form details>.form-section-summary{min-height:44px}}
+
+/* Compact title selectors: preserve native inputs/options and their existing event handlers. */
+@media screen{
+.individual-compact-form .entry-flow-grid .title-choice,.individual-compact-form .entry-flow-grid select[data-title-choice]{display:inline-flex;align-items:center;justify-content:flex-start;gap:4px;width:auto;max-width:100%;min-width:0;height:auto;min-height:23px;padding:0;border:0;border-radius:3px;background:transparent;color:var(--ink);font-size:13px;font-weight:600;text-align:start;line-height:1.3}
+.individual-compact-form .entry-flow-grid select[data-title-choice][hidden]{display:none!important}
+.individual-compact-form .entry-flow-grid .title-choice .choice-value{white-space:normal;overflow-wrap:anywhere}
+.individual-compact-form .entry-flow-grid .title-choice>.ui-icon{width:14px;height:14px;flex-shrink:0;color:var(--accent)}
+.individual-compact-form .title-age>.field-label,.individual-compact-form .title-measurement>.field-label{gap:5px;align-items:center;min-height:23px}
+.individual-compact-form .title-age .age-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;min-width:0}
+.individual-compact-form .title-age .age-fields[data-age="months"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.individual-compact-form .title-age .age-fields>.field{inline-size:auto;max-inline-size:100%;min-inline-size:0}
+.individual-compact-form .title-age .age-fields:not([data-age="months"]) .field-label{position:absolute!important;width:1px;height:1px;min-height:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;margin:0}
+.individual-compact-form .title-age .age-fields[data-age="months"]>.field{position:relative}
+.individual-compact-form .title-age .age-fields[data-age="months"] .field-label{position:absolute;inset-inline-end:7px;inset-block:0;min-height:0;margin:0;z-index:1}
+.individual-compact-form .title-age .age-fields[data-age="months"] .field-label label{font-size:11px;color:var(--muted);font-weight:400}
+.individual-compact-form .title-age .age-fields[data-age="months"] input{padding-inline-end:52px;appearance:textfield;-moz-appearance:textfield}
+.individual-compact-form .title-age .age-fields[data-age="months"] input::-webkit-inner-spin-button,.individual-compact-form .title-age .age-fields[data-age="months"] input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.individual-compact-form .entry-flow-grid .title-choice:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+}
+@container measure-panel (min-width:720px){
+.individual-compact-form .entry-flow-grid>.title-age{inline-size:250px}
+.individual-compact-form .entry-flow-grid>.title-measurement{inline-size:140px;min-inline-size:125px}
+}
+@container measure-panel (min-width:1130px){
+.clinical-workspace .individual-compact-form>.entry-flow-grid:not(.entry-flow-preterm){grid-template-columns:repeat(24,minmax(0,1fr));gap:9px 12px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="caseId"]{grid-column:span 4;--entry-field-max:240px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="name"]{grid-column:span 6;--entry-field-max:350px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>.title-age[data-field="ageMode"]{grid-column:span 6;--entry-field-max:310px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="measurementDate"]{grid-column:span 4;--entry-field-max:180px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="gender"]{grid-column:span 4;--entry-field-max:160px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="weight"]{grid-column:span 4;--entry-field-max:180px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="height"]{grid-column:span 5;--entry-field-max:220px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="muac"]{grid-column:span 3;--entry-field-max:120px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="oedema"]{grid-column:span 6;--entry-field-max:290px}
+.individual-compact-form .entry-flow-grid:not(.entry-flow-preterm)>[data-field="position"]{grid-column:span 6;--entry-field-max:290px}
+}
+@media(pointer:coarse){.individual-compact-form .entry-flow-grid .title-choice,.individual-compact-form .entry-flow-grid select[data-title-choice]{min-height:38px}}
+@media screen and (max-width:680px){.individual-compact-form .entry-flow-grid .title-choice{min-height:32px}}

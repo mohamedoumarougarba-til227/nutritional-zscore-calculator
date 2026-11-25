@@ -296,6 +296,12 @@ class WorkspaceApp {
         }
         document.getElementById('header-dialog').close(); this.render(kind + '-button');
     }
+    choiceDisplay(select) {
+        const value=select.selectedOptions[0]?.textContent||'';
+        if(select.dataset?.choicePrefix)return select.dataset.choicePrefix+' ('+value+')';
+        if(select.dataset?.choiceBirthLabel&&select.value==='dates')return value+' · '+select.dataset.choiceBirthLabel;
+        return value;
+    }
     enhanceSelects() {
         if(typeof document.querySelectorAll!=='function')return;
         for(const p of document.querySelectorAll('#single-form>p.hint,#batch-form>p.hint'))p.style.marginBlock='8px';
@@ -304,12 +310,12 @@ class WorkspaceApp {
             if(select.hidden)continue;
             const label=select.labels?.[0],id=select.id+'-picker',valueId=id+'-value';
             if(label){label.id=select.id+'-label';label.htmlFor=id;}
-            const button=document.createElement('button');button.type='button';button.id=id;button.className='choice-trigger';
+            const button=document.createElement('button');button.type='button';button.id=id;button.className='choice-trigger'+(select.hasAttribute('data-title-choice')?' title-choice':'');
             button.dataset.action='open-select';button.dataset.select=select.id;button.setAttribute('role','combobox');
             button.setAttribute('aria-haspopup','listbox');button.setAttribute('aria-controls','choice-popup');button.setAttribute('aria-expanded','false');
             button.setAttribute('aria-labelledby',[label?.id,valueId].filter(Boolean).join(' '));
             if(select.hasAttribute('aria-describedby'))button.setAttribute('aria-describedby',select.getAttribute('aria-describedby'));
-            button.innerHTML=`<span id="${valueId}" class="choice-value">${this.esc(select.selectedOptions[0]?.textContent||'')}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>`;
+            button.innerHTML=`<span id="${valueId}" class="choice-value">${this.esc(this.choiceDisplay(select))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>`;
             select.before(button);select.hidden=true;
         }
     }
@@ -359,7 +365,7 @@ class WorkspaceApp {
             if(![...select.options].some(o=>o.value===value&&!o.disabled))return;
             if(select.value===value){this.closeChoice(true);return;}
             select.value=value;
-            const display=document.getElementById(active.buttonId+'-value');if(display)display.textContent=select.selectedOptions[0]?.textContent||'';
+            const display=document.getElementById(active.buttonId+'-value');if(display)display.textContent=this.choiceDisplay(select);
             this.closeChoice(true);
             select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));
         }else{this.closeChoice();this.setPreference(active.kind,value);}
@@ -477,15 +483,21 @@ class WorkspaceApp {
         const label=(key,hint='')=>`<div class="field-label"><label for="${prefix}-${key}">${this.t(labelKey(key))}${['caseId','name'].includes(key)?` <small>(${this.t('optional')})</small>`:''}</label>${hint?this.infoButton(hint,key,`${prefix}-${key}-info`):''}</div>`;
         const field = (key, type = 'text', attrs = '', hint = '') => `<div class="field" data-field="${key}">${label(key,hint)}<input id="${prefix}-${key}" name="${key}" type="${type}" value="${this.esc(data[key])}" ${attrs}${hint ? ` aria-describedby="${prefix}-${key}-hint"` : ''}>${hint ? `<p id="${prefix}-${key}-hint" class="sr-only">${this.t(hint)}</p>` : ''}</div>`;
         const select = (key, options, hint = '') => `<div class="field" data-field="${key}">${label(key,hint)}<select id="${prefix}-${key}" name="${key}"${hint ? ` aria-describedby="${prefix}-${key}-hint"` : ''}>${options.map(([value,text]) => `<option value="${value}" ${data[key] === value ? 'selected' : ''}>${this.t(text)}</option>`).join('')}</select>${hint ? `<p id="${prefix}-${key}-hint" class="sr-only">${this.t(hint)}</p>` : ''}</div>`;
-        const measurement=(key,base,alternative,labelKey)=>{const unit=data[key+'Unit']||base;return `<div class="field" data-field="${key}"><div class="field-label"><label for="${prefix}-${key}">${this.t(labelKey)}</label>${key==='weight'?this.infoButton('weightHint',labelKey,`${prefix}-${key}-info`):''}</div><div class="measurement-entry"><input id="${prefix}-${key}" name="${key}" type="text" inputmode="decimal" autocomplete="off" value="${this.esc(data[key])}"><label class="sr-only" for="${prefix}-${key}Unit">${this.t(key+'Unit')}</label><select id="${prefix}-${key}Unit" name="${key}Unit" aria-label="${this.t(key+'Unit')}">${[base,alternative].map(u=>`<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}</select></div></div>`;};
+        const measurement=(key,base,alternative,labelKey)=>{
+            const unit=data[key+'Unit']||base;
+            const input=`<input id="${prefix}-${key}" name="${key}" type="text" inputmode="decimal" autocomplete="off" value="${this.esc(data[key])}">`;
+            const units=`<label class="sr-only" for="${prefix}-${key}Unit">${this.t(key+'Unit')}</label><select id="${prefix}-${key}Unit" name="${key}Unit" aria-label="${this.t(key+'Unit')}"${compact?` data-title-choice data-choice-prefix="${this.esc(this.t(labelKey))}"`:''}>${[base,alternative].map(u=>`<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}</select>`;
+            const info=key==='weight'?this.infoButton('weightHint',labelKey,`${prefix}-${key}-info`):'';
+            return compact?`<div class="field title-measurement" data-field="${key}"><div class="field-label"><label class="sr-only" for="${prefix}-${key}">${this.t(labelKey)}</label>${units}${info}</div>${input}</div>`:`<div class="field" data-field="${key}"><div class="field-label"><label for="${prefix}-${key}">${this.t(labelKey)}</label>${info}</div><div class="measurement-entry">${input}${units}</div></div>`;
+        };
         return `<form id="${prefix}-form" class="clinical-entry-form${compact?' individual-compact-form':''}" novalidate><div class="form-grid entry-core-grid${compact?' entry-flow-grid':''}${compact&&ig?' entry-flow-preterm':''}">${compact?'':`<h3 class="entry-group-title">${this.t('uiIdentity')}</h3>`}
             ${field('caseId', 'text', 'maxlength="100" autocomplete="off"')}${field('name', 'text', `maxlength="100" autocomplete="off" placeholder="${this.t('namePlaceholder')}"`)}
-            ${compact?'':`<h3 class="entry-group-title">${this.t('uiAgeSex')}</h3>`}<div class="field" data-field="ageMode">${label('ageMode',ageHelp)}<select id="${prefix}-ageMode" name="ageMode" aria-describedby="${prefix}-ageMode-hint">${(ig?['days','dates','pma']:['days','totalMonths','months','dates']).map(mode => `<option value="${mode}" ${data.ageMode === mode ? 'selected' : ''}>${this.t(mode)}</option>`).join('')}</select><p id="${prefix}-ageMode-hint" class="sr-only">${this.t(ageHelp)}</p></div>
+            ${compact?'':`<h3 class="entry-group-title">${this.t('uiAgeSex')}</h3>`}<div class="field${compact?' title-age':''}" data-field="ageMode">${compact?`<div class="field-label"><label class="sr-only" for="${prefix}-ageMode">${this.t('ageShort')}</label>`:label('ageMode',ageHelp)}<select id="${prefix}-ageMode" name="ageMode" aria-describedby="${prefix}-ageMode-hint"${compact?` data-title-choice data-choice-birth-label="${this.esc(this.t('birthDate'))}"`:''}>${(ig?['days','dates','pma']:['days','totalMonths','months','dates']).map(mode => `<option value="${mode}" ${data.ageMode === mode ? 'selected' : ''}>${this.t(mode)}</option>`).join('')}</select>${compact?this.infoButton(ageHelp,'ageMode',`${prefix}-ageMode-info`)+'</div>':''}<p id="${prefix}-ageMode-hint" class="sr-only">${this.t(ageHelp)}</p>${compact?'':'</div>'}
             <div class="age-fields" data-age="months" ${data.ageMode !== 'months' ? 'hidden' : ''}>${field('ageYears','number','min="0" max="19" step="1" inputmode="numeric"')}${field('ageMonths','number','min="0" max="11" step="1" inputmode="numeric"')}</div>
             <div class="age-fields" data-age="totalMonths" ${data.ageMode!=='totalMonths'?'hidden':''}>${field('ageTotalMonths','text','inputmode="decimal" autocomplete="off"')}</div>
             <div class="age-fields" data-age="dates" ${data.ageMode !== 'dates' ? 'hidden' : ''}>${field('birthDate','date',`max="${ClinicalEngine.today()}"`)}</div>
             <div class="age-fields" data-age="days" ${data.ageMode !== 'days' ? 'hidden' : ''}>${field('ageDays','number',`min="0" max="${ig?448:data.growthProfile==='us'?7304:6970}" step="1" inputmode="numeric"`)}</div>
-            ${ig?`<div class="age-fields" data-age="pma" ${data.ageMode!=='pma'?'hidden':''}>${field('postmenstrualDays','number','min="189" max="448" step="1" inputmode="numeric"')}</div><div class="age-fields" data-gestation ${data.ageMode==='pma'?'hidden':''}>${field('gestationalAgeWeeks','number','min="0" max="36" step="1" inputmode="numeric"')}${field('gestationalAgeDays','number','min="0" max="6" step="1" inputmode="numeric"')}</div>${compact?'':`</div><p class="hint">${this.t('intergrowthAgeHelp')}</p><div class="form-grid">`}`:''}
+            ${ig?`<div class="age-fields" data-age="pma" ${data.ageMode!=='pma'?'hidden':''}>${field('postmenstrualDays','number','min="189" max="448" step="1" inputmode="numeric"')}</div>${compact?'</div>':''}<div class="age-fields" data-gestation ${data.ageMode==='pma'?'hidden':''}>${field('gestationalAgeWeeks','number','min="0" max="36" step="1" inputmode="numeric"')}${field('gestationalAgeDays','number','min="0" max="6" step="1" inputmode="numeric"')}</div>${compact?'':`</div><p class="hint">${this.t('intergrowthAgeHelp')}</p><div class="form-grid">`}`:compact?'</div>':''}
             ${field('measurementDate','date',`max="${ClinicalEngine.today()}"`)}
             ${select('gender',[['','choose'],['M','male'],['F','female']])}${compact?'':`<h3 class="entry-group-title">${this.t('uiAnthropometry')}</h3>`}${measurement('weight','g','kg','weightMeasure')}${measurement('height','cm','m','heightMeasure')}${ig?field('headCircumference','number','min="0" step="any" inputmode="decimal"'):''}
             ${ig?'':`${field('muac','number','min="50" max="400" step="0.1" inputmode="decimal"',data.careProtocol==='niger2025'?'pcima2025MuacHelp':data.careProtocol==='niger2023'?'pcimaMuacHelp':'muacHelp')}`}${select('oedema',[['','unknown'],['n','no'],['y','yes']])}${select('position',(ig?[['','choose'],['L','lying']]:[['','choose'],['L','lying'],['H','standing']]),positionHelp)}

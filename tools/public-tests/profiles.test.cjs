@@ -319,3 +319,18 @@ test('section help routes to the existing information popup for every screening 
     const app=Object.assign(Object.create(WorkspaceApp.prototype),{openInfo(key,opener){this.seen=[key,opener];}});
     for(const key of ['growthProfileVisitHelp','clinicalHelp','pcimaHelp','pcima2025Help','intergrowthNoScreening','additionalMeasureHelp','intergrowthUnsupportedMeasures','muacHelp','pcimaMuacHelp','pcima2025MuacHelp']){app.showInfo(key,'demo');assert.deepEqual(app.seen,[key,'demo']);}
 });
+
+
+test('individual age and unit selectors share their input field and preserve native choices',()=>{
+    const translations=data('interface-translations.json');
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:'who'}});
+        const draft=app.emptyDraft(),html=app.formHTML('single',draft),batch=app.formHTML('batch',draft,true);
+        assert.equal((html.match(/ data-title-choice/g)||[]).length,3);
+        assert.ok(html.includes('class="field title-age" data-field="ageMode"'));
+        assert.equal((html.match(/class="field title-measurement"/g)||[]).length,2);
+        assert.ok(!batch.includes('data-title-choice'));
+        assert.equal(app.choiceDisplay({dataset:{choicePrefix:app.t('weightMeasure')},selectedOptions:[{textContent:'kg'}]}),app.t('weightMeasure')+' (kg)');
+        assert.equal(app.choiceDisplay({dataset:{choiceBirthLabel:app.t('birthDate')},value:'dates',selectedOptions:[{textContent:app.t('dates')}]}),app.t('dates')+' · '+app.t('birthDate'));
+    }
+});
