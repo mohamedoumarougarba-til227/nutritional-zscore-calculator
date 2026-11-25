@@ -3,8 +3,8 @@ const RELEASE = {
   "format": 1,
   "version": "5.13.0",
   "assets": {
-    "./": "8e4aa4215519380231320a0cfbb9e292e5231317f92ba2835cfbed6498276f7d",
-    "index.html": "8e4aa4215519380231320a0cfbb9e292e5231317f92ba2835cfbed6498276f7d",
+    "./": "aff42abb042769a363047999db28c15085f74c1694af6d8b5aef120d59c6b5a2",
+    "index.html": "aff42abb042769a363047999db28c15085f74c1694af6d8b5aef120d59c6b5a2",
     "robots.txt": "dee3e612d442359183376a1dfe9f04c9334786bf0ffe5f87c170ea1e77f9d459",
     "sitemap.xml": "09e69596fdf0dd9a13750e66074b62836b2276800a2bbf80be611e848b6d5036",
     "manifest.json": "6d6f5493c56069d6d4f94760656330e45b9b86384c031db4114b94b1e463c5e2",
@@ -19,7 +19,7 @@ const RELEASE = {
     "js/services/history-manager.js": "9492cb4b715328294b9afa66f75877f390dde0637082b81d95fb7df315239b38",
     "js/services/transfer-manager.js": "f4b6b9ad4a89a7d020da1227be4d4263234543e283374d869dd83793afb1f0a8",
     "js/services/csv-manager.js": "ecdac8cab995ebaf43b7aed74e22a441717b172304c7cbf2edc454037673b07f",
-    "js/services/pdf-manager.js": "d1ef4b65fe499a31398f219bcef7f0819597f2271770bc94b0584eb322aa0a8c",
+    "js/services/pdf-manager.js": "3492641adbbd2cafbc55b529bce183d88b204140af7d6eade0fbd266995cbb42",
     "js/services/percentile-display.js": "b90d525148b691d8cf0a4e0c33d471b2c14f7eff12b5660db8549eeccc5fb679",
     "vendor/pdf/jspdf-4.2.1-til1.umd.min.js": "37dca36f46bbad14947aea4a65163ef21881ff86d32ad3a9a39e71cccbc050af",
     "vendor/pdf/jspdf-4.2.1.umd.min.js.LICENSE.txt": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
@@ -53,8 +53,8 @@ const RELEASE = {
     "data/LICENSE-TIL.txt": "60ab90104a6fce406ad678d3b5dc8492dc7f0165912152d013723d4e37cb9b3b",
     "data/who-data-sources.zip": "b1af0334e74603f1825193f2a8d0bd1cffcce285fe0ad422e14541150a760b37",
     "data/who-data-sources.json": "641eb776f3dee5894bb19649c55c79ed38060d1346c61e8e917a65c5bafbd8cc",
-    "data/zscore-sources.zip": "f88162dad6f9f687353edca7ff3b1ad237442f654424eee877fbb32ec006f7d6",
-    "data/zscore-sources.json": "38facfdc71e9b0f51ccff0ee9d1c848014bf82a57556bb3b373c092ae0e24ce1",
+    "data/zscore-sources.zip": "1b5a48788e8c3edf0fb3e09b216f61e5649ee6fd722fd6ff31ed1c9be05ce1c5",
+    "data/zscore-sources.json": "57cf308b8a4c411020b0bc0dabfbd53d24da2f1c3c7262cc4fb8f0b3133ac06f",
     "vendor/pdf/NOTICE-report.txt": "62737eead55cce21047c84826116418612d79ee09ee686d25ae4279ba528b4e0",
     "vendor/pdf/report-provenance.json": "3772c55fc0cea5d50363d27dcad524f3aa0481c7831a514ff43cbed5e67c8652",
     "js/services/pcima-niger-2025.js": "7b6d69fb8027cd7ca5c0b387de07c34e822ce47a85e4900ad489dc980501a602",
@@ -76,7 +76,7 @@ const RELEASE = {
     "js/services/pcima-niger.js": "ab9dc67095369e1c7b9ca6a374087809fb5354606f9642610db4ca38a66b4d49"
   },
   "workerTemplateSHA256": "eadac3a506696bdbdf8b3eed386b39777b7ee59eed252cd82abecd679cdd10a0",
-  "id": "742315dba4871cebf36b22469de129348f4f9613c341e57d7af080f4488cfe86"
+  "id": "6c5e1412847ecd94572556bd551bbadb02355e1cc5fd8c444d2687771723ead2"
 };
 /** Verified release cache. Earlier caches, journals and patient archives are never deleted. */
 const STATIC_CACHE_NAME = 'zscore-release-' + RELEASE.id + '-' + self.registration.scope;
