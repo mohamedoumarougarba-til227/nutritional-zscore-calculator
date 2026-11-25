@@ -678,3 +678,45 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  @container batch-panel (max-width:720px){#batch-view-results>.batch-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
  @container batch-panel (max-width:300px){#batch-view-results>.batch-kpis{grid-template-columns:minmax(0,1fr)}}
 }
+
+/* Lot workspace: fit filters between heading and actions, then wrap as a unit. */
+@media screen{
+ .batch-results-card>.card-top{column-gap:10px;row-gap:7px}
+ .batch-results-card>.card-top>.batch-heading{flex:0 0 auto;min-width:0}
+ .batch-results-card>.card-top>.batch-header-filters{flex:1 1 250px;min-width:0;margin:0;gap:7px;flex-wrap:nowrap;order:0}
+ .batch-header-filters[hidden]{display:none!important}
+ .batch-header-filters label{flex:1 1 0;min-width:0;max-width:none}
+ .batch-header-filters input,.batch-header-filters select{width:100%;min-width:0;min-height:36px;font-size:13px;padding:5px 8px}
+ .batch-results-card>.card-top>.batch-actions{flex:0 1 auto}
+ @container batch-panel (max-width:1200px){
+  .batch-results-card>.card-top>.batch-header-filters{order:2;flex:1 0 100%;max-width:none}
+  .batch-header-filters label{max-width:360px}
+ }
+ @container batch-panel (max-width:420px){.batch-results-card>.card-top>.batch-header-filters{flex-wrap:wrap}.batch-header-filters label{flex:1 1 125px}}
+ .batch-results-card:has(#batch-view-quality:not([hidden]),#batch-view-statistics:not([hidden]))>.card-top{position:static}
+ .batch-results-card .pending-score{color:var(--muted);font-size:16px;font-weight:500}
+ .batch-results-card .pending-batch-row .row-preview,.batch-results-card .pending-batch-row .row-correction{font-size:12px;min-height:30px;padding:4px 7px}
+ .batch-results-card .pending-batch-row .item-sub{margin-block-start:2px}
+ .batch-results-card .batch-print-help{display:none}
+ .quality-review>summary .field-info,.lot-summary-title .field-info{margin-inline-start:5px;vertical-align:middle}
+ .quality-review .lot-overview{margin-block:5px 12px;gap:8px}
+ .quality-review .lot-overview>div{background:var(--soft);border-radius:7px;padding:8px 10px}
+ .quality-review td .btn{font-size:12px;min-height:32px;padding:4px 9px}
+ .quality-exports{gap:10px;flex-wrap:wrap;margin-block-start:12px}
+ .quality-export-action{display:inline-flex;align-items:center;gap:3px;max-width:100%}
+ .compact-lot-summary{border:1px solid var(--line);border-radius:9px;padding:0 10px 10px;margin-block-start:10px}
+ .compact-lot-summary:not([open]){padding-block-end:0}
+ .compact-lot-summary>summary{padding-block:7px;overflow-wrap:anywhere}
+ .lot-summary-title{display:inline;vertical-align:middle}
+ .lot-summary-reference{display:none;color:var(--muted);font-size:11px;font-weight:400;overflow-wrap:anywhere;max-width:55%;text-align:end}
+ .compact-lot-summary[open]>.lot-summary-reference{display:block}
+ .compact-lot-summary[open]>summary>.lot-summary-reference{display:block;float:inline-end;margin-block-start:6px;margin-inline-start:8px}
+ .compact-lot-summary .lot-overview{margin-block:9px;gap:8px 12px;padding-block:6px;border-block-end:1px solid var(--line)}
+ .compact-lot-summary .lot-overview dd,.compact-lot-summary .lot-metrics dd{margin-block-start:2px}
+ .compact-lot-summary .lot-indicators{align-items:start;gap:10px}
+ .compact-lot-summary .lot-indicator{padding:10px}
+ .compact-lot-summary .lot-metrics{margin-block:8px;gap:6px}
+ .compact-lot-summary .lot-indicator th,.compact-lot-summary .lot-indicator td{padding-block:5px}
+ @container batch-panel (max-width:580px){.compact-lot-summary[open]>summary>.lot-summary-reference{float:none;max-width:100%;text-align:start;margin-inline-start:0;margin-block-start:3px}}
+}
+@media print{.batch-print-help{display:block!important}.lot-summary-reference{display:block}.lot-summary-title .field-info,.quality-review .field-info{display:none!important}}

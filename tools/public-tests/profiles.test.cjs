@@ -399,3 +399,18 @@ test('lot counters belong only to the list panel and do not consume entry, quali
   }
  }
 });
+
+test('batch contextual help and list filters preserve data and distinct reference summaries',()=>{
+ const translations=data('interface-translations.json'),entry=engine.calculate(input());
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
+  app.state={...app.emptyWorkspace(),mode:'batch',batch:[{child:entry.child,result:null}]};app.batchPane='results';
+  const html=app.batchHTML();
+  assert.ok(html.indexOf('batch-header-filters')<html.indexOf('class="toolbar compact-toolbar batch-actions"'));
+  assert.ok(html.includes('class="pending-score"'));assert.ok(html.includes('data-info="qualityHelp"'));
+  assert.ok(html.includes('data-info="qualityExportHelp"'));assert.ok(html.includes('data-info="analysisPreparationHelp"'));
+  assert.ok(html.includes('data-info="lotHelpWho"'));assert.ok(html.includes('class="lot-summary-reference"'));
+  assert.ok(app.t('qualityExportHelp')!=='qualityExportHelp');
+  assert.equal(app.state.batch[0].result,null);
+ }
+});
