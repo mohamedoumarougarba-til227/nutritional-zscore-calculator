@@ -285,6 +285,8 @@ test('history filters classify stored versions with the same predicate for count
  const app=Object.assign(Object.create(WorkspaceApp.prototype),{sessions,prefs:{language:'fr'},translations});
  assert.equal((app.historyKpisHTML().match(/data-action="history-kpi"/g)||[]).length,8);
  const html=app.historyHTML();assert.ok(html.includes('id="history-view-versions" data-workspace-panel="history" data-view="versions" hidden'));assert.ok(html.includes('id="history-view-backup"'));
+ const toolbar=html.slice(html.indexOf('<div class="history-filter-bar">'),html.indexOf('<div id="history-list"'));
+ assert.ok(toolbar.includes('id="history-search" placeholder="'));assert.ok(toolbar.includes('id="history-filter"'));assert.equal((toolbar.match(/data-action="history-kpi"/g)||[]).length,8);assert.ok(toolbar.endsWith('</div></div>'));
 });
 test('quality counter filters keep review expanded and select matching technical signals',()=>{
  const entry=engine.calculate(input()),state=workspace([{child:entry.child,result:null},entry]);

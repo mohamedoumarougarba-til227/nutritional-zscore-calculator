@@ -1011,3 +1011,25 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  .source-groups,.reference-grid{grid-template-columns:minmax(0,1fr)}
  .reference-help-column>.card{padding:12px}
 }
+
+/* Compact history toolbar: keep search and filters together without clipping. */
+@media screen and (min-width:681px){
+ #history-view-versions .history-filter-bar{align-items:stretch;gap:6px;margin-block:10px}
+ #history-view-versions .history-filter-bar>.search{position:relative;flex:0 1 clamp(165px,16vw,240px);min-width:165px;max-width:240px;display:flex;align-items:stretch}
+ #history-view-versions .history-filter-bar>.search>label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ #history-view-versions #history-search{width:100%;min-width:0;min-height:38px;padding:7px 9px;font-size:12px;margin:0}
+ #history-view-versions .history-kpis{flex:1 1 840px;min-width:0;margin:0;gap:4px;grid-template-columns:repeat(8,minmax(0,1fr))}
+ #history-view-versions .history-kpi{min-height:38px;padding:5px 6px;gap:4px}
+ #history-view-versions .history-kpi span{font-size:11px;line-height:1.25;overflow-wrap:normal}
+ #history-view-versions .history-kpi strong{flex-shrink:0;font-size:14px}
+}
+@media screen and (min-width:681px) and (max-width:1050px){
+ #history-view-versions .history-filter-bar>.search{flex:1 1 100%;max-width:none}
+ #history-view-versions .history-kpis{flex:1 1 100%;grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media screen and (min-width:1051px){
+ #history-view-versions .history-filter-bar{container-type:inline-size}
+ @container (max-width:850px){
+  #history-view-versions .history-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+ }
+}
