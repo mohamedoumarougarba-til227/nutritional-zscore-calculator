@@ -335,3 +335,13 @@ test('parallel unchanged saves serialize and restored durable content does not c
     restored.draft.name='FICTIF-EDIT';assert.ok(await history.save(restored,'automatic'));assert.equal(store.records.sessions.length,2);
     assert.equal(store.records.sessions[0].metadata.workspace.single.child.id,work.single.child.id);
 });
+
+ test('hidden result form is not reread as changed work after restoring a durable snapshot',async t=>{
+ const original=global.document;t.after(()=>{global.document=original;});
+ const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{state:work,page:'single',history});
+ await history.resumeSaved(work);const before=JSON.stringify(work);
+ global.document={getElementById:id=>id==='single-form'?{closest:selector=>selector==='[hidden]'?{}:null}:null};
+ app.readForms();assert.equal(JSON.stringify(work),before);assert.equal(await history.save(work,'automatic'),null);
+ assert.equal(store.records.sessions.length,0);
+ });

@@ -290,7 +290,7 @@ test('clinical workspace visual tabs preserve fields and original filtered lot i
         app.state={...app.emptyWorkspace(),batch:[first,second]};app.batchSearch='FICTIF B';const before=JSON.stringify(app.state);
         const view=app.batchDisplayView();assert.deepEqual(view.indices,[1]);assert.equal(view.entries[0],second);
         const table=app.tableHTML(view.entries,{compact:true,editable:true,indices:view.indices});assert.ok(table.includes('data-action="batch-correct" data-index="1"'));assert.ok(table.includes('data-action="quality-view" data-index="1"'));
-        const result=app.resultsHTML(first);for(const key of ['summary','charts','history','details'])assert.ok(result.includes('id="single-view-'+key+'"'));
+        const result=app.resultsHTML(first);for(const key of ['summary','charts','details'])assert.ok(result.includes('id="single-view-'+key+'"'));assert.ok(!result.includes('id="single-view-history"'));assert.ok(result.includes('data-single-history'));assert.ok(result.includes('data-action="view-case"'));
         assert.equal(JSON.stringify(app.state),before);
     }
 });

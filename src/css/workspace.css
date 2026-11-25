@@ -617,3 +617,25 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 .individual-compact-form .entry-primary-row>.title-age{grid-column:1/-1}
 .individual-compact-form .entry-primary-row>.title-age .age-fields{max-inline-size:164px}
 }
+
+/* Individual results and transfer confirmation: container-sized, RTL-safe layout. */
+@media screen {
+ .preview-grid.import-counts{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-block:12px}
+ .import-counts>.card{min-width:0;padding:12px;border-radius:10px;box-shadow:none;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+ .import-counts .stat{font-size:24px;line-height:1.2;margin-block-end:4px}
+ .result-view-panel .chart-panels{grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));gap:10px}
+ .result-view-panel .chart-panels:has(>.chart-tile:only-child){grid-template-columns:minmax(0,1fr)}
+ .result-view-panel .chart-tile .growth-chart{padding:4px 6px 8px;margin:0}
+ .result-view-panel .chart-tile svg{max-height:230px}
+ .result-view-panel .growth-charts>summary .field-info{display:inline-flex;vertical-align:middle;margin-inline-start:6px}
+ .result-view-panel .chart-tile>summary{padding:8px 10px}
+ .screening-details .clinical-observation-grid,.result-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px 12px;margin:12px 0}
+ .clinical-observation-grid>div,.result-detail-grid>div{min-width:0;border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+ .clinical-observation-grid dt,.result-detail-grid dt{color:var(--muted);font-size:12px;line-height:1.35}
+ .clinical-observation-grid dd,.result-detail-grid dd{margin:4px 0 0;font-weight:600;font-size:13px;overflow-wrap:anywhere}
+ .clinical-missing ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:4px 18px;padding-inline-start:20px;margin-block:6px 10px}
+ .clinical-method-note{line-height:1.55;max-width:100ch}
+ #single-view-details>.result-record+.result-record{margin-top:10px}
+}
+@media screen and (max-width:430px){.preview-grid.import-counts{grid-template-columns:1fr}.import-counts>.card{display:flex;align-items:center;gap:10px}.import-counts .stat{margin:0;min-width:2ch}}
+@media print{.result-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.result-detail-grid dd{margin:0;overflow-wrap:anywhere}.clinical-observation-grid dd{margin-inline-start:0}.reference-charts .print-only{display:block!important}}
