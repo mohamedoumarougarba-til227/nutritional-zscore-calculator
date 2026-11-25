@@ -771,3 +771,47 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  [data-workspace-panel]{scroll-margin-block-start:calc(var(--workspace-header-height,64px) + 68px)}
  .record-preview .indicator-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
 }
+
+/* Local-only batch presentation: no canonical measurement or result changes on unit selection. */
+.batch-record-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.batch-layout-options{display:flex;gap:4px;flex-wrap:wrap}
+.batch-layout-options .btn{font-size:12px;min-height:32px;padding:5px 9px}
+.batch-layout-options [aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.batch-unit-picker{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;font-weight:650}
+.batch-unit-picker select{min-width:0;width:auto;min-height:28px;padding:2px 4px;font-size:12px;color:inherit;background:var(--surface);border:1px solid var(--line)}
+.batch-display-hint{margin:0;font-size:11px;margin-inline-start:auto}
+.batch-record-list{display:grid;gap:8px}
+.batch-record{display:grid;grid-template-columns:minmax(175px,19%) minmax(0,1fr);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.batch-record-identity{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-inline-end:1px solid var(--line);background:color-mix(in srgb,var(--surface) 80%,var(--accent-soft));min-width:0}
+.batch-record-index,.batch-record-label,.batch-record-identity>small{font-size:11px;color:var(--muted)}
+.batch-record-identity>.batch-inline-value{font-size:14px;font-weight:700}
+.batch-record-identity>.batch-inline-value+.batch-inline-value{font-weight:500;font-size:12px}
+.batch-record-tools{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+.batch-record-tools .btn{margin:3px 0 0;font-size:11px;min-height:28px}
+.batch-record-body{min-width:0;padding:9px 12px}
+.batch-record-measures{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,110px),1fr));gap:7px 12px;align-items:start}
+.batch-record-field,.batch-record-value{min-width:0;overflow-wrap:anywhere}
+.batch-record-label{display:block;line-height:1.3;margin-bottom:2px}
+.batch-record-value{font-size:13px;font-weight:650}
+.batch-inline-value{display:inline-flex;align-items:center;gap:4px;text-align:start;font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:4px;padding:1px 3px;max-width:100%;overflow-wrap:anywhere}
+.batch-inline-value bdi{min-width:0;overflow-wrap:anywhere}
+.batch-inline-value .ui-icon{width:12px;height:12px;opacity:.38;flex-shrink:0}
+.batch-inline-value:hover,.batch-inline-value:focus-visible{background:var(--accent-soft);border-color:var(--line)}
+.batch-inline-value:hover .ui-icon,.batch-inline-value:focus-visible .ui-icon{opacity:1}
+.batch-inline-editor{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0;max-width:100%}
+.batch-inline-editor input,.batch-inline-editor select{width:100%;min-width:0;min-height:31px;padding:4px;font-size:13px}
+.batch-inline-actions{display:inline-flex;gap:3px}
+.batch-inline-actions .btn{min-height:27px;padding:3px 5px}
+.batch-inline-actions .ui-icon{width:15px;height:15px}
+.batch-inline-error{width:100%;font-size:11px;color:var(--danger,#b42318)}
+.batch-record-results{display:grid;grid-template-columns:minmax(125px,20%) minmax(0,1fr);gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.batch-record-screening{display:flex;flex-direction:column;gap:2px;font-size:12px;overflow-wrap:anywhere}
+.batch-record-screening small,.batch-record-score small{font-size:11px;line-height:1.35}
+.batch-record-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,105px),1fr));gap:5px 9px}
+.batch-record-score{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;min-width:0;padding-inline-start:8px;border-inline-start:1px solid var(--line)}
+.batch-record-score>span:first-child{font-size:11px;color:var(--muted)}
+.batch-record-score>strong{font-size:17px}
+.batch-record-score>small{flex-basis:100%;overflow-wrap:anywhere}
+.batch-record-notes{margin-top:6px;font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:750px){.batch-record{grid-template-columns:1fr}.batch-record-identity{border-inline-end:0;border-bottom:1px solid var(--line)}.batch-record-results{grid-template-columns:1fr}.batch-display-hint{margin-inline-start:0}.batch-record-measures{grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr))}}
+@media print{.batch-record-toolbar,.batch-record-list{display:none!important}}

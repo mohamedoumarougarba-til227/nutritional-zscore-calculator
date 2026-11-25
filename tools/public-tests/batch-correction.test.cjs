@@ -163,3 +163,22 @@ test('correction actions use absolute row indices, translated labels and escaped
     const second=engine.calculate(input());assert.equal(LotQuality.build([e,second]).counts.qualityDuplicateMeasures,2);
     const corrected=WorkspaceApp.correctedBatch(workspace([e,second]),0,{weight:9000},engine);assert.equal(LotQuality.build(corrected.batch).counts.qualityDuplicateMeasures,0);
 });
+
+test('display unit conversions are exact and never mutate stored measurements; inline corrections preserve pending state',()=>{
+    const original=engine.calculate(input()),pending={child:original.child,result:null},state=workspace([pending,original]),before=JSON.stringify(state);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(13500,'weight','kg'),13.5);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(92,'height','m'),0.92);
+    assert.equal(WorkspaceApp.batchDisplayMeasure(null,'height','m'),null);
+    const next=WorkspaceApp.inlineCorrectedBatch(state,0,'weight','9,5','kg',engine);
+    assert.equal(next.batch[0].child.weight,9500);assert.equal(next.batch[0].result,null);
+    assert.deepEqual(next.batch[1],original);assert.equal(next.batch[0].child.visitId,original.child.visitId);
+    const calculated=WorkspaceApp.inlineCorrectedBatch(state,1,'height','0.76','m',engine);
+    assert.equal(calculated.batch[1].child.height,76);assert.ok(calculated.batch[1].result);assert.deepEqual(calculated.batch[0],pending);
+    assert.equal(JSON.stringify(state),before);assert.throws(()=>WorkspaceApp.inlineCorrectedBatch(state,0,'weight','bad','kg',engine));
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language},translations,batchWeightUnit:'kg',batchHeightUnit:'m'});
+        const html=app.batchRecordsHTML([pending],[0]);assert.ok(html.includes('data-field="weight"'));assert.ok(html.includes(translations[language].birthDate));assert.ok(html.includes(translations[language].position));
+        const table=app.tableHTML([pending],{compact:true,editable:true,indices:[0]});assert.ok(table.includes('data-batch-unit="weight"'));assert.ok(table.includes('data-field="height"'));
+        assert.ok(!app.tableHTML([pending]).includes('data-batch-unit'));
+    }
+});

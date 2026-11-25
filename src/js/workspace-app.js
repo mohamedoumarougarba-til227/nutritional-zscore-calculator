@@ -590,9 +590,93 @@ class WorkspaceApp {
         const total=rows.length,pages=Math.max(1,Math.ceil(total/size)),current=Math.min(pages-1,Math.max(0,this.batchPage||0)),start=current*size,shown=rows.slice(start,start+size);
         return {total,pages,current,start,from:total?start+1:0,to:Math.min(total,start+size),entries:shown.map(r=>r.entry),indices:shown.map(r=>r.index)};
     }
+    batchUnit(key){return key==='weight'?(this.batchWeightUnit==='kg'?'kg':'g'):(this.batchHeightUnit==='m'?'m':'cm');}
+    static batchDisplayMeasure(value,key,unit){
+        if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return null;
+        return ClinicalEngine.shiftDecimal(Number(value),key==='weight'&&unit==='kg'?-3:key==='height'&&unit==='m'?-2:0);
+    }
+    batchUnitPicker(key,scope='table'){
+        const label=this.t(key==='weight'?'pdfWeightShort':'pdfHeightShort'),unit=this.batchUnit(key);
+        return '<label class="batch-unit-picker">'+this.esc(label)+' <select id="batch-unit-'+scope+'-'+key+'" data-batch-unit="'+key+'" aria-label="'+this.esc(label+' · '+this.t('batchDisplayUnit'))+'">'+(key==='weight'?['g','kg']:['cm','m']).map(u=>'<option value="'+u+'"'+(u===unit?' selected':'')+'>'+u+'</option>').join('')+'</select></label>';
+    }
+    static inlineBatchFields=['weight','height','muac','headCircumference','tricepsSkinfold','subscapularSkinfold','name','caseId','birthDate','measurementDate','gender','position','oedema','ageDays','ageTotalMonths','ageYears','ageMonths','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays'];
+    static inlineCorrectedBatch(workspace,index,key,value,unit,engine){
+        const entry=workspace?.batch?.[index];
+        if(!Number.isInteger(index)||index<0||!entry||!this.inlineBatchFields.includes(key))throw Error('batchCorrectionChanged');
+        const patch={[key]:value};
+        if(['weight','height'].includes(key)){
+            if(!(key==='weight'?['g','kg']:['cm','m']).includes(unit))throw Error('measureUnitInvalid');
+            patch[key+'Unit']=unit;
+        }else if(['muac',...SupplementaryUI.fields,'ageTotalMonths'].includes(key)&&value!=='')patch[key]=ClinicalEngine.decimal(value,key==='ageTotalMonths'?'ageInvalid':'additionalMeasureInvalid');
+        if(entry.result)return this.correctedBatch(workspace,index,patch,engine);
+        const raw={...entry.child,...patch};delete raw.id;
+        const child=engine.constructor.normalize(raw);HistoryManager.checkChild(child);
+        const next=HistoryManager.clone(workspace);next.batch[index]={child,result:null};return next;
+    }
+    batchEditable(child,index,key,label,display,unit=''){
+        const ctx=this.batchInlineEdit,active=ctx?.workspace===this.state&&ctx.index===index&&ctx.entry===this.state?.batch?.[index]&&ctx.key===key,id='batch-inline-'+index+'-'+key,name=this.esc(label);
+        if(!active)return '<button type="button" class="batch-inline-value" id="'+id+'" data-action="batch-inline-open" data-index="'+index+'" data-field="'+key+'" title="'+this.esc(this.t('batchInlineEdit')+' · '+label)+'" aria-label="'+this.esc(this.t('batchInlineEdit')+' · '+label+' : '+display)+'"><bdi dir="auto">'+this.esc(display)+'</bdi>'+this.icon('edit')+'</button>';
+        const choices={gender:[['M','male'],['F','female']],position:[['','unknown'],['L','lying'],['H','standing']],oedema:[['','unknown'],['n','no'],['y','yes']]},disabled=ctx.busy?' disabled':'';
+        const control=choices[key]?'<select id="'+id+'" data-inline-input aria-label="'+name+'"'+disabled+'>'+choices[key].map(([v,k])=>'<option value="'+v+'"'+(ctx.value===v?' selected':'')+'>'+this.esc(this.t(k))+'</option>').join('')+'</select>':'<input id="'+id+'" data-inline-input aria-label="'+name+'" type="'+(['birthDate','measurementDate'].includes(key)?'date':'text')+'"'+(!['name','caseId','birthDate','measurementDate'].includes(key)?' inputmode="decimal"':'')+' value="'+this.esc(ctx.value)+'"'+disabled+'>';
+        return '<span class="batch-inline-editor">'+control+(ctx.unit?'<small>'+ctx.unit+'</small>':'')+'<span class="batch-inline-actions"><button type="button" class="btn primary" data-action="batch-inline-save"'+disabled+' title="'+this.esc(this.t(ctx.entry.result?'batchCorrectionApply':'batchInlineSave'))+'" aria-label="'+this.esc(this.t(ctx.entry.result?'batchCorrectionApply':'batchInlineSave'))+'">'+this.icon('check')+'</button><button type="button" class="btn" data-action="batch-inline-cancel"'+disabled+' title="'+this.esc(this.t('cancel'))+'" aria-label="'+this.esc(this.t('cancel'))+'">'+this.icon('close')+'</button></span>'+(ctx.error?'<span class="batch-inline-error" role="alert">'+this.esc(this.t(ctx.error))+'</span>':'')+'</span>';
+    }
+    batchMeasureHTML(child,index,key){
+        const unit=this.batchUnit(key),value=WorkspaceApp.batchDisplayMeasure(child[key],key,unit);
+        const display=value===null?'—':value.toLocaleString(this.prefs.language,{minimumFractionDigits:unit==='cm'?1:0,maximumFractionDigits:6});
+        return this.batchEditable(child,index,key,this.t(key==='weight'?'pdfWeightShort':'pdfHeightShort')+' ('+unit+')',display,unit);
+    }
+    openBatchInline(index,key){
+        if(this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy||this.batchInlineEdit?.busy)return;
+        if(this.batchInlineEdit?.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
+        const entry=this.state.batch[index];if(!Number.isInteger(index)||index<0||!entry||!WorkspaceApp.inlineBatchFields.includes(key))return;
+        const unit=['weight','height'].includes(key)?this.batchUnit(key):'',raw=unit?WorkspaceApp.batchDisplayMeasure(entry.child[key],key,unit):key==='ageTotalMonths'?entry.child.ageTotalMonths??entry.child.totalAgeMonths:entry.child[key];
+        this.batchInlineEdit={workspace:this.state,index,entry,key,unit,value:String(raw??''),initial:String(raw??''),busy:false};
+        this.refreshBatchBrowser();const field=document.getElementById('batch-inline-'+index+'-'+key);field?.focus();field?.select?.();
+    }
+    cancelBatchInline(){
+        const ctx=this.batchInlineEdit;if(!ctx||ctx.busy)return;this.batchInlineEdit=null;this.refreshBatchBrowser();document.getElementById('batch-inline-'+ctx.index+'-'+ctx.key)?.focus();
+    }
+    async saveBatchInline(){
+        const ctx=this.batchInlineEdit;if(!ctx||ctx.busy)return;
+        const current=()=>this.batchInlineEdit===ctx&&this.state===ctx.workspace&&this.state.batch[ctx.index]===ctx.entry&&this.page==='batch';
+        if(!current()){this.batchInlineEdit=null;this.toast('batchCorrectionChanged',true);return;}
+        if(ctx.value===ctx.initial){this.cancelBatchInline();return;}
+        ctx.busy=true;ctx.error='';this.refreshBatchBrowser();
+        try{
+            const next=WorkspaceApp.inlineCorrectedBatch(ctx.workspace,ctx.index,ctx.key,ctx.value,ctx.unit,this.engine);
+            await this.saveImmediate('beforeBatchCorrection',true);if(!current())throw Error('batchCorrectionChanged');
+            await this.history.save(next,'correctedBatch',true);if(!current())throw Error('batchCorrectionChanged');
+            this.batchInlineEdit=null;this.state=next;this.saveState='saved';this.checkpoint(false);this.render('batch-inline-'+ctx.index+'-'+ctx.key);this.toast(ctx.entry.result?'batchCorrectionSaved':'batchInlineSaved');
+        }catch(error){if(current()){ctx.error=error.message;ctx.busy=false;this.refreshBatchBrowser();document.getElementById('batch-inline-'+ctx.index+'-'+ctx.key)?.focus();}else{this.batchInlineEdit=null;this.toast(error.message,true);}}
+        finally{ctx.busy=false;}
+    }
+    batchRecordsHTML(entries,indices){
+        const t=k=>this.esc(this.t(k)),num=(v,d=0)=>this.number(v,d),known=v=>v!==null&&v!==undefined&&v!=='';
+        const short={weightForAge:'shortWFA',heightForAge:'shortHFA',weightForHeight:'shortWFH',bmiForAge:'shortBFA'};
+        const field=(label,body)=>'<div class="batch-record-field"><span class="batch-record-label">'+this.esc(label)+'</span><div class="batch-record-value">'+body+'</div></div>';
+        return '<div class="batch-record-list" role="list">'+entries.map(({child,result},i)=>{
+            const index=indices[i],edit=(key,display,label=key)=>this.batchEditable(child,index,key,this.t(label),String(display??'—')),date=v=>known(v)?this.calendarDate(v):'—',f=(key,value)=>field(this.t(key),value);
+            const age=child.ageMode==='dates'?f('birthDate',edit('birthDate',date(child.birthDate)))+f('ageDays',this.esc(num(child.ageDays))):child.ageMode==='pma'?f('postmenstrualDays',edit('postmenstrualDays',num(child.postmenstrualDays))):child.ageMode==='months'?f('ageYears',edit('ageYears',num(child.ageYears)))+f('ageMonths',edit('ageMonths',num(child.ageMonths))):child.ageMode==='totalMonths'?f('ageTotalMonths',edit('ageTotalMonths',num(child.ageTotalMonths??child.totalAgeMonths,2))):f('ageDays',edit('ageDays',num(child.ageDays)));
+            const birth=child.ageMode==='dates'?'':f('birthDate',this.esc(date(child.birthDate)));
+            const gest=child.growthProfile==='intergrowth'&&child.ageMode!=='pma'?f('gestationalAgeWeeks',edit('gestationalAgeWeeks',num(child.gestationalAgeWeeks)))+f('gestationalAgeDays',edit('gestationalAgeDays',num(child.gestationalAgeDays))):'';
+            const extras=SupplementaryUI.fields.filter(k=>known(child[k])).map(k=>f(k,edit(k,num(child[k],1)))).join('');
+            const scores=result?WorkspaceApp.resultIndicators(result):ClinicalEngine.indicators;
+            const score=(key,v,additional=false)=>{
+                const valid=Number.isFinite(v?.zscore),category=v?.classification;
+                return '<div class="batch-record-score'+(v?.flagged?' score-flagged':'')+'"><span title="'+t(key)+'">'+t(short[key]||key)+'</span><strong><bdi dir="ltr">'+(valid?this.esc(num(v.zscore,2)):'—')+'</bdi></strong>'+(additional?'':this.percentileHTML(v,result))+'<small>'+t(valid?category||'intergrowthDescriptive':v?.error||'notCalculated')+'</small>'+(v?.flagged?'<small class="flag">'+t('flagged')+'</small>':'')+(valid&&v?.error?'<small class="flag">'+t(v.error)+'</small>':'')+'</div>';
+            };
+            const n=result?.nutrition,urgent=n&&(n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation));
+            const screening=n?'<div class="batch-record-screening'+(urgent?' clinical-urgent':'')+'"><strong>'+t(n.category+'Short')+'</strong><span>'+t(n.orientation+'Short')+'</span>'+((n.criteria||[]).length?'<small>'+n.criteria.map(t).join(' · ')+'</small>':'')+'</div>':'<div class="batch-record-screening"><strong>'+t(result?(result.referenceFamily==='INTERGROWTH2015'?'pdfScreeningNA':'unknown'):'notCalculated')+'</strong></div>';
+            const extraScores=Object.entries(result?.additionalGrowth?.indicators||{}).map(([key,v])=>score(key,v,true)).join('');
+            const profile=child.growthProfile==='intergrowth'?'INTERGROWTH-21st':child.growthProfile==='us'?'CDC / OMS':'OMS';
+            return '<article class="batch-record" role="listitem"><div class="batch-record-identity"><span class="batch-record-index">#'+this.esc(num(index+1))+'</span>'+edit('name',child.name||this.t('unknown'))+edit('caseId',child.caseId||this.t('unknown'))+f('measurementDate',edit('measurementDate',date(child.measurementDate)))+'<small>'+this.esc(profile)+'</small><div class="batch-record-tools"><button type="button" class="btn row-preview" data-action="quality-view" data-index="'+index+'">'+this.icon('info')+t('preview')+'</button><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+this.icon('edit')+'<span>'+t('batchOtherFields')+'</span></button></div></div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight')+')',this.batchMeasureHTML(child,index,'weight'))+field(this.t('pdfHeightShort')+' ('+this.batchUnit('height')+')',this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+'</div><div class="batch-record-results">'+screening+'<div class="batch-record-scores">'+scores.map(k=>score(k,result?.[k])).join('')+extraScores+'</div></div>'+((result?.warnings||[]).length||result?.imported?'<div class="batch-record-notes">'+(result?.imported?t('importedResult')+' · ':'')+(result?.warnings||[]).map(t).join(' · ')+'</div>':'')+'</div></article>';
+        }).join('')+'</div>';
+    }
     batchBrowserHTML(){
-        const view=this.batchDisplayView();
-        return view.total?`<div class="table-scroll">${this.tableHTML(view.entries,{compact:true,editable:true,offset:view.start,indices:view.indices})}</div>${this.batchPagination(view)}`:`<div class="empty">${this.t(this.state.batch.length?'uiNoMatch':'emptyBatch')}</div>`;
+        const view=this.batchDisplayView(),compact=this.batchRecordLayout==='table';
+        if(!this.state.batch.length)return `<div class="empty">${this.t('emptyBatch')}</div>`;
+        const controls=`<div class="batch-record-toolbar"><div class="batch-layout-options" role="group" aria-label="${this.esc(this.t('batchLayout'))}"><button class="btn" type="button" data-action="batch-layout" data-value="records" aria-pressed="${!compact}">${this.icon('single')}${this.t('batchRecords')}</button><button class="btn" type="button" data-action="batch-layout" data-value="table" aria-pressed="${compact}">${this.icon('batch')}${this.t('batchCompactTable')}</button></div>${!compact?this.batchUnitPicker('weight','records')+this.batchUnitPicker('height','records'):''}<span class="hint batch-display-hint">${this.t('batchDisplayHelp')}</span></div>`;
+        return controls+(view.total?(compact?`<div class="table-scroll">${this.tableHTML(view.entries,{compact:true,editable:true,offset:view.start,indices:view.indices})}</div>`:this.batchRecordsHTML(view.entries,view.indices))+`${this.batchPagination(view)}`:`<div class="empty">${this.t('uiNoMatch')}</div>`);
     }
     refreshBatchBrowser(){const target=document.getElementById('batch-browser-live');if(target)target.innerHTML=this.batchBrowserHTML();}
     batchHTML() {
@@ -686,13 +770,13 @@ class WorkspaceApp {
         const visual=compact&&editable;const columns = ['name','weight','height',...(visual?['muac','uiScreening']:[]),...indicators];
         const number = (value,digits=2) => `<bdi class="score-number" dir="ltr">${this.number(value,digits)}</bdi>`;
         const note = key => `<div class="${compact&&key==='withinReference'?'sr-only':'item-sub'}">${this.esc(this.t(key))}</div>`;
-        const cell = (key,value) => `<td role="cell"${indicators.includes(key)?' class="score"':''}><span class="cell-label" aria-hidden="true">${this.esc(this.t(key))}</span><div class="cell-value">${value}</div></td>`;
-        return `<table class="results-table" role="table" aria-label="${this.esc(this.t('resultsTitle'))}"><thead role="rowgroup"><tr role="row">${columns.map(key=>`<th role="columnheader" scope="col"><abbr title="${this.esc(this.t(key))}">${this.esc(this.t(compact?({weightForAge:'shortWFA',heightForAge:'shortHFA',weightForHeight:'shortWFH',bmiForAge:'shortBFA',weight:'weightShort',height:'heightShort'}[key]||key):key))}</abbr></th>`).join('')}</tr></thead><tbody role="rowgroup">${entries.map(({child,result},i)=>{
+        const cell = (key,value) => `<td role="cell"${indicators.includes(key)?' class="score"':''}><span class="cell-label" aria-hidden="true">${this.esc(visual&&['weight','height'].includes(key)?this.t(key==='weight'?'pdfWeightShort':'pdfHeightShort')+' ('+this.batchUnit(key)+')':this.t(key))}</span><div class="cell-value">${value}</div></td>`;
+        return `<table class="results-table" role="table" aria-label="${this.esc(this.t('resultsTitle'))}"><thead role="rowgroup"><tr role="row">${columns.map(key=>`<th role="columnheader" scope="col">${visual&&['weight','height'].includes(key)?this.batchUnitPicker(key):`<abbr title="${this.esc(this.t(key))}">${this.esc(this.t(compact?({weightForAge:'shortWFA',heightForAge:'shortHFA',weightForHeight:'shortWFH',bmiForAge:'shortBFA',weight:'weightShort',height:'heightShort'}[key]||key):key))}</abbr>`}</th>`).join('')}</tr></thead><tbody role="rowgroup">${entries.map(({child,result},i)=>{
             const index=indices?.[i]??offset+i;
             const identity=`<bdi dir="auto" class="item-title">${this.esc(child.name||child.caseId||this.t('unknown'))}</bdi><div class="item-sub"><bdi dir="auto">${this.esc(child.name?child.caseId||'':'')}</bdi></div>${child.measurementDate?`<div class="${compact?'sr-only':'item-sub'}">${this.esc(this.t('measurementDate'))} : <bdi>${this.esc(this.calendarDate(child.measurementDate))}</bdi></div>`:''}${result?.nutrition?`<div class="item-sub">${this.t('muac')} : ${result.nutrition.muacMm==null?this.t('unknown'):this.esc(this.number(result.nutrition.muacMm,1))+' mm'}</div>${compact?`<details class="row-assessment ${result.nutrition.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(result.nutrition.orientation)?'clinical-urgent':''}"><summary>${this.esc(this.t(result.nutrition.category+'Short'))} · ${this.esc(this.t(result.nutrition.orientation+'Short'))}</summary><p>${this.esc(this.t(result.nutrition.category))}</p><p>${this.esc(this.t(result.nutrition.orientation))}</p><p>${(result.nutrition.criteria||[]).map(k=>this.esc(this.t(k))).join(' · ')}</p>${result.referenceFamily==='INTERGROWTH2015'?(result.warnings||[]).map(note).join(''):''}</details>`:`<div class="item-sub">${this.esc(this.t(result.nutrition.category))} · ${this.esc(this.t(result.nutrition.orientation))}</div>`}`:''}${this.additionalResultsHTML(result)}${!result?note('notCalculated'):''}${result?.imported&&!compact?note('importedResult'):''}${(result?.warnings||[]).filter(key=>!compact||result?.referenceFamily!=='INTERGROWTH2015'&&key!=='estimatedAge').map(note).join('')}`;
             const displayIdentity=visual?`<bdi dir="auto" class="item-title">${this.esc(child.name||child.caseId||this.t('unknown'))}</bdi><div class="item-sub"><bdi>${this.esc(child.name?child.caseId||'':'')}</bdi> · ${this.esc(this.calendarDate(child.measurementDate))}</div>${result?.imported?note('importedResult'):''}${(result?.warnings||[]).filter(k=>k!=='estimatedAge').map(note).join('')}`:identity;
             const n=result?.nutrition,screening=n?`<div class="batch-screening ${n.category==='nutritionSevere'||['orientationUrgent','orientationInpatient'].includes(n.orientation)?'clinical-urgent':''}"><strong>${this.esc(this.t(n.category+'Short'))}</strong><div>${this.esc(this.t(n.orientation+'Short'))}</div>${(n.criteria||[]).map(k=>`<div class="item-sub">${this.esc(this.t(k))}</div>`).join('')}</div>`:note('notCalculated');
-            return `<tr role="row"${visual&&!result?' class="pending-batch-row"':''}>${cell('name',displayIdentity+(visual?`<button class="btn row-preview" data-action="quality-view" data-index="${index}">${this.icon('info')}${this.t('preview')}</button>`:'')+(editable?`<button type="button" id="batch-correct-${index}" class="btn row-correction" data-action="batch-correct" data-index="${index}" aria-label="${this.esc(this.t('batchCorrectionEdit')+' · '+this.t('qualityRecord')+' '+this.number(index+1,0)+' · '+(child.name||child.caseId||this.t('unknown')))}">${this.icon('edit')}<span>${this.t('batchCorrectionEdit')}</span></button>`:''))}${cell('weight',number(child.weight,0))}${cell('height',number(child.height,1))}${visual?cell('muac',n?.muacMm==null?this.esc(child.muac??this.t('unknown')):number(n.muacMm,1))+cell('uiScreening',screening):''}${indicators.map(key=>{
+            return `<tr role="row"${visual&&!result?' class="pending-batch-row"':''}>${cell('name',displayIdentity+(visual?`<button class="btn row-preview" data-action="quality-view" data-index="${index}">${this.icon('info')}${this.t('preview')}</button>`:'')+(editable?`<button type="button" id="batch-correct-${index}" class="btn row-correction" data-action="batch-correct" data-index="${index}" aria-label="${this.esc(this.t('batchCorrectionEdit')+' · '+this.t('qualityRecord')+' '+this.number(index+1,0)+' · '+(child.name||child.caseId||this.t('unknown')))}">${this.icon('edit')}<span>${this.t('batchCorrectionEdit')}</span></button>`:''))}${cell('weight',visual?this.batchMeasureHTML(child,index,'weight'):number(child.weight,0))}${cell('height',visual?this.batchMeasureHTML(child,index,'height'):number(child.height,1))}${visual?cell('muac',this.batchEditable(child,index,'muac',this.t('muac'),this.number(child.muac,1)))+cell('uiScreening',screening):''}${indicators.map(key=>{
                 if(visual&&!result)return cell(key,`<span class="pending-score" title="${this.esc(this.t('notCalculated'))}"><span aria-hidden="true">—</span><span class="sr-only">${this.esc(this.t('notCalculated'))}</span></span>`);
                 const value=key==='bmiForAge'&&result?.schemaVersion!==4?null:result?.[key],hasValue=typeof value?.zscore==='number'&&Number.isFinite(value.zscore);
                 const category=value?.classification;
@@ -815,8 +899,14 @@ class WorkspaceApp {
                 }
             } catch (error) { this.formError(event.target.id.startsWith('batch') ? 'batch' : 'single',error.message); }
         });
+        document.getElementById('app-root').addEventListener('keydown',event=>{
+            if(!event.target.matches?.('[data-inline-input]')||event.isComposing)return;
+            if(event.key==='Enter'){event.preventDefault();this.saveBatchInline();}
+            else if(event.key==='Escape'){event.preventDefault();this.cancelBatchInline();}
+        });
         document.getElementById('app-root').addEventListener('input', event => {
-            if(event.target.id==='batch-search'){this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
+            if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
+            if(event.target.id==='batch-search'){if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchSearch||'';return;}this.batchSearch=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
             if(event.target.id==='reference-search'){const query=this.historySearchKey(event.target.value);document.querySelectorAll('.reference-grid>section').forEach(section=>{section.hidden=!!query&&!this.historySearchKey(section.textContent).includes(query);});return;}
             if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);
@@ -826,8 +916,16 @@ class WorkspaceApp {
             }
         });
         document.getElementById('app-root').addEventListener('change', async event => {
+            if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
+            if(event.target.dataset?.batchUnit){
+                const key=event.target.dataset.batchUnit,unit=event.target.value,id=event.target.id;
+                if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchUnit(key);this.toast('batchInlineFinish',true);return;}
+                if(key==='weight'&&['g','kg'].includes(unit))this.batchWeightUnit=unit;
+                if(key==='height'&&['cm','m'].includes(unit))this.batchHeightUnit=unit;
+                this.refreshBatchBrowser();document.getElementById(id)?.focus();return;
+            }
             if(event.target.id==='history-filter'){this.historyFilter=event.target.value;this.historyPage=0;this.renderHistoryList();return;}
-            if(event.target.id==='batch-filter'){this.batchFilter=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
+            if(event.target.id==='batch-filter'){if(this.batchInlineEdit?.workspace===this.state){event.target.value=this.batchFilter||'all';this.toast('batchInlineFinish',true);return;}this.batchFilter=event.target.value;this.batchPage=0;this.refreshBatchBrowser();return;}
             if (event.target.name === 'ageMode') {
                 const form = event.target.closest('form'); form.querySelectorAll('[data-age]').forEach(div => { div.hidden = div.dataset.age !== event.target.value; });
                 const prefix=form.id==='single-form'?'single':'batch';this.readForms();const draft=prefix==='single'?this.state.draft:this.state.batchDraft;
@@ -933,6 +1031,12 @@ class WorkspaceApp {
     updateToast(){const el=document.getElementById('toast');if(el){el.textContent=this.toastKey?(this.t(this.toastKey)===this.toastKey?this.t('error'):this.t(this.toastKey)):'';el.setAttribute('role',this.toastIsError?'alert':'status');}}
     toast(key,error=false) { this.toastKey=key;this.toastIsError=error;this.updateToast();clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>{this.toastKey=null;this.updateToast();},6500); }
     async action(action,button) {
+        if(this.batchInlineEdit?.busy)return;
+        if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
+        if(action==='batch-inline-save'){await this.saveBatchInline();return;}
+        if(action==='batch-inline-cancel'){this.cancelBatchInline();return;}
+        if(this.batchInlineEdit?.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
+        if(action==='batch-layout'){if(['table','records'].includes(button.dataset.value)){this.batchRecordLayout=button.dataset.value;this.refreshBatchBrowser();document.querySelector?.('[data-action="batch-layout"][data-value="'+button.dataset.value+'"]')?.focus();}return;}
         this.readForms();
         button.closest?.('.mobile-actions-dialog')?.close();
         if(action==='workspace-view')this.selectWorkspaceView(button.dataset.scope,button.dataset.view);
