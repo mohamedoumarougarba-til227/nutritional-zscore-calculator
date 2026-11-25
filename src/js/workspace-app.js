@@ -867,14 +867,14 @@ class WorkspaceApp {
         const current=()=>this.state===source&&this.saveRequest===request&&(this.saveRevision||0)===revision;
         this.saveState='saving';this.updateSaveStatus();
         this.saving = this.saving.catch(()=>{}).then(async()=>{
-            try { await this.history.save(workspace,reason,force); if(current()){this.saveState='saved';this.updateSaveStatus();} }
+            try { const snapshot=await this.history.save(workspace,reason,force); if(current()){this.saveState=HistoryManager.hasWork(workspace)?'saved':'ready';this.updateSaveStatus();} return snapshot; }
             catch (error) { if(current()){this.saveState='unsaved';this.updateSaveStatus();}throw error; }
         });
         // The caller can await a durable save; background failures are visible and handled.
         this.saving.catch(error=>console.warn('Local save failed',error));
         return this.saving;
     }
-    async saveImmediate(reason='automatic',force=false) { clearTimeout(this.saveTimer); this.checkpoint(false); await this.queueSave(reason,force); }
+    async saveImmediate(reason='automatic',force=false) { clearTimeout(this.saveTimer); this.checkpoint(false); return this.queueSave(reason,force); }
     updateSaveStatus() { document.querySelectorAll('[data-save-state]').forEach(el=>{ el.textContent=this.t(this.saveState==='saved'?'savedShort':this.saveState);el.title=this.t(this.saveState);el.setAttribute('aria-label',this.t(this.saveState)); el.classList.toggle('error',this.saveState==='unsaved'); }); }
     formError(prefix,key) { const el=document.getElementById(prefix+'-error'); if(el){ el.textContent=this.t(key)===key?this.t('error'):this.t(key); el.hidden=false; el.focus({preventScroll:true}); el.scrollIntoView({block:'nearest'}); } else this.toast(key,true); }
     syncImportNotice() {
@@ -947,7 +947,7 @@ class WorkspaceApp {
         else if(action==='stage-back'&&this.preparedImport)this.showImportPreview(this.preparedImport,this.importOverview.name,this.importOverview.duplicate);
         else if(action==='page'){ this.page=button.dataset.page; if(this.page==='history')this.sessions=await this.history.catalog(); this.render(); document.getElementById('main').focus({preventScroll:true}); }
         else if(action==='edit-measures'||action==='show-results'){ this.singleEditing=action==='edit-measures'; this.render(this.singleEditing?'single-caseId':'results-title'); }
-        else if(action==='save'){ await this.saveImmediate('manual',true); this.toast('manualSaved'); if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();} }
+        else if(action==='save'){ const hasWork=HistoryManager.hasWork(this.state),snapshot=await this.saveImmediate('manual',true); this.toast(!hasWork?'manualEmpty':snapshot?'manualSaved':'manualUnchanged'); if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();} }
         else if(action==='new'){ await this.saveImmediate('beforeNew'); this.state=this.emptyWorkspace();this.singleEditing=false;this.singleView='summary';this.batchPane='entry';this.batchSearch='';this.batchFilter='all';this.state.mode=this.page==='batch'?'batch':'single';this.batchPage=0; this.saveState='ready'; this.render(this.page==='batch'?'batch-caseId':'single-caseId'); }
         else if(action==='new-visit'){
             const child = this.state.single?.child;if(!child?.caseId)return;
@@ -1246,8 +1246,11 @@ class WorkspaceApp {
         workspace.draft={...this.emptyDraft('who'),careProtocol:'',...workspace.draft};workspace.batchDraft={...this.emptyDraft('who'),careProtocol:'',...workspace.batchDraft};
         if(workspace.single?.child?.visitId && !workspace.draft.visitId)workspace.draft.visitId=workspace.single.child.visitId;
         delete workspace.draft.id;delete workspace.batchDraft.id;
-        // Save the restored copy before changing any live fields.
-        await this.history.save(workspace,'restoreCopy',true);
+        // A stored source is already durable; resuming it alone is not a new version.
+        // A journal-only recovery must still be durably saved before exposing the copy.
+        const origin=this.sessions?.find(row=>row.id===session.id)?.origin;
+        if(origin?.kind==='stored'&&typeof this.history.resumeSaved==='function')await this.history.resumeSaved(workspace);
+        else await this.history.save(workspace,'restoreCopy',true);
         this.state=workspace;this.singleEditing=!!workspace.stale;this.singleView='summary';this.batchPane=workspace.batch.length?'results':'entry';this.batchSearch='';this.batchFilter='all';this.batchPage=0;this.checkpoint(false);this.page=workspace.mode==='batch'?'batch':'single';document.getElementById('workspace-dialog').close();this.render('main');this.toast('restored');
     }
     async previewImport(file,{decrypted=false}={}){

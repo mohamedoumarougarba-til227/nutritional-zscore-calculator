@@ -295,3 +295,43 @@ test('PDF continuation markers use the original lot row in LTR and RTL and ignor
     assert.equal(JSON.stringify(raw),before);
     for(const language of ['fr','en','ar'])assert.ok(translations[language].pdfRowContinuation.replace('{number}','6').includes('6'));
 });
+
+
+test('manual and forced safety saves never create empty or unchanged versions',async()=>{
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{growthProfile:'who',careProtocol:'niger2025'}}),store=new MemoryHistory(),history=new HistoryManager(store);
+    for(const profile of ['who','us','intergrowth'])for(const ageMode of ['days','months','totalMonths','dates','pma']){
+        const work=app.emptyWorkspace();work.draft={...app.emptyDraft(profile),ageMode,measurementDate:'2026-01-01',name:'  '};work.batchDraft=app.emptyDraft(profile);
+        assert.equal(HistoryManager.hasWork(work),false);assert.equal(await history.save(work,'manual',true),null);assert.equal(await history.save(work,'beforeUpdate',true),null);
+    }
+    assert.equal(store.records.sessions.length,0);
+    const work=app.emptyWorkspace();work.draft.name='FICTIF';assert.ok(await history.save(work,'automatic'));
+    assert.equal(await history.save(work,'manual',true),null);work.mode='batch';work.batchDraft.ageMode='days';work.batchDraft.measurementDate='2026-01-01';assert.equal(await history.save(work,'manual',true),null);
+    work.draft.cannotDrink='n';assert.ok(await history.save(work,'manual',true));work.draft.ageMonths=0;assert.ok(await history.save(work,'automatic'));
+    assert.equal(store.records.sessions.length,3);assert.equal(store.records.sessions[0].metadata.workspace.draft.cannotDrink,undefined);
+    for(const draft of [{ageDays:0},{oedema:'n'},{muac:'122'},{birthDate:'2026-01-01'},{caseId:'FICTIF'}])assert.ok(HistoryManager.hasWork({draft}));
+});
+test('real clinical versions and pending drafts survive deduplication, failed writes can retry',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    const original=JSON.stringify(work);assert.ok(await history.save(work,'calculated'));assert.equal(await history.save(work,'manual',true),null);
+    const second=structuredClone(work);second.single.result.calculatedAt='2026-11-25T01:00:00.000Z';assert.ok(await history.save(second,'calculated'));
+    const third=structuredClone(second);third.draft.name='FICTIF-NEW';const write=store.addArchive.bind(store);store.addArchive=async()=>{throw Error('quota');};await assert.rejects(history.save(third,'manual',true),/quota/);store.addArchive=write;assert.ok(await history.save(third,'manual',true));
+    assert.equal(store.records.sessions.length,3);assert.equal(JSON.stringify(store.records.sessions[0].metadata.workspace),original);
+});
+test('repeated recovery checkpoints retain the same journal and skip blank forms',()=>{
+    const previous=global.localStorage,storage=new Map();global.localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
+    try{const history=new HistoryManager(new MemoryHistory()),app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{growthProfile:'who'}}),work=app.emptyWorkspace();
+        work.draft.ageMode='days';history.checkpoint(work);assert.equal(storage.size,0);work.draft.ageDays=0;history.checkpoint(work);const first=storage.get(history.journalKey);assert.ok(first);work.mode='batch';history.checkpoint(work);assert.equal(storage.get(history.journalKey),first);work.draft.ageDays=1;history.checkpoint(work);assert.notEqual(storage.get(history.journalKey),first);
+        const last=storage.get(history.journalKey);history.checkpoint(app.emptyWorkspace());assert.equal(storage.get(history.journalKey),last);
+    }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
+});
+
+
+test('parallel unchanged saves serialize and restored durable content does not create a new version',async()=>{
+    const store=new MemoryHistory(),history=new HistoryManager(store),work=workspace(engine.calculate(example()));
+    const writes=await Promise.all([history.save(work,'automatic'),history.save(work,'manual',true),history.save(work,'beforeUpdate',true)]);
+    assert.equal(writes.filter(Boolean).length,1);assert.equal(store.records.sessions.length,1);
+    const restored=structuredClone(work);restored.single.child.id='child_restored';restored.single.result.id='result_restored';restored.single.result.childId='child_restored';
+    await history.resumeSaved(restored);assert.equal(await history.save(restored,'manual',true),null);
+    restored.draft.name='FICTIF-EDIT';assert.ok(await history.save(restored,'automatic'));assert.equal(store.records.sessions.length,2);
+    assert.equal(store.records.sessions[0].metadata.workspace.single.child.id,work.single.child.id);
+});

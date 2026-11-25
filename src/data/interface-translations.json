@@ -825,7 +825,9 @@
     "uiMonthsShort": "Mois",
     "uiClinicalWhoBrief": "OMS 2023 · 6–59 mois · Inconnu ne signifie pas non · Confirmation clinique requise · Aucune prescription automatique",
     "uiClinicalPcimaBrief": "Appui PCIMA limité · Inconnu ne signifie pas non · Confirmation clinique requise · Aucune décision automatique",
-    "uiClinicalPretermBrief": "Prématurés : seuils OMS de dépistage 6–59 mois non applicables."
+    "uiClinicalPretermBrief": "Prématurés : seuils OMS de dépistage 6–59 mois non applicables.",
+    "manualEmpty": "Aucun travail à sauvegarder.",
+    "manualUnchanged": "Travail déjà sauvegardé, aucune modification."
   },
   "en": {
     "pdfOedemaSuspended": "Withheld (oedema)",
@@ -1653,7 +1655,9 @@
     "uiMonthsShort": "Months",
     "uiClinicalWhoBrief": "WHO 2023 · 6–59 months · Unknown does not mean no · Clinical confirmation required · No automatic prescription",
     "uiClinicalPcimaBrief": "Limited PCIMA support · Unknown does not mean no · Clinical confirmation required · No automatic decision",
-    "uiClinicalPretermBrief": "Preterm infants: WHO screening thresholds for 6–59 months do not apply."
+    "uiClinicalPretermBrief": "Preterm infants: WHO screening thresholds for 6–59 months do not apply.",
+    "manualEmpty": "No work to save.",
+    "manualUnchanged": "Work already saved, no changes."
   },
   "ar": {
     "pdfOedemaSuspended": "معلّق (الوذمة)",
@@ -2481,6 +2485,8 @@
     "uiMonthsShort": "الأشهر",
     "uiClinicalWhoBrief": "منظمة الصحة العالمية 2023 · 6–59 شهرًا · المجهول لا يعني النفي · يلزم التأكيد السريري · لا وصفة تلقائية",
     "uiClinicalPcimaBrief": "دعم محدود لـ PCIMA · المجهول لا يعني النفي · يلزم التأكيد السريري · لا قرار آلي",
-    "uiClinicalPretermBrief": "الخدج: لا تنطبق عتبات التحري لعمر 6–59 شهرًا."
+    "uiClinicalPretermBrief": "الخدج: لا تنطبق عتبات التحري لعمر 6–59 شهرًا.",
+    "manualEmpty": "لا يوجد عمل للحفظ.",
+    "manualUnchanged": "العمل محفوظ بالفعل، لا توجد تغييرات."
   }
 }
