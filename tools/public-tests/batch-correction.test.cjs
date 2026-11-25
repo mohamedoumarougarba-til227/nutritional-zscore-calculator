@@ -133,7 +133,7 @@ test('a correction becomes visible only after both durable saves, and repeated c
         unlock();await pending;
         assert.equal(h.app.state.batch[0].child.weight,9000);assert.equal(h.store.records.sessions.length,2);
         assert.deepEqual(h.store.records.sessions.map(s=>s.metadata.reason),['beforeBatchCorrection','correctedBatch']);
-        assert.equal(h.app.batchCorrection,null);assert.equal(h.app.closed,true);assert.equal(h.app.focus,'batch-correct-0');assert.equal(h.app.notice.key,'batchCorrectionSaved');
+        assert.equal(h.app.batchCorrection,null);assert.equal(h.app.closed,true);assert.equal(h.app.focus,'batch-correct-0');assert.equal(h.app.notice.key,'batchOtherFieldsSaved');assert.equal(h.app.state.batch[0].result,null);
     }finally{h.restore();}
 });
 
@@ -195,4 +195,28 @@ test('compact records merge pending scores with measures and KPI filters use ori
  app.batchFilter='quality';assert.equal(app.batchDisplayView().total,LotQuality.build(entries).signalledRows);
  app.batchFilter='all';assert.equal(app.batchDisplayView().total,20);
  assert.equal(JSON.stringify(app.state),before);
+});
+
+test('specialized other-fields dialog omits inline values, retains conditional fields and never recalculates',()=>{
+ const original=engine.calculate(input({careProtocol:'niger2025',headCircumference:48})),other=engine.calculate(input({caseId:'FICTIF-OTHER'})),state=workspace([original,other]),before=JSON.stringify(state);
+ const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr'},translations,state});
+ const draft={...app.emptyDraft('who'),...original.child,growthProfile:'who'};
+ const context={entry:original,draft,initialDraft:structuredClone(draft),units:{weight:'kg',height:'m'}};
+ const html=app.batchOtherFieldsHTML(context);
+ for(const k of ['name','caseId','measurementDate','weight','height','gender','muac','oedema','ageDays'])assert.ok(!html.includes('name="'+k+'"'),k);
+ for(const k of ['ageMode','growthProfile','careProtocol','headCircumference','tricepsSkinfold','subscapularSkinfold','oedemaGrade','cannotDrink','appetite','maternalDanger','highRiskContext','displayWeightUnit','displayHeightUnit'])assert.ok(html.includes('name="'+k+'"'),k);
+ assert.equal(WorkspaceApp.otherFieldsChanged(context),false);
+ const changed=WorkspaceApp.correctionAgeChange(draft,'dates',original.child);assert.equal(changed.birthDate,'');
+ assert.ok(app.batchOtherFieldsHTML({...context,draft:changed}).includes('name="birthDate"'));
+ const noCalc={constructor:engine.constructor,calculate(){throw Error('must not calculate');}};
+ const next=WorkspaceApp.pendingBatchCorrection(state,0,{...draft,feedingDifficulty:'y'},noCalc);
+ assert.equal(next.batch[0].result,null);assert.equal(next.batch[0].child.feedingDifficulty,'y');assert.equal(next.batch[0].child.weight,original.child.weight);assert.equal(next.batch[0].child.visitId,original.child.visitId);assert.deepEqual(next.batch[1],other);assert.equal(JSON.stringify(state),before);
+ app.batchUnitsByVisit=new Map([[original.child.visitId,{weight:'kg',height:'m'}]]);
+ assert.equal(app.batchUnit('weight',original.child),'kg');assert.equal(app.batchUnit('weight',other.child),'g');
+ const row=app.batchRecordsHTML([original],[0]);assert.ok(!row.includes('data-action="quality-view"'));assert.ok(row.includes('data-action="batch-correct"'));assert.ok(row.includes('Poids (kg)'));
+});
+test('unchanged other-fields dialog saves display units only and keeps historical scores',async()=>{
+ const original=engine.calculate(input()),state=workspace([original]),h=ui(state,{...original.child});
+ h.app.batchCorrection.initialDraft=structuredClone(h.app.batchCorrection.draft);h.app.batchCorrection.units={weight:'kg',height:'m'};
+ try{await h.app.saveBatchCorrection();assert.equal(h.store.writes,0);assert.equal(h.app.state,state);assert.equal(h.app.state.batch[0].result,original.result);assert.equal(h.app.batchUnit('height',original.child),'m');assert.equal(h.app.notice.key,'batchDisplaySaved');}finally{h.restore();}
 });

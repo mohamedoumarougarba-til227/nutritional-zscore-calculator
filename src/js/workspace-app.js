@@ -591,7 +591,10 @@ class WorkspaceApp {
         const total=rows.length,pages=Math.max(1,Math.ceil(total/size)),current=Math.min(pages-1,Math.max(0,this.batchPage||0)),start=current*size,shown=rows.slice(start,start+size);
         return {total,pages,current,start,from:total?start+1:0,to:Math.min(total,start+size),entries:shown.map(r=>r.entry),indices:shown.map(r=>r.index)};
     }
-    batchUnit(key){return key==='weight'?(this.batchWeightUnit==='kg'?'kg':'g'):(this.batchHeightUnit==='m'?'m':'cm');}
+    batchUnit(key,child){
+        const chosen=child&&this.batchUnitsByVisit?.get(child.visitId||child.id)?.[key];
+        return key==='weight'?((chosen||this.batchWeightUnit)==='kg'?'kg':'g'):((chosen||this.batchHeightUnit)==='m'?'m':'cm');
+    }
     static batchDisplayMeasure(value,key,unit){
         if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return null;
         return ClinicalEngine.shiftDecimal(Number(value),key==='weight'&&unit==='kg'?-3:key==='height'&&unit==='m'?-2:0);
@@ -622,7 +625,7 @@ class WorkspaceApp {
         return '<span class="batch-inline-editor">'+control+(ctx.unit?'<small>'+ctx.unit+'</small>':'')+'<span class="batch-inline-actions"><button type="button" class="btn primary" data-action="batch-inline-save"'+disabled+' title="'+this.esc(this.t(ctx.entry.result?'batchCorrectionApply':'batchInlineSave'))+'" aria-label="'+this.esc(this.t(ctx.entry.result?'batchCorrectionApply':'batchInlineSave'))+'">'+this.icon('check')+'</button><button type="button" class="btn" data-action="batch-inline-cancel"'+disabled+' title="'+this.esc(this.t('cancel'))+'" aria-label="'+this.esc(this.t('cancel'))+'">'+this.icon('close')+'</button></span>'+(ctx.error?'<span class="batch-inline-error" role="alert">'+this.esc(this.t(ctx.error))+'</span>':'')+'</span>';
     }
     batchMeasureHTML(child,index,key){
-        const unit=this.batchUnit(key),value=WorkspaceApp.batchDisplayMeasure(child[key],key,unit);
+        const unit=this.batchUnit(key,child),value=WorkspaceApp.batchDisplayMeasure(child[key],key,unit);
         const display=value===null?'—':value.toLocaleString(this.prefs.language,{minimumFractionDigits:unit==='cm'?1:0,maximumFractionDigits:6});
         return this.batchEditable(child,index,key,this.t(key==='weight'?'pdfWeightShort':'pdfHeightShort')+' ('+unit+')',display,unit);
     }
@@ -630,7 +633,7 @@ class WorkspaceApp {
         if(this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy||this.batchInlineEdit?.busy)return;
         if(this.batchInlineEdit&&this.batchInlineEdit.workspace===this.state&&this.batchInlineEdit.entry===this.state.batch[this.batchInlineEdit.index]){this.toast('batchInlineFinish',true);return;}
         const entry=this.state.batch[index];if(!Number.isInteger(index)||index<0||!entry||!WorkspaceApp.inlineBatchFields.includes(key))return;
-        const unit=['weight','height'].includes(key)?this.batchUnit(key):'',raw=unit?WorkspaceApp.batchDisplayMeasure(entry.child[key],key,unit):key==='ageTotalMonths'?entry.child.ageTotalMonths??entry.child.totalAgeMonths:entry.child[key];
+        const unit=['weight','height'].includes(key)?this.batchUnit(key,entry.child):'',raw=unit?WorkspaceApp.batchDisplayMeasure(entry.child[key],key,unit):key==='ageTotalMonths'?entry.child.ageTotalMonths??entry.child.totalAgeMonths:entry.child[key];
         this.batchInlineEdit={workspace:this.state,index,entry,key,unit,value:String(raw??''),initial:String(raw??''),busy:false};
         this.refreshBatchBrowser();const field=document.getElementById('batch-inline-'+index+'-'+key);field?.focus();field?.select?.();
     }
@@ -671,8 +674,8 @@ class WorkspaceApp {
             const screening=n?'<div class="batch-record-screening'+(urgent?' clinical-urgent':'')+'"><strong>'+t(n.category+'Short')+'</strong><span>'+t(n.orientation+'Short')+'</span>'+((n.criteria||[]).length?'<small>'+n.criteria.map(t).join(' · ')+'</small>':'')+'</div>':'<div class="batch-record-screening"><strong>'+t(result?(result.referenceFamily==='INTERGROWTH2015'?'pdfScreeningNA':'unknown'):'notCalculated')+'</strong></div>';
             const extraScores=Object.entries(result?.additionalGrowth?.indicators||{}).map(([key,v])=>score(key,v,true)).join('');
             
-            const heightLabel=this.prefs.language==='fr'?'Longueur /\ntaille ('+this.batchUnit('height')+')':this.t('pdfHeightShort')+' ('+this.batchUnit('height')+')';
-            return '<article class="batch-record" role="listitem"><div class="batch-record-identity">'+edit('name',child.name||this.t('unknown'))+'<div class="batch-record-id-date">'+edit('caseId',child.caseId||this.t('unknown'))+'<span aria-hidden="true">·</span>'+edit('measurementDate',date(child.measurementDate))+'</div><div class="batch-record-tools"><button type="button" class="btn row-preview" data-action="quality-view" data-index="'+index+'">'+this.icon('info')+t('preview')+'</button><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+t('batchOtherFields')+'</button></div></div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight')+')',this.batchMeasureHTML(child,index,'weight'))+field(heightLabel,this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+scores.map(k=>score(k,result?.[k])).join('')+extraScores+(result?field(this.t('uiScreening'),screening):'')+'</div>'+((result?.warnings||[]).length||result?.imported?'<div class="batch-record-notes">'+(result?.imported?t('importedResult')+' · ':'')+(result?.warnings||[]).map(t).join(' · ')+'</div>':'')+'</div></article>';
+            const heightLabel=this.prefs.language==='fr'?'Longueur /\ntaille ('+this.batchUnit('height',child)+')':this.t('pdfHeightShort')+' ('+this.batchUnit('height',child)+')';
+            return '<article class="batch-record" role="listitem"><div class="batch-record-identity"><div class="batch-record-person">'+edit('name',child.name||this.t('unknown'))+'<div class="batch-record-id-date">'+edit('caseId',child.caseId||this.t('unknown'))+'<span aria-hidden="true">·</span>'+edit('measurementDate',date(child.measurementDate))+'</div></div><div class="batch-record-tools"><button type="button" class="btn row-correction" id="batch-correct-'+index+'" data-action="batch-correct" data-index="'+index+'" title="'+t('batchOtherFields')+'" aria-label="'+t('batchOtherFields')+'">'+t('batchOtherFields')+'</button></div></div><div class="batch-record-body"><div class="batch-record-measures">'+age+birth+gest+f('gender',edit('gender',this.t(child.gender==='M'?'male':child.gender==='F'?'female':'unknown')))+field(this.t('pdfWeightShort')+' ('+this.batchUnit('weight',child)+')',this.batchMeasureHTML(child,index,'weight'))+field(heightLabel,this.batchMeasureHTML(child,index,'height'))+f('muac',edit('muac',num(child.muac,1)))+f('position',edit('position',this.t(child.position==='L'?'lying':child.position==='H'?'standing':'unknown')))+f('oedemaShort',edit('oedema',this.t(child.oedema==='y'?'yes':child.oedema==='n'?'no':'unknown')))+(Number.isFinite(result?.bmi)?f('bmi',this.esc(num(result.bmi,2))+' kg/m²'):'')+extras+scores.map(k=>score(k,result?.[k])).join('')+extraScores+(result?field(this.t('uiScreening'),screening):'')+'</div>'+((result?.warnings||[]).length||result?.imported?'<div class="batch-record-notes">'+(result?.imported?t('importedResult')+' · ':'')+(result?.warnings||[]).map(t).join(' · ')+'</div>':'')+'</div></article>';
         }).join('')+'</div>';
     }
     batchBrowserHTML(){
@@ -731,28 +734,97 @@ class WorkspaceApp {
         const next=HistoryManager.clone(workspace);next.batch[index]=entry;
         return next;
     }
+    static pendingBatchCorrection(workspace,index,draft,engine) {
+        const original=workspace?.batch?.[index]?.child;
+        if(!Number.isInteger(index)||index<0||!original)throw Error('batchCorrectionChanged');
+        const raw={...original,...draft,visitId:original.visitId,growthProfile:draft.growthProfile||original.growthProfile||'who'};
+        delete raw.id;
+        // These selectors affect the presentation only. Stored inputs remain grams and centimetres.
+        delete raw.displayWeightUnit;delete raw.displayHeightUnit;
+        for(const key of ['weightUnit','heightUnit'])delete raw[key];
+        for(const key of ['muac',...SupplementaryUI.fields])if(raw[key]!==''&&raw[key]!=null)raw[key]=ClinicalEngine.decimal(raw[key],'additionalMeasureInvalid');
+        const child=engine.constructor.normalize(raw);
+        HistoryManager.checkChild(child);
+        const next=HistoryManager.clone(workspace);next.batch[index]={child,result:null};HistoryManager.checkWorkspace(next);
+        return next;
+    }
+    static correctionAgeFields(mode){
+        return ({dates:['birthDate'],days:['ageDays'],months:['ageYears','ageMonths'],totalMonths:['ageTotalMonths'],pma:['postmenstrualDays']})[mode]||[];
+    }
+    static correctionAgeChange(draft,mode,original){
+        const next=WorkspaceApp.draftForAgeMode(draft,mode);
+        for(const key of ['birthDate','ageDays','ageYears','ageMonths','ageTotalMonths','postmenstrualDays'])next[key]='';
+        for(const key of WorkspaceApp.correctionAgeFields(mode))if(mode===original.ageMode)next[key]=original[key]??(key==='ageTotalMonths'?original.totalAgeMonths:'')??'';
+        if(next.growthProfile==='intergrowth'&&mode!=='pma'&&original.growthProfile==='intergrowth'&&original.ageMode!=='pma'){
+            next.gestationalAgeWeeks=draft.gestationalAgeWeeks??original.gestationalAgeWeeks;
+            next.gestationalAgeDays=draft.gestationalAgeDays??original.gestationalAgeDays;
+        }
+        return next;
+    }
+    static otherFieldsChanged(context){
+        if(!context.initialDraft)return true;
+        const comparable=(draft,key)=>String(draft[key]??'');
+        const keys=new Set([...Object.keys(context.initialDraft),...Object.keys(context.draft)]);
+        return [...keys].some(key=>comparable(context.initialDraft,key)!==comparable(context.draft,key));
+    }
     openBatchCorrection(index) {
         if(this.batchComputing||this.csvBusy||this.csvReading||this.batchCorrection?.busy)return;
         const entry=this.state.batch[index];if(!Number.isInteger(index)||index<0||!entry)return;
-        this.batchCorrection={workspace:this.state,index,entry,draft:{...this.emptyDraft('who'),...HistoryManager.clone(entry.child),growthProfile:entry.child.growthProfile||'who'}};
+        const draft={...this.emptyDraft('who'),careProtocol:'',...HistoryManager.clone(entry.child),growthProfile:entry.child.growthProfile||'who'};
+        if(draft.ageMode==='totalMonths')draft.ageTotalMonths=entry.child.ageTotalMonths??entry.child.totalAgeMonths;
+        this.batchCorrection={workspace:this.state,index,entry,draft,initialDraft:HistoryManager.clone(draft),
+            units:{weight:this.batchUnit('weight',entry.child),height:this.batchUnit('height',entry.child)}};
         this.renderBatchCorrection();
     }
     readBatchCorrection() {
         const context=this.batchCorrection,form=document.getElementById('correction-form');if(!context||!form)return;
-        context.draft={...context.draft,...Object.fromEntries(new FormData(form))};
-        if(context.draft.growthProfile==='intergrowth'&&context.draft.ageMode!=='pma')context.draft.postmenstrualDays='';
+        const {displayWeightUnit,displayHeightUnit,...fields}=Object.fromEntries(new FormData(form));
+        if(fields.careProtocol===''&&context.draft.careProtocol==='who2023')fields.careProtocol='who2023';
+        context.draft={...context.draft,...fields};
+        if(['g','kg'].includes(displayWeightUnit))context.units.weight=displayWeightUnit;
+        if(['cm','m'].includes(displayHeightUnit))context.units.height=displayHeightUnit;
     }
-    renderBatchCorrection(focus='correction-weight') {
+    batchOtherFieldsHTML(context){
+        const d=context.draft,original=context.entry.child,ig=d.growthProfile==='intergrowth',t=k=>this.esc(this.t(k));
+        const group=(key,content)=>'<section class="other-fields-group"><h3>'+t(key)+'</h3><div class="form-grid">'+content+'</div></section>';
+        const field=(key,type='text',attrs='')=>'<div class="field"><label for="correction-'+key+'">'+t(key)+'</label><input id="correction-'+key+'" name="'+key+'" type="'+type+'" value="'+this.esc(d[key])+'" '+attrs+'></div>';
+        const select=(key,options,current=d[key],label=key)=>'<div class="field"><label for="correction-'+key+'">'+t(label)+'</label><select id="correction-'+key+'" name="'+key+'">'+options.map(([value,text])=>'<option value="'+this.esc(value)+'"'+(String(current??'')===value?' selected':'')+'>'+this.esc(this.t(text))+'</option>').join('')+'</select></div>';
+        const tri=[['','unknown'],['n','no'],['y','yes']],profile=select('growthProfile',[['who','profileWHO'],['us','profileUS'],['intergrowth','profileINTERGROWTH']],d.growthProfile,'growthProfileVisit');
+        const protocol=select('careProtocol',[['','careWHO'],['niger2025','careNiger2025'],['niger2023','careNiger2023']],d.careProtocol==='who2023'?'':d.careProtocol);
+        const modes=(ig?['days','dates','pma']:['days','totalMonths','months','dates']).map(k=>[k,k]);
+        const ageMode=select('ageMode',modes,d.ageMode);
+        const ageOldKeys=WorkspaceApp.correctionAgeFields(original.ageMode);
+        const oldAge=ageOldKeys.map(k=>t(k)+' : '+this.esc(k==='birthDate'&&original[k]?this.calendarDate(original[k]):original[k]??(k==='ageTotalMonths'?original.totalAgeMonths:null)??this.t('unknown'))).join(' · ');
+        const oldAgeHTML='<p class="hint other-age-original">'+t('batchPreviousAge')+' : '+t(original.ageMode)+' · '+oldAge+'</p>';
+        const ageChanged=d.ageMode!==original.ageMode;
+        const ageInputs=ageChanged?WorkspaceApp.correctionAgeFields(d.ageMode).map(k=>field(k,k==='birthDate'?'date':'text',k==='birthDate'?'max="'+ClinicalEngine.today()+'"':'inputmode="decimal"')).join(''):'';
+        const gestation=ig&&d.ageMode!=='pma'?field('gestationalAgeWeeks','number','min="0" max="36" step="1"')+field('gestationalAgeDays','number','min="0" max="6" step="1"'):'';
+        const unit=(key,units,label)=>select('display'+(key==='weight'?'Weight':'Height')+'Unit',units.map(u=>{
+            const value=WorkspaceApp.batchDisplayMeasure(original[key],key,u);
+            return [u,(value===null?'—':value.toLocaleString(this.prefs.language,{maximumFractionDigits:6}))+' '+u];
+        }),context.units?.[key]||this.batchUnit(key,original),label);
+        const clinical=select('oedemaGrade',[['','unknown'],['1','grade1'],['2','grade2'],['3','grade3']])+NutritionUI.dangerFields.map(k=>select(k,tri)).join('')+select('acuteProblem',tri)+select('appetite',[['','unknown'],['good',d.careProtocol==='niger2025'?'pcima2025AppetitePassed':d.careProtocol==='niger2023'?'pcimaAppetitePassed':'appetiteGood'],['poor','appetitePoor']])+select('furtherAssessment',[['','unknown'],['n','assessmentNone'],['y','assessmentNeeded'],['cleared','assessmentCleared']])+NutritionUI.observationsFor(d).map(k=>select(k,tri)).join('');
+        const supplements=field('headCircumference','text','inputmode="decimal"')+(!ig||SupplementaryUI.present(d.tricepsSkinfold)||SupplementaryUI.present(d.subscapularSkinfold)?field('tricepsSkinfold','text','inputmode="decimal"')+field('subscapularSkinfold','text','inputmode="decimal"'):'');
+        const position=ig&&d.position==='H'?select('position',[['','unknown'],['L','lying'],['H','standing']]):'';
+        return '<form id="correction-form" class="clinical-entry-form batch-other-fields" novalidate>'+group('settingsClinical',profile+protocol)+group('ageMode',ageMode+oldAgeHTML+ageInputs+gestation)+group('batchDisplayUnit',unit('weight',['g','kg'],'weightUnit')+unit('height',['cm','m'],'heightUnit'))+group('additionalMeasures',supplements+position)+(ig&&(SupplementaryUI.present(d.tricepsSkinfold)||SupplementaryUI.present(d.subscapularSkinfold))?'<p class="notice warn">'+t('intergrowthUnsupportedMeasures')+'</p>':'')+group('clinicalSection',clinical)+'<div id="correction-error" class="notice error" role="alert" tabindex="-1" hidden></div></form>';
+    }
+    renderBatchCorrection(focus='correction-growthProfile') {
         const context=this.batchCorrection;if(!context)return;
-        this.dialog('batchCorrectionTitle',`<p>${this.t('qualityRecord')} ${this.number(context.index+1,0)} · <bdi>${this.esc(context.entry.child.name||context.entry.child.caseId||this.t('unknown'))}</bdi></p><p class="hint">${this.t('batchCorrectionHelp')}</p><p id="correction-progress" role="status" aria-live="polite"></p>${this.formHTML('correction',context.draft)}`,`<button class="btn primary" data-action="save-batch-correction">${this.t('batchCorrectionApply')}</button>`);
+        const previousMode=context.draft.ageMode,previousProfile=context.draft.growthProfile;
+        this.dialog('batchOtherFields','<p><bdi>'+this.esc(context.entry.child.name||context.entry.child.caseId||this.t('unknown'))+'</bdi> · <bdi>'+this.esc(context.entry.child.caseId||'')+'</bdi></p><p class="hint">'+this.t('batchOtherFieldsHelp')+'</p><p id="correction-progress" role="status" aria-live="polite"></p>'+this.batchOtherFieldsHTML(context),'<button class="btn primary" data-action="save-batch-correction">'+this.t('batchSaveChanges')+'</button>');
         const form=document.getElementById('correction-form');
         form.addEventListener('submit',event=>{event.preventDefault();this.saveBatchCorrection();});
-        form.addEventListener('input',event=>{if(['weightUnit','heightUnit'].includes(event.target.name))this.changeMeasureUnit(event.target);this.readBatchCorrection();});
         form.addEventListener('change',event=>{
             if(!['ageMode','growthProfile','careProtocol'].includes(event.target.name))return;
             this.readBatchCorrection();
-            if(event.target.name!=='careProtocol')context.draft=event.target.name==='growthProfile'?WorkspaceApp.draftForProfile(context.draft,event.target.value):WorkspaceApp.draftForAgeMode(context.draft,event.target.value);
-            this.renderBatchCorrection('correction-'+event.target.name+(event.target.name==='careProtocol'?'-picker':''));
+            if(event.target.name==='growthProfile'){
+                const next=WorkspaceApp.draftForProfile(context.draft,event.target.value);
+                context.draft=next.ageMode!==previousMode?WorkspaceApp.correctionAgeChange(next,next.ageMode,context.entry.child):next;
+                // A national screening protocol is not valid for the US or preterm profile.
+                // Keep the explicit choice visible; validation requires the user to select a valid protocol.
+                if(previousProfile!==next.growthProfile&&next.growthProfile!=='intergrowth')for(const key of ['postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays'])context.draft[key]='';
+            }else if(event.target.name==='ageMode')context.draft=WorkspaceApp.correctionAgeChange(context.draft,event.target.value,context.entry.child);
+            this.renderBatchCorrection('correction-'+event.target.name);
         });
         document.getElementById(focus)?.focus();
     }
@@ -764,13 +836,19 @@ class WorkspaceApp {
         const buttons=[...dialog.querySelectorAll('button')];buttons.forEach(b=>{b.disabled=true;});if(form)form.inert=true;
         dialog.setAttribute('aria-busy','true');document.getElementById('correction-progress').textContent=this.t('saving');
         try{
-            const next=WorkspaceApp.correctedBatch(context.workspace,context.index,context.draft,this.engine);
-            await this.saveImmediate('beforeBatchCorrection',true);
-            if(!current())throw Error('batchCorrectionChanged');
-            await this.history.save(next,'correctedBatch',true);
-            if(!current())throw Error('batchCorrectionChanged');
-            this.batchCorrection=null;this.state=next;this.batchPane='results';this.batchSearch='';this.batchFilter='all';this.batchPage=Math.floor(context.index/8);this.saveState='saved';this.checkpoint(false);
-            dialog.close();this.render('batch-correct-'+context.index);this.toast('batchCorrectionSaved');
+            const changed=WorkspaceApp.otherFieldsChanged(context);
+            const next=changed?WorkspaceApp.pendingBatchCorrection(context.workspace,context.index,context.draft,this.engine):context.workspace;
+            if(changed){
+                await this.saveImmediate('beforeBatchCorrection',true);
+                if(!current())throw Error('batchCorrectionChanged');
+                await this.history.save(next,'correctedBatch',true);
+                if(!current())throw Error('batchCorrectionChanged');
+            }
+            if(context.units){this.batchUnitsByVisit||=new Map();this.batchUnitsByVisit.set(context.entry.child.visitId||context.entry.child.id,{...context.units});}
+            this.batchCorrection=null;this.state=next;
+            if(changed){this.batchPane='results';this.batchSearch='';this.batchFilter='all';this.batchPage=Math.floor(context.index/8);this.saveState='saved';this.checkpoint(false);}
+            dialog.close();this.render('batch-correct-'+context.index);
+            this.toast(changed?'batchOtherFieldsSaved':'batchDisplaySaved');
         }catch(error){if(form)form.inert=false;if(current())this.formError('correction',error.message);else this.toast(error.message,true);}
         finally{context.busy=false;dialog.removeAttribute('aria-busy');buttons.forEach(b=>{b.disabled=false;});if(form)form.inert=false;const progress=document.getElementById('correction-progress');if(progress)progress.textContent='';}
     }
