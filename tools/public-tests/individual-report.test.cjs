@@ -113,7 +113,7 @@ test('individual layout preserves identity, localised age and dates, and numeric
     assert.equal(JSON.stringify(entry),before);
 });
 
-test('batch reports use a wide list and traceable annex, keep pending results, and do not recalculate',()=>{
+test('batch reports keep pending results and do not recalculate',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const entries=Array.from({length:13},(_,i)=>visit(i,{caseId:'BATCH-DEMO-'+i,careProtocol:i===1?'niger2025':'',oedema:i===4?'y':'n'}));
     const pending=entries.map(e=>({child:e.child,result:null})),before=JSON.stringify(entries);
@@ -141,4 +141,29 @@ test('compact report codes retain every distinct clinical note and deduplicate r
         assert.ok(!decoded.some(note=>note.includes(row.calculatedAt)));
     }
     assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
+});
+
+test('detailed lot has one table with explicit measures and useful notes, no duplicate annex or reference IDs',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const calculated=visit(0,{caseId:'DETAILED-CALC',careProtocol:'niger2025'});
+    const pending={child:{...calculated.child,caseId:'DETAILED-PENDING',ageMode:'dates',birthDate:'2024-05-25',weight:13500,height:92,position:'H'},result:null};
+    const pma={child:{...pending.child,caseId:'DETAILED-PMA',ageMode:'pma',ageDays:undefined,postmenstrualDays:252,position:'L'},result:null};
+    const entries=[calculated,pending,pma],before=JSON.stringify(entries);
+    for(const language of ['fr','en','ar']){
+        const calls=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
+        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable:track,fonts,now:new Date('2026-11-25T23:33:36Z')});
+        assert.equal(report.entries,3);assert.equal(calls.length,1);
+        const {head,body,columnStyles}=calls[0],rtl=language==='ar',row=body.map(value=>rtl?[...value].reverse():value);
+        assert.equal(row.length,3);
+        assert.equal((rtl?[...head[0]].reverse():head[0]).at(-1),PDFManager.detailedLabels(language).observations);
+        assert.ok(row[1][2].includes(translations[language].pdfWeightShort));
+        assert.ok(row[1][2].includes(PDFManager.detailedLabels(language).birth));
+        assert.ok(!row[1][2].includes(translations[language].ageMode));
+        assert.ok(!row[2][2].includes(translations[language].unknown+' '+translations[language].pdfDaysUnit));
+        assert.ok(row[0].at(-1).includes(translations[language].headCircumferenceForAge)||row[0].at(-1).includes(translations[language].additionalResults));
+        assert.ok(!row[0].at(-1).includes(calculated.result.referenceVersion));
+        assert.equal(row[1].at(-1),'—');
+        assert.ok(columnStyles[rtl?0:head[0].length-1].cellWidth>=65);
+    }
+    assert.equal(JSON.stringify(entries),before);
 });

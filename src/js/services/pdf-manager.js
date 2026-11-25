@@ -115,6 +115,76 @@ class PDFManager {
         const hasPercentiles=rows.some(row=>row.percentiles.some(Boolean))||entries.some(entry=>Object.values(entry.result?.additionalGrowth?.indicators||{}).some(value=>CentilePDF.text(value)!==null));
         return {language, t, indicators, rows, stale, provenances,hasPercentiles,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
     }
+    // Detailed batch presentation only: never alter the stored result, individual or compact models.
+    static detailedLabels(language) {
+        return {
+            fr:{observations:'Observations et vérifications',height:'Taille',length:'Longueur',birth:'Né(e) le',days:'jours',month:'mois',year:'an',years:'ans',head:'Périm. crânien',mm:'mm',cm:'cm',g:'g',stored:'Résultats enregistrés, sans recalcul. Scores à deux décimales.',exported:'Exporté le'},
+            en:{observations:'Observations and checks',height:'Height',length:'Length',birth:'Date of birth',days:'days',month:'months',year:'year',years:'years',head:'Head circumference',mm:'mm',cm:'cm',g:'g',stored:'Stored results, no recalculation. Two-decimal scores.',exported:'Exported'},
+            ar:{observations:'الملاحظات والتحقق',height:'القامة',length:'الطول مستلقيًا',birth:'تاريخ الميلاد',days:'يوم',month:'شهر',year:'سنة',years:'سنوات',head:'محيط الرأس',mm:'مم',cm:'سم',g:'غرام',stored:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين.',exported:'تاريخ التصدير'}
+        }[language];
+    }
+    static detailedDate(value,language) {
+        return language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
+    }
+    static detailedRow(entry,row,model) {
+        const {language,t}=model,{child:c,result:r}=entry,l=this.detailedLabels(language);
+        const n=(v,d=0)=>Number.isFinite(v)?new Intl.NumberFormat(language,{minimumFractionDigits:d,maximumFractionDigits:d}).format(v):t('unknown');
+        const flexible=v=>Number.isFinite(v)?new Intl.NumberFormat(language,{maximumFractionDigits:3}).format(v):t('unknown');
+        const u=(v,d,unit)=>Number.isFinite(v)?n(v,d)+' '+unit:t('unknown');
+        const f=(label,value)=>label+': '+this.clean(value??t('unknown'));
+        const short=key=>t(key).replace(/\s*\([^()]*\)\s*$/u,'');
+        const pair=(...fields)=>fields.filter(Boolean).join(' · ');
+        const heightLabel=c.position==='H'?l.height:c.position==='L'?l.length:t('pdfHeightShort');
+        const measures=[pair(f(t('pdfWeightShort'),u(c.weight,0,l.g)),f(heightLabel,u(c.height,1,l.cm)))];
+        if(c.position!=='H'&&c.position!=='L')measures.push(f(t('position'),t('unknown')));
+        const ageDays=Number.isFinite(c.ageDays)?u(c.ageDays,0,l.days):'';
+        const estimated=['months','totalMonths'].includes(c.ageMode)||c.agePrecision==='completedMonths';
+        const ig=r?.intergrowthContext?.age;
+        if(c.ageMode==='dates'){
+            measures.push(f(l.birth,this.detailedDate(c.birthDate,language)||t('unknown')));
+        }else if(c.ageMode==='pma'){
+            measures.push(f(short('postmenstrualDays'),u(ig?.postmenstrualDays??c.postmenstrualDays,0,l.days)));
+        }else if(c.ageMode==='months'){
+            const parts=[];
+            if(Number.isFinite(c.ageYears)&&c.ageYears>0)parts.push(n(c.ageYears)+' '+(c.ageYears===1?l.year:l.years));
+            if(Number.isFinite(c.ageMonths)&&(c.ageMonths>0||!parts.length))parts.push(n(c.ageMonths)+' '+l.month);
+            measures.push(f(t('referenceEstimated'),(parts.join(' ')||ageDays||t('unknown'))+(parts.length&&ageDays?' ('+ageDays+')':'')));
+        }else if(c.ageMode==='totalMonths'){
+            const months=c.totalAgeMonths??c.ageTotalMonths;
+            measures.push(f(t('referenceEstimated'),Number.isFinite(months)?flexible(months)+' '+l.month+(ageDays?' ('+ageDays+')':''):(ageDays||t('unknown'))));
+        }else measures.push(f(t(estimated?'referenceEstimated':'pdfAgeShort'),ageDays||t('unknown')));
+        measures.push(pair(f(t('gender'),t(c.gender==='M'?'male':c.gender==='F'?'female':'unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown'))));
+        if(Number.isFinite(r?.correctedHeight)&&Math.abs(r.correctedHeight-c.height)>.01)measures.push(f(t('adjustedHeight'),u(r.correctedHeight,1,l.cm)));
+        const pb=Number.isFinite(c.muac)?f(t('pdfMuacShort'),u(c.muac,1,l.mm)):'';
+        const bmi=Number.isFinite(r?.bmi)?f(t('bmi'),u(r.bmi,2,'kg/m²')):'';
+        if(pb||bmi)measures.push(pair(pb,bmi));
+        for(const key of SupplementaryPDF.fields)if(SupplementaryPDF.present(c[key])){
+            measures.push(f(key==='headCircumference'?l.head:short(key),u(c[key],1,key==='headCircumference'?l.cm:l.mm)));
+        }
+        if(ig){
+            if(c.ageMode!=='pma')measures.push(f(short('postmenstrualDays'),u(ig.postmenstrualDays,0,l.days)));
+            if(Number.isFinite(ig.birthGestationDays))measures.push(f(short('birthGestationDays'),u(ig.birthGestationDays,0,l.days)));
+        }
+        // Keep clinical context and complementary results, not internal reference IDs/versions.
+        const technicalPrefix=t('clinicalReference')+' : ';
+        const additionalPrefix=t('additionalResults')+' · ';
+        const igAgePrefix=t('postmenstrualDays')+' : ';
+        const notes=row.notes.filter(note=>note!==t('pdfUncalculated')&&!note.startsWith(technicalPrefix)&&!(ig&&note.startsWith(igAgePrefix)&&note.includes(t('birthGestationDays')+' : ')))
+            .map(note=>note.startsWith(additionalPrefix)?t('additionalResults'):note);
+        if(r?.nutrition){
+            const protocol=t(NutritionPDF.is2025(r.nutrition)?'screeningTitlePcima2025':NutritionPDF.isNational(r.nutrition)?'screeningTitlePcima':'screeningTitle');
+            notes.unshift(protocol);
+        }
+        const national=r?.nutrition?NutritionPDF.is2025(r.nutrition)?'2025':NutritionPDF.isNational(r.nutrition):c.careProtocol==='niger2025'?'2025':c.careProtocol==='niger2023';
+        const observations=[];
+        for(const key of new Set(NutritionPDF.inputFields)){
+            if(['muac','careProtocol'].includes(key)||c[key]===undefined||c[key]===null||c[key]==='')continue;
+            observations.push(f(t(key),t(NutritionPDF.observationLabel(key,c[key],national))));
+        }
+        if(observations.length)notes.push(...observations);
+        return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language)].join('\n'),
+            measures:measures.join('\n'),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
+    }
     static compact(model) {
         const categories=new Map(),notes=new Map();
         const code=(values,text,prefix)=>{
@@ -589,8 +659,7 @@ class PDFManager {
             });
             return {bytes:doc.output('arraybuffer'),pages:doc.getNumberOfPages(),entries:1};
         }
-        // A wide summary table first, then an independent annex. Never pack clinical prose
-        // into a narrow score column or create an orphan table header before the first record.
+        // Compact retains its coded report. Detailed batches keep clinical context in the same row.
         const normalize=value=>this.clean(value).replace(/[\u202f\u00a0]/g,' ').replace(/−/g,'-').replace(/≥/g,'>=').replace(/≤/g,'<=');
         const western=value=>/^[\x20-\x7e\xa0-\xff\nœŒ‘’“”–—…€]*$/u.test(normalize(value));
         const strings=[...Object.values(options.translations[language]),...rows.flatMap(r=>[...r.identity,...r.measures,...r.scores,...r.percentiles,...r.notes])];
@@ -603,24 +672,49 @@ class PDFManager {
             return y+lines.length*size/doc.internal.scaleFactor*1.13+2;
         };
         const headed=new Set(),usable=width-2*margin;
+        const calculated=entries.filter(e=>!!e.result).length;
+        const detailedLabels=this.detailedLabels(language);
+        let detailedTop=28;
         const header=()=>{
             const page=doc.internal.getCurrentPageInfo().pageNumber;if(headed.has(page))return;headed.add(page);
             doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,7,8,8,1.3,1.3,'F');
             doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,12.8,{align:'center'});
             doc.setTextColor(23,99,72);doc.setFontSize(14);doc.text(render(t('brand')+' - '+title),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
-            text(t('pdfStoredOnly')+' | '+issued,19,8);
-            doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
+            if(compact){
+                text(t('pdfStoredOnly')+' | '+issued,19,8);
+                doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
+                return;
+            }
+            const leftWidth=usable-91,rightWidth=86;
+            const lead=rtl?width-margin:margin,aside=rtl?margin:width-margin;
+            const block=(value,x,y,w,size,bold,align,color)=>{
+                doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
+                const lines=doc.splitTextToSize(render(value),w);
+                doc.text(lines,x,y,{align});
+                return y+lines.length*size/doc.internal.scaleFactor*1.13+1;
+            };
+            const ink=[35,50,45],green=[23,99,72],muted=[65,65,65];
+            let ly=block(t('appUsageNotice'),lead,18,leftWidth,8,false,rtl?'right':'left',ink);
+            if(model.hasPercentiles)ly=block(t('percentileReportHelp'),lead,ly,leftWidth,8,false,rtl?'right':'left',ink);
+            if(model.stale)ly=block(t('stale'),lead,ly,leftWidth,9,true,rtl?'right':'left',ink);
+            let ry=block(t('lotRows')+' : '+rows.length,aside,10,rightWidth,10,true,rtl?'left':'right',green);
+            ry=block(t('pdfBatchCalculated')+' : '+calculated+'  |  '+t('notCalculated')+' : '+(rows.length-calculated),aside,ry,rightWidth,9,true,rtl?'left':'right',green);
+            ry=block(t('pdfSensitive'),aside,ry,rightWidth,7.5,false,rtl?'left':'right',muted);
+            const rule=Math.max(ly,ry)+1;
+            doc.setDrawColor(205,216,210);doc.line(margin,rule,width-margin,rule);
+            detailedTop=rule+5;
         };
-        header();let y=28;
-        const calculated=entries.filter(e=>!!e.result).length;
-        y=text(t('lotRows')+' : '+rows.length+'   |   '+t('pdfBatchCalculated')+' : '+calculated+'   |   '+t('notCalculated')+' : '+(rows.length-calculated),y,11,true,[23,99,72]);
-        y=text(t('appUsageNotice'),y,8);
-        if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,8);
-        if(model.stale)y=text(t('stale'),y,9,true);
-        const base={theme:'grid',margin:{top:28,bottom:18,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
+        header();let y=compact?28:detailedTop;
+        if(compact){
+            y=text(t('lotRows')+' : '+rows.length+'   |   '+t('pdfBatchCalculated')+' : '+calculated+'   |   '+t('notCalculated')+' : '+(rows.length-calculated),y,11,true,[23,99,72]);
+            y=text(t('appUsageNotice'),y,8);
+            if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,8);
+            if(model.stale)y=text(t('stale'),y,9,true);
+        }
+        const base={theme:'grid',margin:{top:compact?28:detailedTop,bottom:18,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
             headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
             didParseCell:data=>{data.cell.text=data.cell.text.map(render);}};
-        const ensure=space=>{if(y+space>height-18){doc.addPage();header();y=28;}};
+        const ensure=space=>{if(y+space>height-18){doc.addPage();header();y=compact?28:detailedTop;}};
         const section=key=>{ensure(25);y=text(t(key),y,11,true,[23,99,72]);};
         const table=(head,body,widths,overrides={})=>{
             if(!body.length)return;
@@ -632,7 +726,7 @@ class PDFManager {
                     const index=this.continuedRowIndex(data,rtl),page=doc.internal.getCurrentPageInfo().pageNumber;
                     if(!overrides.recordRows||index===null||continuedPages.has(page))return;
                     continuedPages.add(page);const size=doc.getFontSize(),color=doc.getTextColor();
-                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,26,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
+                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,compact?26:detailedTop-2,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
                 }});
             y=doc.lastAutoTable.finalY+5;
         };
@@ -642,27 +736,33 @@ class PDFManager {
         if(compact){
             table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,3),shortMeasures(rows[i]),rows[i].screening,...row.slice(4)]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
-            const body=rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),shortMeasures(r),r.screening,...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),r.provenance||t('notCalculated')]);
-            table(['pdfNumber','pdfIdentity','pdfMeasures','uiScreening',...model.indicators,'pdfRefShort'].map(t),body,[9,40,48,27,...model.indicators.map(()=>scoreWidth),20],{recordRows:true});
+            const labels=[t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('uiScreening'),...model.indicators.map(t),detailedLabels.observations];
+            const body=rows.map((r,index)=>{
+                const detailed=this.detailedRow(entries[index],r,model);
+                return [String(r.index),detailed.identity,detailed.measures,r.screening,...r.scores.map((_,i)=>this.scoreWithPercentile(r,i)),detailed.notes];
+            });
+            const widths=[8,33,63,25],notesWidth=68;
+            const remaining=usable-widths.reduce((sum,value)=>sum+value,0)-notesWidth;
+            table(labels,body,[...widths,...model.indicators.map(()=>remaining/Math.max(1,count)),notesWidth+(count?0:remaining)],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.15}});
         }
-        if(model.provenances.length){
+        if(compact&&model.provenances.length){
             section('pdfReferences');
             table([t('pdfCompactCode'),t('referenceVersion'),t('engineVersion')],model.provenances.map((p,i)=>['R'+(i+1),p[0],p[1]]),[18,usable-57,39],{styles:{...base.styles,fontSize:9,cellPadding:1.2}});
         }
         if(compact){
             section('pdfCompactLegend');y=text(t('pdfCompactHelp'),y,8);
             table([t('pdfCompactCode'),t('pdfCompactMeaning')],reduced.legend,[19,usable-19],{styles:{...base.styles,fontSize:8.5,cellPadding:1.2}});
-        }else{
-            // Keep all stored clinical notes, raw supplementary observations and provenance in a
-            // wide annex. Row numbers refer to the unfiltered order of the main table.
-            section('pdfBatchAnnex');
-            table([t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('pdfNotes')],rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),r.measures.join('\n'),[r.provenance||'',r.calculatedAt,...r.notes].join('\n')]),[9,39,72,usable-120],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.3}});
         }
         const pages=doc.getNumberOfPages();
         for(let i=1;i<=pages;i++){
             doc.setPage(i);doc.setTextColor(65);doc.setFont(font,'normal');doc.setFontSize(8);
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
-            doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+            if(compact)doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+            else{
+                const stamp=this.detailedDate(issued.slice(0,10),language)+' '+issued.slice(11,-1)+' UTC';
+                doc.text(render(detailedLabels.stored),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+                doc.text(render(detailedLabels.exported+' '+stamp),rtl?width-margin:margin,height-4,{align:rtl?'right':'left'});
+            }
             doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
             if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
         }
