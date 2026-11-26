@@ -744,7 +744,7 @@ class PDFManager {
             if(model.stale)ly=text(t('stale'),ly+2,9,true);
             doc.setDrawColor(205,216,210);doc.line(margin,ly,width-margin,ly);
             // Reserve space for a continuation marker on subsequent pages.
-            batchTop=ly+5;
+            batchTop=ly+(compact?5:3);
         };
         header();let y=batchTop;
         const base={theme:'grid',margin:{top:batchTop,bottom,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
@@ -784,9 +784,35 @@ class PDFManager {
             };
             const cell=(w,parts)=>({w,lines:parts.flatMap(part=>makeLines(part.value,w,part.bold,part.color,part.size))});
             const band=(cells,fill=null)=>({cells,fill,length:Math.max(1,...cells.map(c=>c.lines.length))});
-            const bandHeight=(b,n=b.length)=>2*pad+n*step;
+            const bandHeight=(b,n=b.length,start=0)=>2*pad+Math.max(n*step,...b.cells.map(c=>c.lines.slice(start,start+n).reduce((sum,line,i)=>sum+(c.leading||step)+(i?(line.before||0):0),0)));
+            // Measure in the actual font and in visual (bidi) order too. Long
+            // uninterrupted strings must wrap, never spill into the next column.
+            const noteInset=2.6;
+            const wrapObservation=(value,w)=>{
+                doc.setFont(font,'normal');doc.setFontSize(8.5);
+                const max=w-2*noteInset-.35;
+                const fits=s=>Math.max(doc.getTextWidth(s),doc.getTextWidth(visual(s)))<=max;
+                const output=[];let line='';
+                const flush=()=>{if(line){output.push(line);line='';}};
+                const segmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(language,{granularity:'grapheme'}):null;
+                for(const word of render(value).split(/\s+/u).filter(Boolean)){
+                    const combined=line?line+' '+word:word;
+                    if(fits(combined)){line=combined;continue;}
+                    flush();
+                    if(fits(word)){line=word;continue;}
+                    const pieces=segmenter?Array.from(segmenter.segment(word),v=>v.segment):Array.from(word);
+                    for(const piece of pieces){
+                        if(line&&!fits(line+piece))flush();
+                        // A single grapheme is much narrower than an observation
+                        // column. Keep it intact even for combining characters.
+                        line+=piece;
+                    }
+                }
+                flush();
+                return output.map(text=>({text,bold:false,color:ink,size:8.5}));
+            };
             const drawBand=(b,start,n,top)=>{
-                const h=bandHeight(b,n);
+                const h=bandHeight(b,n,start);
                 if(b.fill){doc.setFillColor(...b.fill);doc.rect(margin,top,usable,h,'F');}
                 let offset=0;
                 const leftReserve=Math.max(0,usable-b.cells.reduce((sum,c)=>sum+c.w,0));
@@ -796,7 +822,7 @@ class PDFManager {
                     for(const [i,line] of c.lines.slice(start,start+n).entries()){
                         if(i)lineY+=line.before||0;
                         doc.setFont(font,line.bold?'bold':'normal');doc.setFontSize(line.size);doc.setTextColor(...line.color);
-                        if(line.text)doc.text(line.text,rtl?left+c.w-inset:left+inset,lineY,{align:rtl?'right':'left'});
+                        if(line.text)doc.text(line.text,rtl?left+c.w-(c.inset??inset):left+(c.inset??inset),lineY,{align:rtl?'right':'left'});
                         lineY+=c.leading||step;
                     }
                     offset+=c.w;
@@ -814,7 +840,8 @@ class PDFManager {
                 const heading='#'+row.index+' | '+row.briefIdentity[0];
                 const identityWidth=recordWidth*.265,screeningWidth=recordWidth*.18,fieldWidth=(recordWidth-identityWidth-screeningWidth)/4;
                 const identityGroups=[
-                    [{value:heading,bold:true,color:green,size:10},{value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted}],
+                    [{value:heading,bold:true,color:green,size:10}],
+                    [{value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted}],
                     detailed.primaryMeasures.map(value=>({value})),
                     detailed.otherMeasures.map(value=>({value}))
                 ].filter(group=>group.length);
@@ -885,10 +912,9 @@ class PDFManager {
                 const uniqueNotes=[...new Set(notes.filter(Boolean))];
                 const mWidth=recordWidth/3;
                 if(uniqueNotes.length){
-                    bands.push(band([cell(recordWidth,[{value:detailedLabels.observations,bold:true,color:green}])]));
-                    // Keep note order (column by column) and wrap complete observations
-                    // in three broad text columns. No clinical note is dropped.
-                    const groups=uniqueNotes.map(v=>makeLines('· '+v,mWidth,false,ink,8.5));
+                    // Keep note order, use wider gutters and measure every wrapped
+                    // line before drawing. No clinical note is dropped.
+                    const groups=uniqueNotes.map(v=>wrapObservation('· '+v,mWidth));
                     const cols=[[],[],[]];let col=0,remaining=groups.reduce((n,g)=>n+g.length,0);
                     for(const g of groups){
                         const target=Math.ceil(remaining/(3-col));
@@ -897,7 +923,17 @@ class PDFManager {
                         }
                         cols[col].push(...g);
                     }
-                    bands.push(band(cols.map(lines=>({w:mWidth,lines}))));
+                    // Title and first observation share a band: their baseline
+                    // distance is 3.8 mm, just like the identity group gaps.
+                    const titleLines=makeLines(detailedLabels.observations,mWidth-2*(noteInset-inset),true,green,8.5);
+                    const titleCount=titleLines.length;
+                    const blank=()=>({text:'',bold:false,color:ink,size:8.5});
+                    const observationBand=band(cols.map((lines,i)=>({
+                        w:mWidth,inset:noteInset,
+                        lines:[...(i===0?titleLines:Array.from({length:titleCount},blank)),...lines.map((line,j)=>j===0?{...line,before:.35}:line)]
+                    })));
+                    observationBand.minFirst=titleCount+1;
+                    bands.push(observationBand);
                 }
                 const total=bands.reduce((n,b)=>n+bandHeight(b),0);
                 if(y>batchTop+.1&&y+total>limit)nextPage();
@@ -934,10 +970,15 @@ class PDFManager {
                     let start=0;
                     // Keep a small heading band with at least the start of its content.
                     if(b.length===1&&bi+1<bands.length&&y+bandHeight(b)+bandHeight(bands[bi+1],1)>limit)continuation();
+                    if(b.minFirst&&y+bandHeight(b,b.minFirst)>limit)continuation();
                     while(start<b.length){
-                        let available=Math.floor((limit-y-2*pad+.001)/step);
-                        if(available<1){continuation();available=Math.floor((limit-y-2*pad+.001)/step);}
-                        const n=Math.min(available,b.length-start);
+                        const fitting=()=>{
+                            let n=Math.min(b.length-start,Math.floor((limit-y-2*pad+.001)/step));
+                            while(n>0&&y+bandHeight(b,n,start)>limit+.001)n--;
+                            return n;
+                        };
+                        let n=fitting();
+                        if(n<1){continuation();n=fitting();}
                         if(n<1)throw new Error('pdfInvalid');
                         y=drawBand(b,start,n,y);start+=n;
                         if(start<b.length)continuation();

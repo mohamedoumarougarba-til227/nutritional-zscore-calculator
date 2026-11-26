@@ -306,3 +306,47 @@ test('detailed grid reserves identity and screening, rotates imported markers an
     assert.ok(seen.some(v=>v.text.includes('Sexe: M')));
     assert.equal(JSON.stringify(entries),before);
 });
+
+test('detailed batch uses equal identity gaps and wraps observations inside their three columns',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const e=visit(0,{caseId:'SPACING-TEST'});
+    const seen=[],trackedTranslations=structuredClone(translations);
+    for(const language of ['fr','en','ar']){
+        // Exercise both many words and an uninterrupted overlong token.
+        const longToken='ABCDEF1234567890'.repeat(22);
+        trackedTranslations[language].testLongObservation='First '+longToken+' Last '+(language==='ar'?'ملاحظة سريرية طويلة '.repeat(12):'Observation clinique détaillée '.repeat(12));
+        const entries=[{...e,result:{...e.result,warnings:[...e.result.warnings,'testLongObservation']}}];
+        seen.length=0;
+        function TrackingPDF(options){
+            const doc=new jsPDF(options),draw=doc.text.bind(doc);
+            doc.text=(value,x,y,opts,...rest)=>{
+                for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,w:doc.getTextWidth(String(part)),align:opts?.align||'left',page:doc.internal.getCurrentPageInfo().pageNumber});
+                return draw(value,x,y,opts,...rest);
+            };return doc;
+        }
+        TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations:trackedTranslations},{jsPDF:TrackingPDF,autoTable,fonts});
+        const rtl=language==='ar',near=(a,b)=>Math.abs(a-b)<.12;
+        const rail=4.5,recordWidth=281-rail,column=recordWidth/3;
+        const anchors=Array.from({length:3},(_,i)=>rtl?289-i*column-2.6:8+rail+i*column+2.6);
+        const notes=seen.filter(v=>anchors.some(x=>near(v.x,x))&&v.y>23&&v.y<194);
+        assert.ok(notes.length>8,'long observation rendered '+language);
+        assert.ok(notes.every(v=>v.w<=column-5.2+.12),'observation within column '+language);
+        const longPieces=notes.filter(v=>/[A-F0-9]{8,}/.test(v.text));
+        assert.ok(longPieces.length>2,'overlong token wraps '+language);
+        if(!rtl){
+            const heading=seen.find(v=>v.text.startsWith('#1 |'));
+            const dossier=seen.find(v=>v.text.startsWith('SPACING-TEST'));
+            const age=seen.find(v=>v.text.startsWith(translations[language].pdfAgeShort+':'));
+            const sex=seen.find(v=>v.text.startsWith(translations[language].gender+':'));
+            const pb=seen.find(v=>v.text.startsWith(translations[language].pdfMuacShort+':'));
+            assert.ok(heading&&dossier&&age&&sex&&pb);
+            assert.ok(near(dossier.y-heading.y,3.8)&&near(age.y-dossier.y,3.8)&&near(pb.y-sex.y,3.8),'equal identity gaps '+language);
+            const obs=seen.find(v=>v.text===PDFManager.detailedLabels(language).observations);
+            assert.ok(obs);
+            const first=notes.find(v=>v.page===obs.page&&near(v.x,obs.x)&&near(v.y,obs.y+3.8));
+            assert.ok(first?.text.startsWith('·'),'title close to first note '+language);
+        }
+        assert.ok(report.pages>=1);
+    }
+});
