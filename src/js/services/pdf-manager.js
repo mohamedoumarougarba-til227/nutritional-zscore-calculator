@@ -123,6 +123,24 @@ class PDFManager {
             ar:{observations:'الملاحظات والتحقق',height:'القامة',length:'الطول مستلقيًا',birth:'تاريخ الميلاد',days:'يوم',month:'شهر',year:'سنة',years:'سنوات',head:'محيط الرأس',mm:'مم',cm:'سم',g:'غرام',stored:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين.',exported:'تاريخ التصدير'}
         }[language];
     }
+    // Presentation/filenames use the device's local clock, including its offset at
+    // the instant of export. Stored clinical dates and interchange timestamps stay unchanged.
+    static exportClock(now=new Date()) {
+        const pad=value=>String(value).padStart(2,'0');
+        const date=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+        const time=pad(now.getHours())+':'+pad(now.getMinutes());
+        const offset=-now.getTimezoneOffset(),sign=offset<0?'-':'+',absolute=Math.abs(offset);
+        const zone=sign+pad(Math.floor(absolute/60))+':'+pad(absolute%60);
+        return {date,time,zone,seconds:pad(now.getSeconds()),milliseconds:String(now.getMilliseconds()).padStart(3,'0')};
+    }
+    static exportTimestamp(now,language='fr') {
+        const c=this.exportClock(now);
+        return this.detailedDate(c.date,language)+' '+c.time+' UTC'+c.zone;
+    }
+    static exportFileStamp(now=new Date()) {
+        const c=this.exportClock(now);
+        return c.date+'T'+c.time.replace(':','-')+'-'+c.seconds+'-'+c.milliseconds+c.zone.replace(':','-');
+    }
     static detailedDate(value,language) {
         return language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
     }
@@ -520,7 +538,7 @@ class PDFManager {
             if(key===active.at(-1)&&!selected.has(this.reportSections[0]))line(t('appUsageNotice'),{size:9});
         }
         const count=doc.getNumberOfPages();
-        const issued=date(now.toISOString().slice(0,10))+' '+now.toISOString().slice(11,16)+' UTC';
+        const issued=this.exportTimestamp(now,language);
         for(let i=1;i<=count;i++){
             doc.setPage(i);
             place(language==='ar'?t('brand'):'Z-Score Niger',rtl?right:margin,12,{size:17,bold:true});
@@ -529,8 +547,13 @@ class PDFManager {
             if(reference)place(reference,rtl?margin:right,16,{size:7.5,align:rtl?'left':'right'});
             doc.setDrawColor(50).setLineWidth(.25);
             doc.line(margin,reference?19:16,right,reference?19:16);doc.line(margin,282,right,282);
-            place(t('pdfExported')+' '+issued,margin,287,{size:8,align:'left'});
-            place(t('pdfSensitive'),105,287,{size:8,align:'center'});
+            const exported=t('pdfExported')+' '+issued,confidential=t('pdfSensitive');
+            doc.setFont(font,'normal').setFontSize(8);
+            const confidentialWidth=doc.getTextWidth(safe(confidential));
+            const exportWidth=105-confidentialWidth/2-margin-3;
+            const exportSize=Math.min(8,8*exportWidth/Math.max(1,doc.getTextWidth(safe(exported))));
+            place(exported,margin,287,{size:exportSize,align:'left'});
+            place(confidential,105,287,{size:8,align:'center'});
             place(i+'/'+count,right,287,{size:8,align:'right'});
         }
     }
@@ -642,7 +665,7 @@ class PDFManager {
             .replace(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?\b/g, value => '\u200E'+value+'\u200E');
         const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = 12;
         const compact=batch&&options.layout==='compact';
-        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = now.toISOString();
+        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = this.exportTimestamp(now,language);
         doc.setProperties({title:t('brand')+' - '+title,subject:t('pdfStoredOnly'),author:t('brand'),creator:'Z-score Niger local PDF'});
         doc.setLanguage(language); doc.setCreationDate(now);
         if(!batch){
@@ -679,28 +702,28 @@ class PDFManager {
             const page=doc.internal.getCurrentPageInfo().pageNumber;if(headed.has(page))return;headed.add(page);
             doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,7,8,8,1.3,1.3,'F');
             doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,12.8,{align:'center'});
-            doc.setTextColor(23,99,72);doc.setFontSize(14);doc.text(render(t('brand')+' - '+title),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
+            doc.setTextColor(23,99,72);doc.setFontSize(14);
+            doc.text(render(compact?t('brand')+' - '+title:t('brand')),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
             if(compact){
                 text(t('pdfStoredOnly')+' | '+issued,19,8);
                 doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
                 return;
             }
-            const leftWidth=usable-91,rightWidth=86;
-            const lead=rtl?width-margin:margin,aside=rtl?margin:width-margin;
-            const block=(value,x,y,w,size,bold,align,color)=>{
+            const labels={fr:{records:rows.length===1?'fiche':'fiches',done:'Calculé'},en:{records:rows.length===1?'record':'records',done:'Calculated'},ar:{records:'سجل',done:'محسوب'}}[language];
+            const summary=title+' : '+rows.length+' '+labels.records+' | '+labels.done+' : '+calculated+' | '+t('notCalculated')+' : '+(rows.length-calculated);
+            const oneLine=(value,x,y,w,size,bold,align,color)=>{
                 doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
-                const lines=doc.splitTextToSize(render(value),w);
-                doc.text(lines,x,y,{align});
-                return y+lines.length*size/doc.internal.scaleFactor*1.13+1;
+                const valueText=render(value);
+                doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText))));
+                doc.text(valueText,x,y,{align});
             };
-            const ink=[35,50,45],green=[23,99,72],muted=[65,65,65];
-            let ly=block(t('appUsageNotice'),lead,18,leftWidth,8,false,rtl?'right':'left',ink);
-            if(model.hasPercentiles)ly=block(t('percentileReportHelp'),lead,ly,leftWidth,8,false,rtl?'right':'left',ink);
-            if(model.stale)ly=block(t('stale'),lead,ly,leftWidth,9,true,rtl?'right':'left',ink);
-            let ry=block(t('lotRows')+' : '+rows.length,aside,10,rightWidth,10,true,rtl?'left':'right',green);
-            ry=block(t('pdfBatchCalculated')+' : '+calculated+'  |  '+t('notCalculated')+' : '+(rows.length-calculated),aside,ry,rightWidth,9,true,rtl?'left':'right',green);
-            ry=block(t('pdfSensitive'),aside,ry,rightWidth,7.5,false,rtl?'left':'right',muted);
-            const rule=Math.max(ly,ry)+1;
+            const lead=rtl?width-margin:margin;
+            oneLine(summary,width/2,13,usable/2-2,11,true,rtl?'right':'left',[23,99,72]);
+            oneLine(t('appUsageNotice'),lead,19,usable,8,false,rtl?'right':'left',[35,50,45]);
+            let ly=22;
+            if(model.hasPercentiles)ly=text(t('percentileReportHelp'),ly+2,8);
+            if(model.stale)ly=text(t('stale'),ly+2,9,true);
+            const rule=ly+1;
             doc.setDrawColor(205,216,210);doc.line(margin,rule,width-margin,rule);
             detailedTop=rule+5;
         };
@@ -759,9 +782,21 @@ class PDFManager {
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
             if(compact)doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
             else{
-                const stamp=this.detailedDate(issued.slice(0,10),language)+' '+issued.slice(11,-1)+' UTC';
-                doc.text(render(detailedLabels.stored),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
-                doc.text(render(detailedLabels.exported+' '+stamp),rtl?width-margin:margin,height-4,{align:rtl?'right':'left'});
+                const footer={fr:'Résultats enregistrés, sans recalcul. Scores à 2 décimales. Export : ',en:'Stored results, no recalculation. Two-decimal scores. Export: ',ar:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين. التصدير: '}[language];
+                const left=render(footer+issued),middle=render(t('pdfSensitive')),size=8;
+                const pageWidth=doc.getTextWidth(String(i)+' / '+String(pages));
+                // Allow the middle block to shift just enough to accommodate the
+                // longer timestamp, while reserving the opposite edge for pagination.
+                const gap=3,leftWidth=doc.getTextWidth(left),middleWidth=doc.getTextWidth(middle);
+                const preferred=(width/2-margin)-middleWidth/2;
+                const maxStart=usable-pageWidth-gap-middleWidth;
+                const middleStart=Math.min(maxStart,Math.max(preferred,leftWidth+gap));
+                const fitted=Math.min(size,size*(middleStart-gap)/Math.max(1,leftWidth));
+                doc.setFontSize(fitted);
+                doc.text(left,rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+                doc.setFontSize(size);
+                const center=rtl?width-margin-middleStart-middleWidth/2:margin+middleStart+middleWidth/2;
+                doc.text(middle,center,height-9,{align:'center'});
             }
             doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
             if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});

@@ -787,7 +787,7 @@ class WorkspaceApp {
     downloadQuality(analysis=false) {
         const rows=analysis?QualityUI.analysisRows(this.state.batch):QualityUI.reviewRows(this.state.batch);
         const csv='\uFEFF'+rows.map(row=>row.map(CSVManager.cell).join(',')).join('\r\n');
-        this.download(csv,analysis?'zscore-preparation-analyse.csv':'zscore-controle-qualite.csv','text/csv');
+        this.download(csv,(analysis?'zscore-preparation-analyse':'zscore-controle-qualite')+'-'+PDFManager.exportFileStamp()+'.csv','text/csv');
     }
     static correctedBatch(workspace,index,draft,engine) {
         if(!Number.isInteger(index)||index<0||!workspace?.batch?.[index])throw Error('batchCorrectionChanged');
@@ -1311,8 +1311,8 @@ class WorkspaceApp {
         else if(action==='reporting')this.reportingDialog();
         else if(action==='download-report')this.downloadReport(false);
         else if(action==='download-dhis2')this.downloadReport(true);
-        else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+ClinicalEngine.today()+'.csv','text/csv');}
-        else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats.csv','text/csv'); }
+        else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+PDFManager.exportFileStamp()+'.csv','text/csv');}
+        else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats-'+PDFManager.exportFileStamp()+'.csv','text/csv'); }
         else if(action==='print'){
             if(this.page==='single')await this.individualReportDialog(true);
             else if(this.page==='batch'&&this.state.batch.length&&!this.pdfBusy){
@@ -1359,7 +1359,7 @@ class WorkspaceApp {
         const report=ReportingUI.aggregate(this.reportingEntries,period);
         let output=report;
         if(dhis2){let profile;try{profile=JSON.parse(document.getElementById('report-profile').value);}catch(_){throw new Error('reportMappingInvalid');}output=ReportingUI.dhis2(report,profile);}
-        this.download(JSON.stringify(output,null,2),'zscore-'+(dhis2?'dhis2-':'aggregate-')+period+'.json','application/json');
+        this.download(JSON.stringify(output,null,2),'zscore-'+(dhis2?'dhis2-':'aggregate-')+period+'-'+PDFManager.exportFileStamp()+'.json','application/json');
         this.toast('reportExported');
     }
     passwordDialog(file=null) {
@@ -1397,7 +1397,7 @@ class WorkspaceApp {
             catch(error){if(!snapshot)throw error;unsaved=snapshot;}
             let content=await this.transfers().export(this.prefs,n=>this.transferStatus(n),unsaved);
             if(password!==null)content=await SecureBackup.encrypt(content,password);
-            this.download(content,'zscore-sauvegarde-'+new Date().toISOString().replace(/[:.]/g,'-')+(password!==null?'.zscore.enc':'.zscore'),password!==null?'application/octet-stream':'application/x-ndjson');this.toast(unsaved?'exportUnsaved':password!==null?'encryptedReady':'exportSensitive',!!unsaved);
+            this.download(content,'zscore-sauvegarde-'+PDFManager.exportFileStamp()+(password!==null?'.zscore.enc':'.zscore'),password!==null?'application/octet-stream':'application/x-ndjson');this.toast(unsaved?'exportUnsaved':password!==null?'encryptedReady':'exportSensitive',!!unsaved);
             if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();}
         }finally{this.transferBusy=false;this.transferStatus();document.querySelectorAll('[data-action="export-backup"],[data-action="password-export"]').forEach(b=>{b.disabled=false;});}
     }
@@ -1466,12 +1466,13 @@ class WorkspaceApp {
         document.querySelectorAll('[data-action="export-pdf"]').forEach(button=>{button.disabled=true;});
         try{
             const fonts=this.pdfFonts||await PDFManager.loadFonts();this.pdfFonts=fonts;
-            const result=PDFManager.build(entries,options,{jsPDF:window.jspdf?.jsPDF,autoTable:window.autoTable,fonts});
+            const now=new Date();
+            const result=PDFManager.build(entries,options,{jsPDF:window.jspdf?.jsPDF,autoTable:window.autoTable,fonts,now});
             if(report.printWindow){
                 const url=URL.createObjectURL(new Blob([result.bytes],{type:'application/pdf'}));
                 report.printWindow.location.replace(url);
                 setTimeout(()=>URL.revokeObjectURL(url),60000);
-            }else this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.pdf','application/pdf');
+            }else this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+PDFManager.exportFileStamp(now)+'.pdf','application/pdf');
             this.toast('pdfReady');
         }catch(error){report.printWindow?.close();this.toast(error.message==='pdfInvalid'?'pdfInvalid':'pdfUnavailable',true);}
         finally{this.pdfBusy=false;document.querySelectorAll('[data-action="export-pdf"]').forEach(button=>{button.disabled=this.page==='batch'&&!this.state.batch.length;});}
