@@ -264,9 +264,10 @@ test('horizontal blocks keep calculated and uncalculated lots readable and use f
 test('detailed grid reserves identity and screening, rotates imported markers and shortens common notes',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const first=visit(0,{caseId:'GRID-FIRST'}),second=visit(10,{caseId:'GRID-SECOND'});
-    const entries=[first,second].map(e=>({...e,result:{...e.result,imported:true}})),before=JSON.stringify(entries),seen=[];
+    const entries=[first,second].map(e=>({...e,result:{...e.result,imported:true}})),before=JSON.stringify(entries),seen=[],matrices=[];
     function TrackingPDF(options){
-        const doc=new jsPDF(options),draw=doc.text.bind(doc);
+        const doc=new jsPDF(options),draw=doc.text.bind(doc),write=doc.internal.write.bind(doc.internal);
+        doc.internal.write=(...args)=>{if(/^0 1 -1 0 .* cm$/.test(String(args[0])))matrices.push({command:args[0],page:doc.internal.getCurrentPageInfo().pageNumber});return write(...args);};
         doc.text=(value,x,y,opts,...rest)=>{
             for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,angle:opts?.angle||0,page:doc.internal.getCurrentPageInfo().pageNumber});
             return draw(value,x,y,opts,...rest);
@@ -283,7 +284,11 @@ test('detailed grid reserves identity and screening, rotates imported markers an
     assert.ok(seen.some(v=>v.text.includes('GRID-FIRST · 03/01/2026')));
     const imported=seen.filter(v=>v.text.startsWith('Résultat importé'));
     assert.equal(imported.length,2);
-    assert.ok(imported.every(v=>v.angle===90&&v.x<10));
+    assert.equal(matrices.length,2);assert.ok(imported.every(v=>v.x>8&&v.x<12&&matrices.some(m=>m.page===v.page)));
+    const pb=seen.filter(v=>v.text.startsWith('PB:'));
+    assert.equal(pb.length,2);assert.ok(pb.every(v=>v.x===heading.x));
+    assert.ok(seen.filter(v=>v.text.startsWith('IMC:')).every(v=>v.x>heading.x));
+    assert.equal(seen.filter(v=>v.text==='46.0 cm').length,0,'duplicate supplementary measure removed');
     assert.equal(seen.filter(v=>v.text.startsWith('IMC/âge : repère')).length,1);
     assert.ok(!seen.some(v=>v.text.includes('aucune décision de soins automatique')));
     const screening=seen.filter(v=>v.text===translations.fr.uiScreening);

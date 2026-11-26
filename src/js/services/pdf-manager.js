@@ -187,7 +187,7 @@ class PDFManager {
         if(Number.isFinite(r?.correctedHeight)&&Math.abs(r.correctedHeight-c.height)>.01)measures.push(f(t('adjustedHeight'),u(r.correctedHeight,1,l.cm)));
         const pb=Number.isFinite(c.muac)?f(t('pdfMuacShort'),u(c.muac,1,l.mm)):'';
         const bmi=Number.isFinite(r?.bmi)?f(t('bmi'),u(r.bmi,2,'kg/m²')):'';
-        if(pb||bmi)measures.push(pair(pb,bmi));
+        if(pb)measures.push(pb);
         for(const key of SupplementaryPDF.fields)if(SupplementaryPDF.present(c[key])){
             measures.push(f(key==='headCircumference'?l.head:short(key),u(c[key],1,key==='headCircumference'?l.cm:l.mm)));
         }
@@ -213,7 +213,7 @@ class PDFManager {
         }
         if(observations.length)notes.push(...observations);
         return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language,model.dateFormat)].join('\n'),
-            measures:measures.join('\n'),primaryMeasures:[ageLine,weightHeight,sexOedema],otherMeasures:measures.filter(v=>v!==ageLine&&v!==weightHeight&&v!==sexOedema),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
+            measures:[...measures,...(bmi?[bmi]:[])].join('\n'),bmi,primaryMeasures:[ageLine,weightHeight,sexOedema],otherMeasures:measures.filter(v=>v!==ageLine&&v!==weightHeight&&v!==sexOedema),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
     }
     static compact(model) {
         const categories=new Map(),notes=new Map();
@@ -770,7 +770,7 @@ class PDFManager {
             // Each child is one horizontal record block, rather than a tall grid row.
             // Measure wrapping before drawing, keep complete blocks together when they
             // fit, and split only genuinely oversized blocks with an explicit marker.
-            const inset=1.7,step=3.45,pad=1.35,gap=2.2,limit=height-bottom;
+            const inset=1.7,step=3.45,pad=1.35,gap=2.2,limit=height-bottom,rail=4.5,recordWidth=usable-rail;
             const ink=[32,44,39],green=[23,99,72],muted=[70,79,75];
             const makeLines=(value,w,bold=false,color=ink,size=8.5)=>{
                 doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);
@@ -784,11 +784,15 @@ class PDFManager {
                 const h=bandHeight(b,n);
                 if(b.fill){doc.setFillColor(...b.fill);doc.rect(margin,top,usable,h,'F');}
                 let offset=0;
+                const leftReserve=Math.max(0,usable-b.cells.reduce((sum,c)=>sum+c.w,0));
                 for(const c of b.cells){
-                    const left=rtl?width-margin-offset-c.w:margin+offset;
+                    const left=rtl?width-margin-offset-c.w:margin+leftReserve+offset;
+                    let lineY=top+pad+2.65;
                     for(const [i,line] of c.lines.slice(start,start+n).entries()){
+                        if(i)lineY+=line.before||0;
                         doc.setFont(font,line.bold?'bold':'normal');doc.setFontSize(line.size);doc.setTextColor(...line.color);
-                        if(line.text)doc.text(line.text,rtl?left+c.w-inset:left+inset,top+pad+2.65+i*step,{align:rtl?'right':'left'});
+                        if(line.text)doc.text(line.text,rtl?left+c.w-inset:left+inset,lineY,{align:rtl?'right':'left'});
+                        lineY+=c.leading||step;
                     }
                     offset+=c.w;
                 }
@@ -803,14 +807,19 @@ class PDFManager {
             for(const [index,row] of rows.entries()){
                 const entry=entries[index],result=entry.result,detailed=this.detailedRow(entry,row,model);
                 const heading='#'+row.index+' | '+row.briefIdentity[0];
-                const identityWidth=usable*.265,screeningWidth=usable*.18,fieldWidth=(usable-identityWidth-screeningWidth)/4;
-                const id=cell(identityWidth,[
-                    {value:heading,bold:true,color:green,size:10},
-                    {value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted},
-                    ...detailed.primaryMeasures.map(value=>({value}))
-                ]);
-                // Four central columns; the last column is reserved for screening.
-                const fields=detailed.otherMeasures.flatMap(line=>line.split(' · '));
+                const identityWidth=recordWidth*.265,screeningWidth=recordWidth*.18,fieldWidth=(recordWidth-identityWidth-screeningWidth)/4;
+                const identityGroups=[
+                    [{value:heading,bold:true,color:green,size:10},{value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted}],
+                    detailed.primaryMeasures.map(value=>({value})),
+                    detailed.otherMeasures.map(value=>({value}))
+                ].filter(group=>group.length);
+                const id={w:identityWidth,leading:3.0,lines:identityGroups.flatMap((group,i)=>{
+                    const lines=cell(identityWidth,group).lines;
+                    if(i&&lines.length)lines[0].before=.8;
+                    return lines;
+                })};
+                // Only stored scores occupy the four middle columns; the input
+                // measurements now live with the identity. BMI is a stored result.
                 const right=Array.from({length:4},()=>[]);
                 const emptyLine=()=>({text:'',bold:false,color:ink,size:8.5});
                 const appendGrid=groups=>{
@@ -825,7 +834,6 @@ class PDFManager {
                         });
                     }
                 };
-                appendGrid(fields.map(value=>[{value}]));
                 const oedemaNote=t('oedemaWarning'),originalNotes=detailed.notes==='—'?[]:detailed.notes.split('\n');
                 const notes=originalNotes.filter(v=>v!==t('screeningTitle')&&v!==t('additionalResults'));
                 const groups=model.indicators.map((key,i)=>{
@@ -835,7 +843,7 @@ class PDFManager {
                         lines=lines.filter(v=>v!==oedemaNote);
                         if(lines[0]===t('notCalculated'))lines[0]=t('pdfOedemaSuspended');
                     }
-                    return [{value:t(key),bold:true,color:green},{value:lines.shift(),bold:true},...lines.map(value=>({value}))];
+                    return [{value:t(key),bold:true,color:green},...(key==='bmiForAge'&&detailed.bmi?[{value:detailed.bmi}]:[]),{value:lines.shift(),bold:true},...lines.map(value=>({value}))];
                 });
                 const protocol=result?.nutrition?(NutritionPDF.is2025(result.nutrition)?t('screeningTitlePcima2025'):NutritionPDF.isNational(result.nutrition)?t('screeningTitlePcima'):t('uiScreening')):t('uiScreening');
                 const orientation=result?.nutrition?.orientation,orientationShort=orientation?t(orientation+'Short'):'';
@@ -847,11 +855,16 @@ class PDFManager {
                     const prefix=t(key)+' : ',i=notes.findIndex(v=>v.startsWith(prefix));
                     if(i<0)continue;
                     const note=notes.splice(i,1)[0].slice(prefix.length),parts=note.split(' | ');
-                    // Keep the supplementary measure, score, centile, classification
-                    // and any warning exactly as provided by the stored report model.
-                    const values=parts[1]?.startsWith('Z = ')?[parts[0],parts[1]+(parts[2]?.startsWith('P ')?' | '+parts[2]:''),...parts.slice(parts[2]?.startsWith('P ')?3:2)]:parts;
-                    supplemental.push([{value:t(key),bold:true,color:green},...values.map((value,j)=>({value,bold:j===1}))]);
+                    // Suppress a repeated measure only when it exactly matches
+                    // the recorded input and its expected unit. Preserve mismatches
+                    // or missing input for traceability, including suspended scores.
+                    const fields={headCircumferenceForAge:['headCircumference','cm'],armCircumferenceForAge:['muac','mm'],tricepsForAge:['tricepsSkinfold','mm'],subscapularForAge:['subscapularSkinfold','mm']};
+                    const spec=fields[key],stored=result.additionalGrowth.indicators[key];
+                    const duplicate=spec&&Number.isFinite(entry.child[spec[0]])&&stored.measure===entry.child[spec[0]]&&stored.unit===spec[1];
+                    const values=parts[1]?.startsWith('Z = ')?[...(duplicate?[]:[parts[0]]),parts[1]+(parts[2]?.startsWith('P ')?' | '+parts[2]:''),...parts.slice(parts[2]?.startsWith('P ')?3:2)]:parts.slice(duplicate?1:0);
+                    supplemental.push([{value:t(key),bold:true,color:green},...values.map(value=>({value,bold:value.startsWith('Z = ')}))]);
                 }
+                if(detailed.bmi&&!model.indicators.includes('bmiForAge'))supplemental.push([{value:detailed.bmi}]);
                 if(supplemental.length)appendGrid(supplemental);
                 const bands=[band([id,...right.map(lines=>({w:fieldWidth,lines})),screening],[247,250,248])];
                 // A repeated generic statement is moved once to the end of the
@@ -865,9 +878,9 @@ class PDFManager {
                     }
                 }
                 const uniqueNotes=[...new Set(notes.filter(Boolean))];
-                const mWidth=usable/3;
+                const mWidth=recordWidth/3;
                 if(uniqueNotes.length){
-                    bands.push(band([cell(usable,[{value:detailedLabels.observations,bold:true,color:green}])]));
+                    bands.push(band([cell(recordWidth,[{value:detailedLabels.observations,bold:true,color:green}])]));
                     // Keep note order (column by column) and wrap complete observations
                     // in three broad text columns. No clinical note is dropped.
                     const groups=uniqueNotes.map(v=>makeLines('· '+v,mWidth,false,ink,8.5));
@@ -887,21 +900,29 @@ class PDFManager {
                 const finishRecordFragment=()=>{
                     closeFragment(top,y);
                     if(firstFragment&&result?.imported){
-                        // Status rotated on the physical left edge, outside the content inset.
+                        // Draw a dedicated rail inside the printable block. Use
+                        // an explicit PDF graphics transform, not jsPDF's angle +
+                        // centered-alignment combination (which can misplace text).
+                        doc.setFillColor(...green);doc.rect(margin,top,rail,y-top,'F');
                         doc.setFont(font,'bold');doc.setFontSize(7.5);
                         const label=render(local.imported),length=Math.max(doc.getTextWidth(label),doc.getTextWidth(visual(label)));
                         const available=Math.max(1,y-top-4),size=Math.min(7.5,7.5*available/Math.max(1,length));
                         doc.setFontSize(size);
-                        const span=Math.min(available,length*size/7.5)+2,center=(top+y)/2;
-                        doc.setFillColor(247,250,248);doc.rect(margin-2.7,center-span/2,3.5,span,'F');
-                        doc.setTextColor(...green);doc.text(label,margin+.45,center,{angle:90,align:'center'});
+                        const x=margin+3.2,center=(top+y)/2,textLength=Math.max(doc.getTextWidth(label),doc.getTextWidth(visual(label)));
+                        const baseline=center+textLength/2,k=doc.internal.scaleFactor,X=x*k,Y=(height-baseline)*k;
+                        doc.setTextColor(255,255,255);
+                        doc.internal.write('q');
+                        try{
+                            doc.internal.write('0 1 -1 0 '+(X+Y).toFixed(6)+' '+(Y-X).toFixed(6)+' cm');
+                            doc.text(label,x,baseline,{align:'left'});
+                        }finally{doc.internal.write('Q');}
                     }
                     firstFragment=false;
                 };
                 const continuation=()=>{
                     finishRecordFragment();
                     nextPage();top=y;
-                    const marker=band([cell(usable,[{value:t('pdfRowContinuation').replace('{number}',row.index),bold:true,color:green}])],[239,246,241]);
+                    const marker=band([cell(recordWidth,[{value:t('pdfRowContinuation').replace('{number}',row.index),bold:true,color:green}])],[239,246,241]);
                     y=drawBand(marker,0,marker.length,y);
                 };
                 for(const [bi,b] of bands.entries()){
