@@ -3,8 +3,8 @@
   "version": "5.14.0",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8841278,
-  "sha256": "6ca0436f0d7fc9d9fedf693936cf66984e1f266e4c2b91253c145d946e87ef1e",
+  "bytes": 8841977,
+  "sha256": "b3695607dcc519373fa386b74fb45a6867291a576cd0e9f9735acbea022b45e6",
   "files": [
     {
       "file": ".gitattributes",
@@ -453,8 +453,8 @@
     },
     {
       "file": "src/js/workspace-app.js",
-      "bytes": 219139,
-      "sha256": "46cf972d900050ea4765aacb63448866fec45800666d11c3d464eb31c77facca"
+      "bytes": 219324,
+      "sha256": "f23cdf26a2101b9d076a85fff451457c83414648340a115c28320dc745768dcc"
     },
     {
       "file": "src/js/workspace-bootstrap.js",
@@ -593,8 +593,8 @@
     },
     {
       "file": "tools/public-tests/public.test.cjs",
-      "bytes": 36839,
-      "sha256": "dda379b5a1d4ec6b9872e3035cc992de9208e3e655f8f19eda9fae57cc78d7a8"
+      "bytes": 37353,
+      "sha256": "b250182782b38a472c9eb57856787545e468df5c80c7698a88d9fac9271b0312"
     },
     {
       "file": "tools/public-tests/reporting.test.cjs",

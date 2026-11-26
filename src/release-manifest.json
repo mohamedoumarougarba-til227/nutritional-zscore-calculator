@@ -2,8 +2,8 @@
   "format": 1,
   "version": "5.14.0",
   "assets": {
-    "./": "35833d1e4b414b97f405cfb0aa0fbf4f6799c4f02d581bf1f8ca227b100e11ff",
-    "index.html": "35833d1e4b414b97f405cfb0aa0fbf4f6799c4f02d581bf1f8ca227b100e11ff",
+    "./": "d12461c181703b8e66d3fb3ae0c5e19413a924b7aea893124c7a61e27a9e803c",
+    "index.html": "d12461c181703b8e66d3fb3ae0c5e19413a924b7aea893124c7a61e27a9e803c",
     "robots.txt": "dee3e612d442359183376a1dfe9f04c9334786bf0ffe5f87c170ea1e77f9d459",
     "sitemap.xml": "09e69596fdf0dd9a13750e66074b62836b2276800a2bbf80be611e848b6d5036",
     "manifest.json": "6d6f5493c56069d6d4f94760656330e45b9b86384c031db4114b94b1e463c5e2",
@@ -13,7 +13,7 @@
     "data/interface-translations.json": "10191558db46b93574b17b05cfb4ba69a7fc96388137062a04b0d8f6f262f9b8",
     "data/LICENSE-anthro.txt": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2",
     "js/workspace-bootstrap.js": "e12d72f1b49d4751296180675c0b151439cd832700ef64fb8bda9aa08253fc82",
-    "js/workspace-app.js": "46cf972d900050ea4765aacb63448866fec45800666d11c3d464eb31c77facca",
+    "js/workspace-app.js": "f23cdf26a2101b9d076a85fff451457c83414648340a115c28320dc745768dcc",
     "js/services/clinical-engine.js": "f4e866ca41e568f9a31a072768a81abad31fad3a07bc6a191f0ea3be13768387",
     "js/services/history-manager.js": "f737d806ffd9943761f8fb1cc7d4c8a0d904e7cda6cea449da5040a7f51e0043",
     "js/services/transfer-manager.js": "f4b6b9ad4a89a7d020da1227be4d4263234543e283374d869dd83793afb1f0a8",
@@ -52,8 +52,8 @@
     "data/LICENSE-TIL.txt": "60ab90104a6fce406ad678d3b5dc8492dc7f0165912152d013723d4e37cb9b3b",
     "data/who-data-sources.zip": "b1af0334e74603f1825193f2a8d0bd1cffcce285fe0ad422e14541150a760b37",
     "data/who-data-sources.json": "641eb776f3dee5894bb19649c55c79ed38060d1346c61e8e917a65c5bafbd8cc",
-    "data/zscore-sources.zip": "6ca0436f0d7fc9d9fedf693936cf66984e1f266e4c2b91253c145d946e87ef1e",
-    "data/zscore-sources.json": "0cb62bd93f4cfd43c3b397452ed9cd060552406a6517b62ad230c6b14f354d98",
+    "data/zscore-sources.zip": "b3695607dcc519373fa386b74fb45a6867291a576cd0e9f9735acbea022b45e6",
+    "data/zscore-sources.json": "954a2448cb402bb83b16cf3c6f36204fa2d59ee7957fd5cde9ae14fa397415fc",
     "vendor/pdf/NOTICE-report.txt": "62737eead55cce21047c84826116418612d79ee09ee686d25ae4279ba528b4e0",
     "vendor/pdf/report-provenance.json": "3772c55fc0cea5d50363d27dcad524f3aa0481c7831a514ff43cbed5e67c8652",
     "js/services/pcima-niger-2025.js": "7b6d69fb8027cd7ca5c0b387de07c34e822ce47a85e4900ad489dc980501a602",
@@ -75,5 +75,5 @@
     "js/services/pcima-niger.js": "ab9dc67095369e1c7b9ca6a374087809fb5354606f9642610db4ca38a66b4d49"
   },
   "workerTemplateSHA256": "8b6262842f9adbfc4b419f983e8c079bf66f643ac084638e8978a02fe0f2f118",
-  "id": "97cd6e56ffbd4c3a2e8a4dde8eb1493fb4372e5bfa79148da73f669372dc5434"
+  "id": "71c528a9b55cda9a14e817a37dd1c4a555e7dae31a717cd736e8965a744a86e6"
 }

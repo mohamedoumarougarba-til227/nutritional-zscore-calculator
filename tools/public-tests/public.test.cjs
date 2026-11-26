@@ -14,6 +14,14 @@ const {SupplementaryGrowth}=require('../../src/js/services/supplementary-growth.
 const {LotAnalysis}=require('../../src/js/components/lot-analysis.js');
 const json=file=>JSON.parse(fs.readFileSync(path.join(__dirname,'../..',file),'utf8'));
 
+test('the startup fallback remains available when bootstrap and PDF services are missing',()=>{
+    const vm=require('node:vm'),root={setAttribute(name,value){this[name]=value;},append(button){this.retry=button;}};
+    const document={getElementById:()=>root,createElement:()=>({addEventListener(){}})};
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../src/js/workspace-app.js'),'utf8'),{document});
+    assert.equal(root.role,'alert');
+    assert.match(root.retry.textContent,/Réessayer/);
+});
+
 test('offline installation does not wait for the pinned GPL source downloads',async()=>{
     const vm=require('node:vm'),scope='https://example.test/',handlers={},writes=new Map(),requests=[];
     const read=name=>fs.readFileSync(path.join(__dirname,'../../src',name));
