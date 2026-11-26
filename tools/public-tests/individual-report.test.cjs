@@ -181,11 +181,11 @@ test('export clock follows local date, time and offset without changing stored t
         assert.equal(instant.toISOString(),'2026-11-25T23:33:36.157Z');
     }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
 });
-test('detailed batch header and footer stay on a shared baseline without overlap',()=>{
+test('both batch layouts use compact margins, aligned heading and two-line footer without overlap',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
-    const entry=visit(),entries=[{child:entry.child,result:null}],now=new Date('2026-11-25T23:33:36Z');
-    for(const language of ['fr','en','ar']){
-        const seen=[];
+    const entry=visit(),now=new Date('2026-11-25T23:33:36Z');
+    for(const language of ['fr','en','ar'])for(const layout of ['detailed','compact'])for(const calculated of [false,true]){
+        const entries=[calculated?entry:{child:entry.child,result:null}],seen=[];
         function TrackingPDF(options){
             const doc=new jsPDF(options),draw=doc.text.bind(doc);
             doc.text=(value,x,y,opts,...rest)=>{
@@ -194,25 +194,29 @@ test('detailed batch header and footer stay on a shared baseline without overlap
             };return doc;
         }
         TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
-        PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF:TrackingPDF,autoTable,fonts,now});
-        // The renderer passes visual-order Arabic glyphs to jsPDF. Check the
-        // physical positions for every language and logical strings in LTR.
-        const rtl=language==='ar',edge=rtl?285:12;
+        const calls=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
+        const report=PDFManager.build(entries,{mode:'batch',layout,language,translations},{jsPDF:TrackingPDF,autoTable:track,fonts,now});
+        // Check physical positions even when Arabic glyphs are in visual order.
+        const rtl=language==='ar',edge=rtl?289:8,opposite=rtl?8:289;
         const near=(a,b)=>Math.abs(a-b)<.1;
-        const brand=seen.find(v=>near(v.y,13)&&near(v.x,rtl?274:23));
-        const summary=seen.find(v=>near(v.y,13)&&near(v.x,rtl?12:285)&&v.align===(rtl?'left':'right'));
-        assert.ok(brand?.text&&summary?.text,'header blocks '+language);
+        const brand=seen.find(v=>near(v.y,11)&&near(v.x,rtl?278:19));
+        const summary=seen.find(v=>near(v.y,11)&&near(v.x,opposite)&&v.align===(rtl?'left':'right'));
+        assert.ok(brand?.text&&summary?.text,'header blocks '+language+' '+layout);
         assert.ok(summary.text.includes('|'),'summary separator '+language);
-        const notice=seen.filter(v=>near(v.y,20)&&near(v.x,edge));
-        const methodology=seen.filter(v=>near(v.y,24)&&near(v.x,edge));
-        assert.equal(methodology.length,1,'stored-results statement '+language);
-        assert.equal(notice.length,1,'single-line notice '+language);
+        assert.equal(calls[0].margin.left,8);assert.equal(calls[0].margin.right,8);assert.equal(calls[0].margin.bottom,16);
+        const methodology=seen.filter(v=>near(v.y,15)&&near(v.x,opposite));
+        assert.equal(methodology.length,report.pages,'stored-results statement '+language);
+        const notice=seen.filter(v=>near(v.y,200)&&near(v.x,148.5)&&v.align==='center');
+        assert.equal(notice.length,report.pages,'single-line clinical footer '+language);
+        const percentile=seen.filter(v=>near(v.y,19)&&near(v.x,edge));
+        assert.equal(percentile.length,calculated?report.pages:0,'conditional single-line percentile help '+language);
+        if(calculated)assert.ok(percentile.every(v=>v.width<=281.1&&v.size>=6),'percentile fits '+language);
         if(!rtl){
             assert.ok(brand.text.includes(translations[language].brand));
-            assert.ok(summary.text.includes(translations[language].pdfBatchTitle));
+            assert.ok(summary.text.includes(translations[language][layout==='compact'?'pdfCompactTitle':'pdfBatchTitle']));
             assert.equal(notice[0].text,translations[language].appUsageNotice);
         }
-        const footer=seen.filter(v=>near(v.y,201));
+        const footer=seen.filter(v=>near(v.y,204.5)).slice(0,3);
         assert.equal(footer.length,3,'three footer blocks '+language);
         assert.ok(footer.every(v=>Math.abs(v.size-footer[0].size)<.01&&v.size>=8),'uniform readable footer '+language);
         assert.ok(footer.some(v=>near(v.x,edge)&&v.text.includes('UTC')));

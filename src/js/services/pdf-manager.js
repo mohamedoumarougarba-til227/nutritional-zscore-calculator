@@ -672,7 +672,7 @@ class PDFManager {
         const glyph = doc.getFont().metadata.characterToGlyph.bind(doc.getFont().metadata);
         const safe = value => Array.from(this.clean(value), char => char === '\n' || glyph(char.codePointAt(0)) ? char : ({'≥':'>=','≤':'<='}[char] || '[U+' + char.codePointAt(0).toString(16).toUpperCase() + ']')).join('')
             .replace(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?\b/g, value => '\u200E'+value+'\u200E');
-        const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = 12;
+        const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = batch?8:12;
         const compact=batch&&options.layout==='compact';
         const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = this.exportTimestamp(now,language,model.timeZone,model.dateFormat);
         doc.setProperties({title:t('brand')+' - '+title,subject:t('pdfStoredOnly'),author:t('brand'),creator:'Z-score Niger local PDF'});
@@ -706,54 +706,43 @@ class PDFManager {
         const headed=new Set(),usable=width-2*margin;
         const calculated=entries.filter(e=>!!e.result).length;
         const detailedLabels=this.detailedLabels(language);
-        let detailedTop=28;
+        const bottom=16;
+        let batchTop=24;
+        const oneLine=(value,x,y,w,size,bold,align,color)=>{
+            doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
+            const valueText=render(value);
+            doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText),doc.getTextWidth(visual(valueText)))));
+            doc.text(valueText,x,y,{align});
+        };
         const header=()=>{
             const page=doc.internal.getCurrentPageInfo().pageNumber;if(headed.has(page))return;headed.add(page);
-            doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,7,8,8,1.3,1.3,'F');
-            doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,12.8,{align:'center'});
+            doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,5,8,8,1.3,1.3,'F');
+            doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,10.8,{align:'center'});
             doc.setTextColor(23,99,72);doc.setFontSize(14);
-            doc.text(render(compact?t('brand')+' - '+title:t('brand')),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
-            if(compact){
-                text(detailedLabels.stored+' | '+issued,19,8);
-                doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
-                return;
-            }
+            doc.text(render(t('brand')),rtl?width-margin-11:margin+11,11,{align:rtl?'right':'left'});
             const labels={fr:{records:rows.length===1?'fiche':'fiches',done:'Calculé'},en:{records:rows.length===1?'record':'records',done:'Calculated'},ar:{records:'سجل',done:'محسوب'}}[language];
             const summary=title+' : '+rows.length+' '+labels.records+' | '+labels.done+' : '+calculated+' | '+t('notCalculated')+' : '+(rows.length-calculated);
-            const oneLine=(value,x,y,w,size,bold,align,color)=>{
-                doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
-                const valueText=render(value);
-                doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText),doc.getTextWidth(visual(valueText)))));
-                doc.text(valueText,x,y,{align});
-            };
             const lead=rtl?width-margin:margin,opposite=rtl?margin:width-margin;
             doc.setFont(font,'bold');doc.setFontSize(14);
             const brandText=render(t('brand'));
             const brandWidth=Math.max(doc.getTextWidth(brandText),doc.getTextWidth(visual(brandText)));
-            oneLine(summary,opposite,13,usable-11-brandWidth-10,11.5,true,rtl?'left':'right',[23,99,72]);
-            // Keep the clinical notice readable and the export methodology secondary.
-            // Both are full-width, single-line statements; the footer is reserved for
-            // the same three simple blocks as the individual report.
-            oneLine(t('appUsageNotice'),lead,20,usable,8.5,false,rtl?'right':'left',[65,65,65]);
-            oneLine(detailedLabels.stored,lead,24,usable,8,false,rtl?'right':'left',[90,90,90]);
-            let ly=27;
-            if(model.hasPercentiles)ly=text(t('percentileReportHelp'),ly+2,8);
+            oneLine(summary,opposite,11,usable-11-brandWidth-10,11.5,true,rtl?'left':'right',[23,99,72]);
+            oneLine(detailedLabels.stored,opposite,15,usable/2+20,8,false,rtl?'left':'right',[80,80,80]);
+            let ly=18;
+            if(model.hasPercentiles){
+                oneLine(t('percentileReportHelp').replace(/\s+/g,' '),lead,19,usable,8,false,rtl?'right':'left',[65,65,65]);
+                ly=22;
+            }
             if(model.stale)ly=text(t('stale'),ly+2,9,true);
-            const rule=ly+1;
-            doc.setDrawColor(205,216,210);doc.line(margin,rule,width-margin,rule);
-            detailedTop=rule+5;
+            doc.setDrawColor(205,216,210);doc.line(margin,ly,width-margin,ly);
+            // Reserve space for a continuation marker on subsequent pages.
+            batchTop=ly+5;
         };
-        header();let y=compact?28:detailedTop;
-        if(compact){
-            y=text(t('lotRows')+' : '+rows.length+'   |   '+t('pdfBatchCalculated')+' : '+calculated+'   |   '+t('notCalculated')+' : '+(rows.length-calculated),y,11,true,[23,99,72]);
-            y=text(t('appUsageNotice'),y,8);
-            if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,8);
-            if(model.stale)y=text(t('stale'),y,9,true);
-        }
-        const base={theme:'grid',margin:{top:compact?28:detailedTop,bottom:18,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
+        header();let y=batchTop;
+        const base={theme:'grid',margin:{top:batchTop,bottom,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
             headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
             didParseCell:data=>{data.cell.text=data.cell.text.map(render);}};
-        const ensure=space=>{if(y+space>height-18){doc.addPage();header();y=compact?28:detailedTop;}};
+        const ensure=space=>{if(y+space>height-bottom){doc.addPage();header();y=batchTop;}};
         const section=key=>{ensure(25);y=text(t(key),y,11,true,[23,99,72]);};
         const table=(head,body,widths,overrides={})=>{
             if(!body.length)return;
@@ -765,7 +754,7 @@ class PDFManager {
                     const index=this.continuedRowIndex(data,rtl),page=doc.internal.getCurrentPageInfo().pageNumber;
                     if(!overrides.recordRows||index===null||continuedPages.has(page))return;
                     continuedPages.add(page);const size=doc.getFontSize(),color=doc.getTextColor();
-                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,compact?26:detailedTop-2,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
+                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,batchTop-1.5,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
                 }});
             y=doc.lastAutoTable.finalY+5;
         };
@@ -780,7 +769,7 @@ class PDFManager {
                 const detailed=this.detailedRow(entries[index],r,model);
                 return [String(r.index),detailed.identity,detailed.measures,r.screening,...r.scores.map((_,i)=>this.scoreWithPercentile(r,i)),detailed.notes];
             });
-            const widths=[8,33,63,25],notesWidth=68;
+            const widths=[8,33,63,25],notesWidth=68+(12-margin)*2;
             const remaining=usable-widths.reduce((sum,value)=>sum+value,0)-notesWidth;
             table(labels,body,[...widths,...model.indicators.map(()=>remaining/Math.max(1,count)),notesWidth+(count?0:remaining)],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.15}});
         }
@@ -789,29 +778,25 @@ class PDFManager {
             table([t('pdfCompactCode'),t('referenceVersion'),t('engineVersion')],model.provenances.map((p,i)=>['R'+(i+1),p[0],p[1]]),[18,usable-57,39],{styles:{...base.styles,fontSize:9,cellPadding:1.2}});
         }
         if(compact){
-            section('pdfCompactLegend');y=text(t('pdfCompactHelp'),y,8);
+            section('pdfCompactLegend');y=text(t('pdfBatchLegendEnd')+' '+t('pdfCompactHelp'),y,8);
             table([t('pdfCompactCode'),t('pdfCompactMeaning')],reduced.legend,[19,usable-19],{styles:{...base.styles,fontSize:8.5,cellPadding:1.2}});
         }
         const pages=doc.getNumberOfPages();
         for(let i=1;i<=pages;i++){
             doc.setPage(i);doc.setTextColor(65);doc.setFont(font,'normal');doc.setFontSize(8);
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
-            if(compact)doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
-            else{
-                const exported=render(t('pdfExported')+' '+issued),confidential=render(t('pdfSensitive'));
-                const page=String(i)+' / '+String(pages),size=8.5;
-                doc.setFontSize(size);
-                const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
-                const half=usable/2,gap=5,centerHalf=measured(confidential)/2;
-                // A common font size, equal baseline and fixed physical center.
-                // Shrink uniformly only if a translation would otherwise overlap.
-                const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(page)+centerHalf));
-                doc.setFontSize(common);
-                doc.text(exported,rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
-                doc.text(confidential,width/2,height-9,{align:'center'});
-            }
-            doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
-            if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
+            oneLine(t('appUsageNotice'),width/2,height-10,usable,8,false,'center',[65,65,65]);
+            const exported=render(t('pdfExported')+' '+issued),confidential=render(t('pdfSensitive'));
+            const page=String(i)+' / '+String(pages),size=8.5;
+            doc.setFont(font,'normal');doc.setFontSize(size);doc.setTextColor(65);
+            const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
+            const half=usable/2,gap=5,centerHalf=measured(confidential)/2;
+            const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(page)+centerHalf));
+            doc.setFontSize(common);
+            const baseline=height-5.5;
+            doc.text(exported,rtl?width-margin:margin,baseline,{align:rtl?'right':'left'});
+            doc.text(confidential,width/2,baseline,{align:'center'});
+            doc.text(page,rtl?margin:width-margin,baseline,{align:rtl?'left':'right'});
         }
         if(options.print)doc.internal.events.subscribe('putPage',({pageNumber})=>{if(pageNumber===1)doc.internal.write('/AA << /O << /S /Named /N /Print >> >>');});
         return {bytes:doc.output('arraybuffer'),pages,entries:rows.length};
