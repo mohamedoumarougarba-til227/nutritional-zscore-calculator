@@ -260,3 +260,27 @@ test('horizontal blocks keep calculated and uncalculated lots readable and use f
         assert.ok(calculated.pages<13,'calculated blocks '+language+' '+calculated.pages);
     }
 });
+
+test('detailed grid shares identity and measures, keeps supplementary scores, and renders generic notes only once',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const first=visit(0,{caseId:'GRID-FIRST'}),second=visit(10,{caseId:'GRID-SECOND'});
+    const entries=[first,second].map(e=>({...e,result:{...e.result,imported:true}})),before=JSON.stringify(entries),seen=[];
+    function TrackingPDF(options){
+        const doc=new jsPDF(options),draw=doc.text.bind(doc);
+        doc.text=(value,x,y,opts,...rest)=>{
+            for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,page:doc.internal.getCurrentPageInfo().pageNumber});
+            return draw(value,x,y,opts,...rest);
+        };return doc;
+    }
+    TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+    const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language:'fr',translations},{jsPDF:TrackingPDF,autoTable,fonts});
+    assert.ok(report.pages<=2);
+    const heading=seen.find(v=>v.text.startsWith('#1'));
+    const weight=seen.find(v=>v.text.startsWith(translations.fr.pdfWeightShort+':'));
+    assert.ok(heading&&weight&&heading.page===weight.page&&Math.abs(heading.y-weight.y)<.1&&weight.x>heading.x);
+    assert.equal(seen.filter(v=>v.text.startsWith('Résultat importé')).length,3);
+    assert.equal(seen.filter(v=>v.text.startsWith('IMC/âge : repère')).length,1);
+    assert.equal(seen.filter(v=>v.text===translations.fr.headCircumferenceForAge).length,2);
+    assert.ok(seen.some(v=>v.text.includes('Sexe: M')));
+    assert.equal(JSON.stringify(entries),before);
+});

@@ -180,7 +180,7 @@ class PDFManager {
             const months=c.totalAgeMonths??c.ageTotalMonths;
             measures.push(f(t('referenceEstimated'),Number.isFinite(months)?flexible(months)+' '+l.month+(ageDays?' ('+ageDays+')':''):(ageDays||t('unknown'))));
         }else measures.push(f(t(estimated?'referenceEstimated':'pdfAgeShort'),ageDays||t('unknown')));
-        measures.push(pair(f(t('gender'),t(c.gender==='M'?'male':c.gender==='F'?'female':'unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown'))));
+        measures.push(pair(f(t('gender'),c.gender==='M'||c.gender==='F'?c.gender:t('unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown'))));
         if(Number.isFinite(r?.correctedHeight)&&Math.abs(r.correctedHeight-c.height)>.01)measures.push(f(t('adjustedHeight'),u(r.correctedHeight,1,l.cm)));
         const pb=Number.isFinite(c.muac)?f(t('pdfMuacShort'),u(c.muac,1,l.mm)):'';
         const bmi=Number.isFinite(r?.bmi)?f(t('bmi'),u(r.bmi,2,'kg/m²')):'';
@@ -767,9 +767,9 @@ class PDFManager {
             // Each child is one horizontal record block, rather than a tall grid row.
             // Measure wrapping before drawing, keep complete blocks together when they
             // fit, and split only genuinely oversized blocks with an explicit marker.
-            const inset=2,step=3.6,pad=1.7,gap=2.5,limit=height-bottom;
+            const inset=1.7,step=3.25,pad=1.25,gap=2.2,limit=height-bottom;
             const ink=[32,44,39],green=[23,99,72],muted=[70,79,75];
-            const makeLines=(value,w,bold=false,color=ink,size=9)=>{
+            const makeLines=(value,w,bold=false,color=ink,size=8.5)=>{
                 doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);
                 return String(value).split('\n').flatMap(line=>doc.splitTextToSize(render(line),Math.max(1,w-2*inset)))
                     .map(text=>({text,bold,color,size}));
@@ -785,7 +785,7 @@ class PDFManager {
                     const left=rtl?width-margin-offset-c.w:margin+offset;
                     for(const [i,line] of c.lines.slice(start,start+n).entries()){
                         doc.setFont(font,line.bold?'bold':'normal');doc.setFontSize(line.size);doc.setTextColor(...line.color);
-                        doc.text(line.text,rtl?left+c.w-inset:left+inset,top+pad+2.75+i*step,{align:rtl?'right':'left'});
+                        if(line.text)doc.text(line.text,rtl?left+c.w-inset:left+inset,top+pad+2.65+i*step,{align:rtl?'right':'left'});
                     }
                     offset+=c.w;
                 }
@@ -795,36 +795,78 @@ class PDFManager {
             const closeFragment=(top,end)=>{
                 doc.setDrawColor(190,207,198);doc.setLineWidth(.25);doc.rect(margin,top,usable,end-top,'S');
             };
+            const shared=new Set();
+            const local={fr:{imported:'Résultat importé',shared:'Mentions communes',supplementary:'Indicateurs complémentaires'},en:{imported:'Imported result',shared:'Common notes',supplementary:'Additional indicators'},ar:{imported:'نتيجة مستوردة',shared:'ملاحظات مشتركة',supplementary:'مؤشرات إضافية'}}[language];
             for(const [index,row] of rows.entries()){
-                const detailed=this.detailedRow(entries[index],row,model);
+                const entry=entries[index],result=entry.result,detailed=this.detailedRow(entry,row,model);
                 const heading='#'+row.index+' · '+row.briefIdentity[0];
-                const identity=row.briefIdentity[1]+' · '+t('measurementDate')+' : '+this.detailedDate(row.measurementDate,language,model.dateFormat);
-                const screeningWidth=usable*.31;
-                const bands=[band([
-                    cell(usable-screeningWidth,[{value:heading,bold:true,color:green,size:10},{value:identity,color:muted}]),
-                    cell(screeningWidth,[{value:t('uiScreening'),bold:true,color:green},{value:row.screening,bold:true}])
-                ],[239,246,241])];
-                // Measures have their own wide horizontal strip, leaving each of the
-                // four indicators a full quarter of the page instead of a narrow cell.
-                const measurements=detailed.measures.split('\n');
-                const mWidth=usable/3,measureColumns=Array.from({length:3},()=>[]);
-                const chunk=Math.max(1,Math.ceil(measurements.length/3));
-                measurements.forEach((v,i)=>measureColumns[Math.min(2,Math.floor(i/chunk))].push(v));
-                bands.push(band([cell(usable,[{value:t('pdfMeasures'),bold:true,color:green}])]));
-                bands.push(band(measureColumns.map(col=>cell(mWidth,col.map(value=>({value}))))));
-                const scoreLabels=model.indicators;
-                if(scoreLabels.length){
-                    const scoreWidth=usable/scoreLabels.length;
-                    bands.push(band(scoreLabels.map((key,i)=>{
-                        const lines=this.scoreWithPercentile(row,i).split('\n');
-                        return cell(scoreWidth,[{value:t(key),bold:true,color:green},{value:lines.shift(),bold:true},...lines.map(value=>({value}))]);
-                    }),[247,250,248]));
+                const identityWidth=usable*.205,fieldWidth=(usable-identityWidth)/5;
+                const id=cell(identityWidth,[
+                    {value:heading,bold:true,color:green,size:10},
+                    {value:row.briefIdentity[1],color:muted},
+                    {value:t('measurementDate')+' : '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted},
+                    ...(result?.imported?[{value:local.imported,bold:true,color:muted}]:[])
+                ]);
+                // Pack individual fields from the recorded measurements; unlike
+                // the earlier separate bands, the identity shares their vertical space.
+                const fields=detailed.measures.split('\n').flatMap(line=>line.split(' · '));
+                const right=Array.from({length:5},()=>[]);
+                const appendGrid=groups=>{
+                    for(let i=0;i<groups.length;i+=5){
+                        const cells=Array.from({length:5},(_,j)=>cell(fieldWidth,groups[i+j]||[]));
+                        const h=Math.max(...cells.map(c=>c.lines.length),1);
+                        cells.forEach((c,j)=>{
+                            right[j].push(...c.lines);
+                            for(let k=c.lines.length;k<h;k++)right[j].push({text:'',bold:false,color:ink,size:8.5});
+                        });
+                    }
+                };
+                appendGrid(fields.map(value=>[{value}]));
+                const oedemaNote=t('oedemaWarning'),originalNotes=detailed.notes==='—'?[]:detailed.notes.split('\n');
+                const notes=originalNotes.filter(v=>v!==t('screeningTitle')&&v!==t('additionalResults'));
+                const groups=model.indicators.map((key,i)=>{
+                    let lines=this.scoreWithPercentile(row,i).split('\n');
+                    if(lines.includes(oedemaNote)){
+                        notes.push(oedemaNote);
+                        lines=lines.filter(v=>v!==oedemaNote);
+                        if(lines[0]===t('notCalculated'))lines[0]=t('pdfOedemaSuspended');
+                    }
+                    return [{value:t(key),bold:true,color:green},{value:lines.shift(),bold:true},...lines.map(value=>({value}))];
+                });
+                const protocol=result?.nutrition?(NutritionPDF.is2025(result.nutrition)?t('screeningTitlePcima2025'):NutritionPDF.isNational(result.nutrition)?t('screeningTitlePcima'):t('uiScreening')):t('uiScreening');
+                const orientation=result?.nutrition?.orientation,orientationShort=orientation?t(orientation+'Short'):'';
+                groups.push([{value:protocol,bold:true,color:green},{value:row.screening,bold:true},...(orientationShort&&orientationShort!==orientation+'Short'?[{value:orientationShort,bold:true}]:[])]);
+                for(const label of [protocol,row.screening])for(let i=notes.length-1;i>=0;i--)if(notes[i]===label)notes.splice(i,1);
+                appendGrid(groups);
+                const supplemental=[];
+                for(const key of Object.keys(result?.additionalGrowth?.indicators||{})){
+                    const prefix=t(key)+' : ',i=notes.findIndex(v=>v.startsWith(prefix));
+                    if(i<0)continue;
+                    const note=notes.splice(i,1)[0].slice(prefix.length),parts=note.split(' | ');
+                    // Keep the supplementary measure, score, centile, classification
+                    // and any warning exactly as provided by the stored report model.
+                    const values=parts[1]?.startsWith('Z = ')?[parts[0],parts[1]+(parts[2]?.startsWith('P ')?' | '+parts[2]:''),...parts.slice(parts[2]?.startsWith('P ')?3:2)]:parts;
+                    supplemental.push([{value:t(key),bold:true,color:green},...values.map((value,j)=>({value,bold:j===1}))]);
                 }
-                if(detailed.notes!=='—'){
+                if(supplemental.length)appendGrid(supplemental);
+                const bands=[band([id,...right.map(lines=>({w:fieldWidth,lines}))],[247,250,248])];
+                // A repeated generic statement is moved once to the end of the
+                // report; the relevant row keeps its identifying status/short label.
+                const commonKeys=['importedResult','bmiReportHelp','orientationCompleteAssessment'];
+                for(const key of commonKeys){
+                    const value=t(key),i=notes.indexOf(value);
+                    if(i>=0&&(key!=='orientationCompleteAssessment'||orientationShort===t('orientationCompleteAssessmentShort'))){
+                        shared.add(key);
+                        for(let j=notes.length-1;j>=0;j--)if(notes[j]===value)notes.splice(j,1);
+                    }
+                }
+                const uniqueNotes=[...new Set(notes.filter(Boolean))];
+                const mWidth=usable/3;
+                if(uniqueNotes.length){
                     bands.push(band([cell(usable,[{value:detailedLabels.observations,bold:true,color:green}])]));
                     // Keep note order (column by column) and wrap complete observations
                     // in three broad text columns. No clinical note is dropped.
-                    const groups=detailed.notes.split('\n').map(v=>makeLines('· '+v,mWidth,false,ink,9));
+                    const groups=uniqueNotes.map(v=>makeLines('· '+v,mWidth,false,ink,8.5));
                     const cols=[[],[],[]];let col=0,remaining=groups.reduce((n,g)=>n+g.length,0);
                     for(const g of groups){
                         const target=Math.ceil(remaining/(3-col));
@@ -858,6 +900,13 @@ class PDFManager {
                     }
                 }
                 closeFragment(top,y);y+=gap;
+            }
+            if(shared.size){
+                const heading=band([cell(usable,[{value:local.shared,bold:true,color:green}])],[239,246,241]);
+                const notes=[...shared].map(key=>({value:(key==='orientationCompleteAssessment'?t('orientationCompleteAssessmentShort')+' : ':'')+t(key)}));
+                const detail=band([cell(usable,notes)]);
+                if(y+bandHeight(heading)+bandHeight(detail)>limit)nextPage();
+                const top=y;y=drawBand(heading,0,heading.length,y);y=drawBand(detail,0,detail.length,y);closeFragment(top,y);
             }
         }
         if(compact&&model.provenances.length){
