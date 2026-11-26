@@ -40,6 +40,8 @@ class WorkspaceApp {
         this.prefs = { language: ['fr', 'en', 'ar'].includes(prefs.language) ? prefs.language : localStorage.getItem('zscore-app-language') || 'fr', theme: ['light', 'dark', 'system'].includes(prefs.theme) ? prefs.theme : 'system' };
         if (!['fr', 'en', 'ar'].includes(this.prefs.language)) this.prefs.language = 'fr';
         this.prefs.navCollapsed = prefs.navCollapsed === true;
+        this.prefs.dateFormat=['auto','dmy','mdy','iso'].includes(prefs.dateFormat)?prefs.dateFormat:'auto';
+        this.prefs.timeZone=PDFManager.validTimeZone(prefs.timeZone)?prefs.timeZone:'system';
         this.prefs.growthProfile = ['us','intergrowth'].includes(prefs.growthProfile)?prefs.growthProfile:'who';
         this.prefs.careProtocol=WorkspaceApp.defaultCareProtocol(this.prefs.growthProfile,prefs.careProtocol);
         this.state = this.emptyWorkspace();
@@ -103,8 +105,8 @@ class WorkspaceApp {
         const draft=(value,mode)=>{const html=this.previewDraft(value,mode);return html?`<details><summary>${this.t('draft')} · ${this.t(mode)}</summary>${html}</details>`:'';};
         this.dialog('preview',`<p class="lede">${this.t('stageReadOnly')}</p><p class="meta">${this.date(s.createdAt)}</p>${draft(w.draft,'single')}${draft(w.batchDraft,'batch')}${paste?`<details><summary>CSV</summary><p class="hint">${this.t('stagePastePreview')}</p><pre>${this.esc(paste.slice(0,4000))}</pre></details>`:''}${rows.length?`<div class="table-scroll">${this.tableHTML(rows)}</div>`:''}${w.single?this.resultsHTML(w.single,w.stale,true):''}`,`${this.paginationHTML({current:this.stagePreviewPage,pages,total:entries.length,from:entries.length?this.stagePreviewPage*50+1:0,to:Math.min(entries.length,(this.stagePreviewPage+1)*50)},{action:'stage-detail-page',previousAction:'stage-detail-previous',nextAction:'stage-detail-next'})}<button class="btn primary" data-action="stage-back">${this.t('stageBack')}</button>`);
     }
-    date(value) { const date = new Date(value); return Number.isFinite(date.getTime()) ? date.toLocaleString(this.prefs.language, { dateStyle: 'medium', timeStyle: 'short' }) : this.t('unknown'); }
-    calendarDate(value) { try { ClinicalEngine.dateDays(value); return new Date(value+'T00:00:00Z').toLocaleDateString(this.prefs.language,{dateStyle:'medium',timeZone:'UTC'}); } catch (_) { return this.t('unknown'); } }
+    date(value) { const date = new Date(value); return Number.isFinite(date.getTime()) ? PDFManager.exportTimestamp(date,this.prefs.language,this.prefs.timeZone,this.prefs.dateFormat) : this.t('unknown'); }
+    calendarDate(value) { try { ClinicalEngine.dateDays(value); return PDFManager.detailedDate(value,this.prefs.language,this.prefs.dateFormat); } catch (_) { return this.t('unknown'); } }
     number(value, digits = 2) { return value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'—':Number(value).toLocaleString(this.prefs.language, { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
     async init() {
         try {
@@ -436,12 +438,18 @@ class WorkspaceApp {
         catch(_){this.toast('installUnavailable',true);}
         finally{if(prompted&&globalThis.ReleaseGuard?.installPrompt===prompt)globalThis.ReleaseGuard.installPrompt=null;this.updateInstallStatus();}
     }
+    dateSettingsHTML() {
+        const labels={fr:{zone:'Fuseau horaire',format:'Format des dates',system:'Automatique (appareil)',auto:'Automatique (langue)',help:'Ces préférences modifient l’affichage, jamais les dates de naissance ni les mesures enregistrées. Les champs de date natifs suivent les réglages du navigateur.'},en:{zone:'Time zone',format:'Date format',system:'Automatic (device)',auto:'Automatic (language)',help:'These preferences change display, never recorded birth dates or measurements. Native date fields follow browser settings.'},ar:{zone:'المنطقة الزمنية',format:'تنسيق التاريخ',system:'تلقائي (الجهاز)',auto:'تلقائي (اللغة)',help:'تغيّر هذه الإعدادات العرض فقط دون تغيير تواريخ الميلاد أو القياسات المحفوظة. تتبع حقول التاريخ الأصلية إعدادات المتصفح.'}}[this.prefs.language];
+        const zones=[...new Set(['UTC','Africa/Niamey',Intl.DateTimeFormat().resolvedOptions().timeZone,this.prefs.timeZone,...(Intl.supportedValuesOf?.('timeZone')||[])])].filter(v=>v&&v!=='system'&&PDFManager.validTimeZone(v)).sort();
+        const select=(key,label,choices)=>'<div class="setting-row"><label for="'+key+'-button">'+this.esc(label)+'</label><select class="choice-trigger" id="'+key+'-button" data-date-preference="'+key+'">'+choices.map(([v,name])=>'<option value="'+this.esc(v)+'"'+(this.prefs[key]===v?' selected':'')+'>'+this.esc(name)+'</option>').join('')+'</select></div>';
+        return select('timeZone',labels.zone,[['system',labels.system],...zones.map(v=>[v,v])])+select('dateFormat',labels.format,[['auto',labels.auto],['dmy','JJ/MM/AAAA · DD/MM/YYYY'],['mdy','MM/DD/YYYY'],['iso','YYYY-MM-DD']])+'<p class="hint">'+this.esc(labels.help)+'</p>';
+    }
     settingsHTML() {
         const names={fr:'Français',en:'English',ar:'العربية'};
         const label=kind=>kind==='growthProfile'?'growthProfileDefault':kind==='careProtocol'?'careProtocolDefault':kind;
         const value=kind=>kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':kind==='careProtocol'?this.prefs.careProtocol==='niger2025'?'careNiger2025':this.prefs.careProtocol==='niger2023'?'careNiger2023':'careWHO':this.prefs.theme);
         const picker=kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(label(kind))}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='theme'?this.prefs.theme:kind==='careProtocol'?'references':'language')}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(value(kind))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
-        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div></div>`;
+        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}${this.dateSettingsHTML()}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div></div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -787,7 +795,7 @@ class WorkspaceApp {
     downloadQuality(analysis=false) {
         const rows=analysis?QualityUI.analysisRows(this.state.batch):QualityUI.reviewRows(this.state.batch);
         const csv='\uFEFF'+rows.map(row=>row.map(CSVManager.cell).join(',')).join('\r\n');
-        this.download(csv,(analysis?'zscore-preparation-analyse':'zscore-controle-qualite')+'-'+PDFManager.exportFileStamp()+'.csv','text/csv');
+        this.download(csv,(analysis?'zscore-preparation-analyse':'zscore-controle-qualite')+'-'+PDFManager.exportFileStamp(new Date(),this.prefs.timeZone)+'.csv','text/csv');
     }
     static correctedBatch(workspace,index,draft,engine) {
         if(!Number.isInteger(index)||index<0||!workspace?.batch?.[index])throw Error('batchCorrectionChanged');
@@ -1089,6 +1097,7 @@ class WorkspaceApp {
             }
         });
         document.getElementById('app-root').addEventListener('change', async event => {
+            if(event.target.dataset?.datePreference){const key=event.target.dataset.datePreference,value=event.target.value;if((key==='dateFormat'&&['auto','dmy','mdy','iso'].includes(value))||(key==='timeZone'&&PDFManager.validTimeZone(value))){this.prefs[key]=value;this.persistPreferences();this.render(key+'-button');}return;}
             if(event.target.id==='batch-select-all'||event.target.dataset?.batchSelect!==undefined){this.toggleBatchSelection(event.target);return;}
             if(event.target.matches?.('[data-inline-input]')){if(this.batchInlineEdit&&!this.batchInlineEdit.busy)this.batchInlineEdit.value=event.target.value;return;}
             if(event.target.dataset?.batchUnit){
@@ -1311,8 +1320,8 @@ class WorkspaceApp {
         else if(action==='reporting')this.reportingDialog();
         else if(action==='download-report')this.downloadReport(false);
         else if(action==='download-dhis2')this.downloadReport(true);
-        else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+PDFManager.exportFileStamp()+'.csv','text/csv');}
-        else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats-'+PDFManager.exportFileStamp()+'.csv','text/csv'); }
+        else if(action==='export-summary'){const models=this.lotModels(),model=models.find(m=>m.family===(button.dataset.family||'WHO2006'))||models[0];if(model)this.download(CSVManager.summary(model),'zscore-resume-lot-'+model.family+'-'+PDFManager.exportFileStamp(new Date(),this.prefs.timeZone)+'.csv','text/csv');}
+        else if(action==='csv-results'){ const entries=this.page==='batch'?this.state.batch:this.state.single?[this.state.single]:[]; this.download(CSVManager.results(entries),'zscore-resultats-'+PDFManager.exportFileStamp(new Date(),this.prefs.timeZone)+'.csv','text/csv'); }
         else if(action==='print'){
             if(this.page==='single')await this.individualReportDialog(true);
             else if(this.page==='batch'&&this.state.batch.length&&!this.pdfBusy){
@@ -1359,7 +1368,7 @@ class WorkspaceApp {
         const report=ReportingUI.aggregate(this.reportingEntries,period);
         let output=report;
         if(dhis2){let profile;try{profile=JSON.parse(document.getElementById('report-profile').value);}catch(_){throw new Error('reportMappingInvalid');}output=ReportingUI.dhis2(report,profile);}
-        this.download(JSON.stringify(output,null,2),'zscore-'+(dhis2?'dhis2-':'aggregate-')+period+'-'+PDFManager.exportFileStamp()+'.json','application/json');
+        this.download(JSON.stringify(output,null,2),'zscore-'+(dhis2?'dhis2-':'aggregate-')+period+'-'+PDFManager.exportFileStamp(new Date(),this.prefs.timeZone)+'.json','application/json');
         this.toast('reportExported');
     }
     passwordDialog(file=null) {
@@ -1397,7 +1406,7 @@ class WorkspaceApp {
             catch(error){if(!snapshot)throw error;unsaved=snapshot;}
             let content=await this.transfers().export(this.prefs,n=>this.transferStatus(n),unsaved);
             if(password!==null)content=await SecureBackup.encrypt(content,password);
-            this.download(content,'zscore-sauvegarde-'+PDFManager.exportFileStamp()+(password!==null?'.zscore.enc':'.zscore'),password!==null?'application/octet-stream':'application/x-ndjson');this.toast(unsaved?'exportUnsaved':password!==null?'encryptedReady':'exportSensitive',!!unsaved);
+            this.download(content,'zscore-sauvegarde-'+PDFManager.exportFileStamp(new Date(),this.prefs.timeZone)+(password!==null?'.zscore.enc':'.zscore'),password!==null?'application/octet-stream':'application/x-ndjson');this.toast(unsaved?'exportUnsaved':password!==null?'encryptedReady':'exportSensitive',!!unsaved);
             if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();}
         }finally{this.transferBusy=false;this.transferStatus();document.querySelectorAll('[data-action="export-backup"],[data-action="password-export"]').forEach(b=>{b.disabled=false;});}
     }
@@ -1459,7 +1468,7 @@ class WorkspaceApp {
     async exportPDF(layout='detailed',report={}){
         if(this.pdfBusy)return;
         const mode=this.page==='batch'?'batch':'single',entries=HistoryManager.clone(mode==='batch'?this.state.batch:this.state.single?[this.state.single]:[]);
-        const options={mode,layout,language:this.prefs.language,translations:this.translations,stale:mode==='single'&&this.state.stale,
+        const options={mode,layout,language:this.prefs.language,translations:this.translations,dateFormat:this.prefs.dateFormat,timeZone:this.prefs.timeZone,stale:mode==='single'&&this.state.stale,
             sections:report.sections,charts:report.charts,print:!!report.printWindow};
         if(!entries.length)throw new Error('pdfInvalid');
         this.pdfBusy=true;this.toast('pdfPreparing');
@@ -1472,7 +1481,7 @@ class WorkspaceApp {
                 const url=URL.createObjectURL(new Blob([result.bytes],{type:'application/pdf'}));
                 report.printWindow.location.replace(url);
                 setTimeout(()=>URL.revokeObjectURL(url),60000);
-            }else this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+PDFManager.exportFileStamp(now)+'.pdf','application/pdf');
+            }else this.download(result.bytes,'zscore-'+mode+(mode==='batch'&&layout==='compact'?'-compact':'')+'-'+options.language+'-'+PDFManager.exportFileStamp(now,this.prefs.timeZone)+'.pdf','application/pdf');
             this.toast('pdfReady');
         }catch(error){report.printWindow?.close();this.toast(error.message==='pdfInvalid'?'pdfInvalid':'pdfUnavailable',true);}
         finally{this.pdfBusy=false;document.querySelectorAll('[data-action="export-pdf"]').forEach(button=>{button.disabled=this.page==='batch'&&!this.state.batch.length;});}
@@ -1563,6 +1572,7 @@ class WorkspaceApp {
         const fields=['caseId','name','ageMode',...ageFields,'measurementDate','weight','weightUnit','height','heightUnit','gender','position','oedema','growthProfile','postmenstrualDays','gestationalAgeWeeks','gestationalAgeDays',...NutritionUI.inputFields,...SupplementaryUI.fields];
         const labels = { gender:{M:'male',F:'female'}, position:{L:'lying',H:'standing'}, oedema:{n:'no',y:'yes'} };
         const value = key => {
+            if(['birthDate','measurementDate'].includes(key))return this.calendarDate(draft[key]);
             if(key==='careProtocol')return draft[key]==='niger2025'?this.t('careNiger2025'):draft[key]==='niger2023'?this.t('careNiger2023'):draft[key]==='who2023'?this.t('careWHO'):draft[key];
             if(NutritionUI.inputFields.includes(key)&&key!=='muac'){
                 const label=NutritionUI.observationLabel(key,draft[key],draft.careProtocol==='niger2025'?'2025':draft.careProtocol==='niger2023');

@@ -23,7 +23,7 @@ class PDFManager {
         if (text.length > 6000) throw new Error('pdfInvalid');
         return text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '').replace(/\r\n?/g, '\n');
     }
-    static model(entries, { language = 'fr', translations, stale = false } = {}) {
+    static model(entries, { language = 'fr', translations, stale = false, dateFormat='auto', timeZone='system' } = {}) {
         if (!Array.isArray(entries) || !entries.length || entries.length > 5000 || !['fr', 'en', 'ar'].includes(language) || !translations?.[language]) throw new Error('pdfInvalid');
         const t = key => {const own=table=>table&&Object.hasOwn(table,key)&&typeof table[key]==='string'?table[key]:'';return this.clean(own(translations[language])||own(translations.fr)||key);};
         const number = (value, digits) => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : t('unknown');
@@ -113,7 +113,7 @@ class PDFManager {
             return {index:i+1,screening,identity,measures,compactMeasures,briefMeasures,briefIdentity:[this.clean(c.name||t('unknown')),this.clean(c.caseId||t('unknown'))],measurementDate:this.clean(c.measurementDate||t('unknown')),scores,percentiles,notes:[...new Set(notes.filter(Boolean))],provenance,calculatedAt:this.clean(r?.calculatedAt||t('unknown'))};
         });
         const hasPercentiles=rows.some(row=>row.percentiles.some(Boolean))||entries.some(entry=>Object.values(entry.result?.additionalGrowth?.indicators||{}).some(value=>CentilePDF.text(value)!==null));
-        return {language, t, indicators, rows, stale, provenances,hasPercentiles,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
+        return {language, t, indicators, rows, stale, provenances,hasPercentiles,dateFormat,timeZone,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
     }
     // Detailed batch presentation only: never alter the stored result, individual or compact models.
     static detailedLabels(language) {
@@ -125,24 +125,33 @@ class PDFManager {
     }
     // Presentation/filenames use the device's local clock, including its offset at
     // the instant of export. Stored clinical dates and interchange timestamps stay unchanged.
-    static exportClock(now=new Date()) {
+    static validTimeZone(value) {
+        if(value==='system')return true;
+        if(typeof value!=='string'||!value||value.length>100)return false;
+        try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch(_){return false;}
+    }
+    static exportClock(now=new Date(),timeZone='system') {
         const pad=value=>String(value).padStart(2,'0');
-        const date=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
-        const time=pad(now.getHours())+':'+pad(now.getMinutes());
-        const offset=-now.getTimezoneOffset(),sign=offset<0?'-':'+',absolute=Math.abs(offset);
-        const zone=sign+pad(Math.floor(absolute/60))+':'+pad(absolute%60);
-        return {date,time,zone,seconds:pad(now.getSeconds()),milliseconds:String(now.getMilliseconds()).padStart(3,'0')};
+        const options={calendar:'gregory',numberingSystem:'latn',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'};
+        if(timeZone!=='system'&&this.validTimeZone(timeZone))options.timeZone=timeZone;
+        const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',options).formatToParts(now).map(p=>[p.type,p.value]));
+        const date=parts.year+'-'+parts.month+'-'+parts.day,time=parts.hour+':'+parts.minute;
+        const offset=Math.round((Date.UTC(+parts.year,+parts.month-1,+parts.day,+parts.hour,+parts.minute,+parts.second)-(now.getTime()-now.getMilliseconds()))/60000);
+        const sign=offset<0?'-':'+',absolute=Math.abs(offset),zone=sign+pad(Math.floor(absolute/60))+':'+pad(absolute%60);
+        return {date,time,zone,seconds:parts.second,milliseconds:String(now.getMilliseconds()).padStart(3,'0')};
     }
-    static exportTimestamp(now,language='fr') {
-        const c=this.exportClock(now);
-        return this.detailedDate(c.date,language)+' '+c.time+' UTC'+c.zone;
+    static exportTimestamp(now,language='fr',timeZone='system',dateFormat='auto') {
+        const c=this.exportClock(now,timeZone);
+        return this.detailedDate(c.date,language,dateFormat)+' '+c.time+' UTC'+c.zone;
     }
-    static exportFileStamp(now=new Date()) {
-        const c=this.exportClock(now);
+    static exportFileStamp(now=new Date(),timeZone='system') {
+        const c=this.exportClock(now,timeZone);
         return c.date+'T'+c.time.replace(':','-')+'-'+c.seconds+'-'+c.milliseconds+c.zone.replace(':','-');
     }
-    static detailedDate(value,language) {
-        return language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
+    static detailedDate(value,language,dateFormat='auto') {
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return value;
+        const [y,m,d]=value.split('-'),format=dateFormat==='auto'?(language==='fr'?'dmy':'iso'):dateFormat;
+        return format==='dmy'?d+'/'+m+'/'+y:format==='mdy'?m+'/'+d+'/'+y:value;
     }
     static detailedRow(entry,row,model) {
         const {language,t}=model,{child:c,result:r}=entry,l=this.detailedLabels(language);
@@ -159,7 +168,7 @@ class PDFManager {
         const estimated=['months','totalMonths'].includes(c.ageMode)||c.agePrecision==='completedMonths';
         const ig=r?.intergrowthContext?.age;
         if(c.ageMode==='dates'){
-            measures.push(f(l.birth,this.detailedDate(c.birthDate,language)||t('unknown')));
+            measures.push(f(l.birth,this.detailedDate(c.birthDate,language,model.dateFormat)||t('unknown')));
         }else if(c.ageMode==='pma'){
             measures.push(f(short('postmenstrualDays'),u(ig?.postmenstrualDays??c.postmenstrualDays,0,l.days)));
         }else if(c.ageMode==='months'){
@@ -200,7 +209,7 @@ class PDFManager {
             observations.push(f(t(key),t(NutritionPDF.observationLabel(key,c[key],national))));
         }
         if(observations.length)notes.push(...observations);
-        return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language)].join('\n'),
+        return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language,model.dateFormat)].join('\n'),
             measures:measures.join('\n'),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
     }
     static compact(model) {
@@ -287,8 +296,8 @@ class PDFManager {
         const rtl=language==='ar',margin=12,right=198,width=186,bottom=277;
         const font=options.individualFont||'Amiri';
         const labels={fr:{year:'an',years:'ans',month:'mois',vigilance:'Évaluation clinique et vigilance',engine:'Moteur Z-score',calc:'Calcul',notice:'Repères de croissance selon la référence utilisée. Ne remplacent pas une évaluation clinique. Aucun diagnostic ni prescription automatique.'},en:{year:'year',years:'years',month:'months',vigilance:'Clinical assessment and cautions',engine:'Z-score engine',calc:'Calculated',notice:'Growth indicators use the stated reference. They do not replace clinical assessment. No automatic diagnosis or prescription.'},ar:{year:'سنة',years:'سنوات',month:'شهر',vigilance:'التقييم السريري والتنبيهات',engine:'محرك Z',calc:'الحساب',notice:'مؤشرات النمو حسب المرجع المستخدم. لا تحل محل التقييم السريري. لا تشخيص أو وصفة تلقائية.'}}[language];
-        const date=value=>language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
-        const timestamp=value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value||'')?date(value.slice(0,10))+' '+value.slice(11,-1)+' UTC':value;
+        const date=value=>this.detailedDate(value,language,model.dateFormat);
+        const timestamp=value=>value&&Number.isFinite(Date.parse(value))?this.exportTimestamp(new Date(value),language,model.timeZone,model.dateFormat):value;
         const centile=value=>language==='fr'?String(value??'—').replace(/(\d)\.(\d)/g,'$1,$2'):String(value??'—');
         const number=(value,digits=0)=>Number.isFinite(value)?new Intl.NumberFormat(language,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value):'—';
         const field=(key,value)=>t(key)+': '+(value||t('unknown'));
@@ -538,7 +547,7 @@ class PDFManager {
             if(key===active.at(-1)&&!selected.has(this.reportSections[0]))line(t('appUsageNotice'),{size:9});
         }
         const count=doc.getNumberOfPages();
-        const issued=this.exportTimestamp(now,language);
+        const issued=this.exportTimestamp(now,language,model.timeZone,model.dateFormat);
         for(let i=1;i<=count;i++){
             doc.setPage(i);
             place(language==='ar'?t('brand'):'Z-Score Niger',rtl?right:margin,12,{size:17,bold:true});
@@ -665,7 +674,7 @@ class PDFManager {
             .replace(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?\b/g, value => '\u200E'+value+'\u200E');
         const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = 12;
         const compact=batch&&options.layout==='compact';
-        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = this.exportTimestamp(now,language);
+        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = this.exportTimestamp(now,language,model.timeZone,model.dateFormat);
         doc.setProperties({title:t('brand')+' - '+title,subject:t('pdfStoredOnly'),author:t('brand'),creator:'Z-score Niger local PDF'});
         doc.setLanguage(language); doc.setCreationDate(now);
         if(!batch){
@@ -705,7 +714,7 @@ class PDFManager {
             doc.setTextColor(23,99,72);doc.setFontSize(14);
             doc.text(render(compact?t('brand')+' - '+title:t('brand')),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
             if(compact){
-                text(t('pdfStoredOnly')+' | '+issued,19,8);
+                text(detailedLabels.stored+' | '+issued,19,8);
                 doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
                 return;
             }
@@ -757,7 +766,7 @@ class PDFManager {
         const count=model.indicators.length,scoreWidth=(usable-(compact?8+34+22+48+26+34:9+40+48+27+20))/Math.max(1,count);
         const shortMeasures=r=>r.briefMeasures.filter(line=>line!==t('approximateAge')).join('\n');
         if(compact){
-            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,3),shortMeasures(rows[i]),rows[i].screening,...row.slice(4)]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
+            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,2),this.detailedDate(row[2],language,model.dateFormat),shortMeasures(rows[i]).split('\n').map(line=>line.replace(/\b\d{4}-\d{2}-\d{2}\b/g,v=>this.detailedDate(v,language,model.dateFormat))).join('\n'),rows[i].screening,...row.slice(4,-1),row.at(-1).replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,v=>this.exportTimestamp(new Date(v),language,model.timeZone,model.dateFormat))]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
             const labels=[t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('uiScreening'),...model.indicators.map(t),detailedLabels.observations];
             const body=rows.map((r,index)=>{

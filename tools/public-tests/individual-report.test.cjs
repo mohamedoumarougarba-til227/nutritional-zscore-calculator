@@ -204,3 +204,14 @@ test('detailed batch header and footer stay on a shared baseline without overlap
         for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
     }
 });
+
+test('explicit date and time preferences preserve calendar dates and handle zone changes',()=>{
+    const instant=new Date('2026-11-25T23:33:36.157Z');
+    assert.equal(PDFManager.exportTimestamp(instant,'fr','Africa/Niamey','iso'),'2026-11-26 00:33 UTC+01:00');
+    assert.equal(PDFManager.exportTimestamp(instant,'fr','America/New_York','mdy'),'11/25/2026 18:33 UTC-05:00');
+    assert.equal(PDFManager.exportFileStamp(instant,'Asia/Kathmandu'),'2026-11-26T05-18-36-157+05-45');
+    assert.equal(PDFManager.detailedDate('2024-02-29','fr','mdy'),'02/29/2024');
+    assert.equal(PDFManager.detailedDate('2024-02-29','fr','iso'),'2024-02-29');
+    assert.equal(PDFManager.validTimeZone('Not/AZone'),false);
+    assert.equal(PDFManager.validTimeZone('system'),true);
+});
