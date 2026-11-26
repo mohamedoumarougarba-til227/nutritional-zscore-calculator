@@ -153,6 +153,93 @@ class PDFManager {
         const [y,m,d]=value.split('-'),format=dateFormat==='auto'?(language==='fr'?'dmy':'iso'):dateFormat;
         return format==='dmy'?d+'/'+m+'/'+y:format==='mdy'?m+'/'+d+'/'+y:value;
     }
+    // Layout only: counts[k][i] is the actual wrapped line count for note i
+    // at k columns. A note is indivisible; its original text never changes.
+    static observationPlan(counts,bandOverhead=2.7/3.45) {
+        const ids=counts[1].map((_,i)=>i);
+        if(!ids.length)return {bands:[],height:0,kind:'empty'};
+        const inversions=order=>{
+            let n=0;for(let i=0;i<order.length;i++)for(let j=i+1;j<order.length;j++)if(order[i]>order[j])n++;
+            return n;
+        };
+        const balance=(indices,k)=>{
+            const w=counts[k],load=cols=>cols.map(c=>c.reduce((n,i)=>n+w[i],0));
+            const evaluate=cols=>{
+                // Order each column and order columns by first source item.
+                const ordered=cols.map(c=>[...c].sort((a,b)=>a-b)).sort((a,b)=>(a[0]??Infinity)-(b[0]??Infinity));
+                const heights=load(ordered),max=Math.max(...heights),spread=max-Math.min(...heights);
+                return {cols:ordered,max,spread,inv:inversions(ordered.flat())};
+            };
+            const better=(a,b)=>!b||a.max<b.max||a.max===b.max&&(a.spread<b.spread||a.spread===b.spread&&a.inv<b.inv);
+            if(k===1)return evaluate([indices]);
+            let best;
+            const consider=cols=>{const c=evaluate(cols);if(better(c,best))best=c;};
+            // A contiguous layout is preferred if equally balanced. Search all
+            // ordered boundaries for normal-sized records.
+            if(indices.length<=100){
+                for(let i=1;i<=indices.length-k+1;i++){
+                    if(k===2)consider([indices.slice(0,i),indices.slice(i)]);
+                    else for(let j=i+1;j<indices.length;j++)consider([indices.slice(0,i),indices.slice(i,j),indices.slice(j)]);
+                }
+            }
+            const sorted=[...indices].sort((a,b)=>w[b]-w[a]||a-b);
+            const greedy=Array.from({length:k},()=>[]),heights=Array(k).fill(0);
+            for(const i of sorted){
+                const j=heights.indexOf(Math.min(...heights));greedy[j].push(i);heights[j]+=w[i];
+            }
+            consider(greedy);
+            // Bounded branch-and-bound improves the worst column without
+            // exponential runtime for unusually large imported records.
+            const total=indices.reduce((s,i)=>s+w[i],0),lower=Math.max(Math.ceil(total/k),...indices.map(i=>w[i]));
+            if(best.max>lower&&indices.length<=64){
+                const cols=Array.from({length:k},()=>[]),loads=Array(k).fill(0);
+                let budget=6000;
+                const search=pos=>{
+                    if(--budget<0||best.max===lower)return;
+                    if(pos===sorted.length){if(cols.every(c=>c.length))consider(cols);return;}
+                    const i=sorted[pos],seen=new Set();
+                    for(const j of loads.map((_,j)=>j).sort((a,b)=>loads[a]-loads[b]||a-b)){
+                        if(seen.has(loads[j])||loads[j]+w[i]>=best.max)continue;
+                        seen.add(loads[j]);loads[j]+=w[i];cols[j].push(i);
+                        search(pos+1);cols[j].pop();loads[j]-=w[i];
+                        if(budget<0||best.max===lower)return;
+                    }
+                };
+                search(0);
+            }
+            return best;
+        };
+        let best;
+        const consider=(bands,kind)=>{
+            const height=bands.reduce((s,b)=>s+b.max,0)+(bands.length-1)*bandOverhead;
+            const inv=inversions(bands.flatMap(b=>b.cols.flat()));
+            const spread=bands.reduce((s,b)=>s+b.spread,0);
+            const rank=kind==='3'?0:kind==='2'?1:kind==='1'?2:3;
+            const candidate={bands,height,kind,inv,spread,rank};
+            // Prefer the established three-column design at equal height.
+            if(!best||height<best.height-1e-8||Math.abs(height-best.height)<1e-8&&
+                (rank<best.rank||rank===best.rank&&(spread<best.spread||spread===best.spread&&inv<best.inv)))best=candidate;
+        };
+        const make=(indices,k)=>({columns:k,...balance(indices,k)});
+        for(let k=1;k<=Math.min(3,ids.length);k++)consider([make(ids,k)],String(k));
+        // A mixed band gives long, independent notes their full width, while
+        // other notes share two or three columns. Evaluate the largest savings
+        // individually and a few combinations; never split a note across columns.
+        const long=ids.filter(i=>counts[3][i]>=3&&counts[3][i]-counts[1][i]>=2)
+            .sort((a,b)=>(counts[3][b]-counts[1][b])-(counts[3][a]-counts[1][a])||a-b).slice(0,5);
+        const subsets=long.map(i=>[i]);
+        for(let i=0;i<Math.min(3,long.length);i++)for(let j=i+1;j<Math.min(3,long.length);j++)subsets.push([long[i],long[j]]);
+        for(const selected of subsets){
+            const full=selected.slice().sort((a,b)=>a-b),rest=ids.filter(i=>!full.includes(i));
+            if(rest.length<2)continue;
+            const wide=make(full,1);
+            for(let k=2;k<=Math.min(3,rest.length);k++){
+                const narrow=make(rest,k);
+                consider([wide,narrow],'mixed');consider([narrow,wide],'mixed');
+            }
+        }
+        return best;
+    }
     static batchLegend(language,hasPercentiles) {
         const labels={
             fr:{stored:'Z = score enregistré, affiché à 2 décimales, sans recalcul.',percentiles:'P = centile du Z avant arrondi. OMS : −3 à +3 Z ; CDC/INTERGROWTH : indisponible si arrondi à 0 ou 100. Affichage : P < 0.1 ou P > 99.9. P -- : indisponible. Sans P : aucun centile enregistré.',notice:'Aide au dépistage, sans diagnostic ni prescription automatique. Ne remplace pas une évaluation clinique.'},
@@ -910,30 +997,24 @@ class PDFManager {
                     }
                 }
                 const uniqueNotes=[...new Set(notes.filter(Boolean))];
-                const mWidth=recordWidth/3;
                 if(uniqueNotes.length){
-                    // Keep note order, use wider gutters and measure every wrapped
-                    // line before drawing. No clinical note is dropped.
-                    const groups=uniqueNotes.map(v=>wrapObservation('· '+v,mWidth));
-                    const cols=[[],[],[]];let col=0,remaining=groups.reduce((n,g)=>n+g.length,0);
-                    for(const g of groups){
-                        const target=Math.ceil(remaining/(3-col));
-                        if(col<2&&cols[col].length&&cols[col].length+g.length>target&&Math.abs(target-cols[col].length)<Math.abs(target-cols[col].length-g.length)){
-                            remaining-=cols[col].length;col++;
-                        }
-                        cols[col].push(...g);
+                    // Simulate actual typography at every width before drawing.
+                    const wrapped={};
+                    for(let k=1;k<=3;k++)wrapped[k]=uniqueNotes.map(v=>wrapObservation('· '+v,recordWidth/k));
+                    const counts=Object.fromEntries([1,2,3].map(k=>[k,wrapped[k].map(lines=>lines.length)]));
+                    const plan=this.observationPlan(counts,2*pad/step);
+                    for(const [bi,part] of plan.bands.entries()){
+                        const w=recordWidth/part.columns,cols=part.cols.map(indices=>indices.flatMap(i=>wrapped[part.columns][i]));
+                        const titleLines=bi===0?makeLines(detailedLabels.observations,w-2*(noteInset-inset),true,green,8.5):[];
+                        const titleCount=titleLines.length;
+                        const blank=()=>({text:'',bold:false,color:ink,size:8.5});
+                        const observationBand=band(cols.map((lines,i)=>({
+                            w,inset:noteInset,
+                            lines:[...(i===0?titleLines:Array.from({length:titleCount},blank)),...lines.map((line,j)=>j===0&&titleCount?{...line,before:.35}:line)]
+                        })));
+                        observationBand.minFirst=titleCount+1;
+                        bands.push(observationBand);
                     }
-                    // Title and first observation share a band: their baseline
-                    // distance is 3.8 mm, just like the identity group gaps.
-                    const titleLines=makeLines(detailedLabels.observations,mWidth-2*(noteInset-inset),true,green,8.5);
-                    const titleCount=titleLines.length;
-                    const blank=()=>({text:'',bold:false,color:ink,size:8.5});
-                    const observationBand=band(cols.map((lines,i)=>({
-                        w:mWidth,inset:noteInset,
-                        lines:[...(i===0?titleLines:Array.from({length:titleCount},blank)),...lines.map((line,j)=>j===0?{...line,before:.35}:line)]
-                    })));
-                    observationBand.minFirst=titleCount+1;
-                    bands.push(observationBand);
                 }
                 const total=bands.reduce((n,b)=>n+bandHeight(b),0);
                 if(y>batchTop+.1&&y+total>limit)nextPage();

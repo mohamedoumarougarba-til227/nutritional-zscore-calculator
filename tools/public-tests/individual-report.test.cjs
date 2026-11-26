@@ -307,7 +307,7 @@ test('detailed grid reserves identity and screening, rotates imported markers an
     assert.equal(JSON.stringify(entries),before);
 });
 
-test('detailed batch uses equal identity gaps and wraps observations inside their three columns',()=>{
+test('detailed batch uses equal identity gaps and wraps observations within adaptive columns',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const e=visit(0,{caseId:'SPACING-TEST'});
     const seen=[],trackedTranslations=structuredClone(translations);
@@ -327,13 +327,14 @@ test('detailed batch uses equal identity gaps and wraps observations inside thei
         TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
         const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations:trackedTranslations},{jsPDF:TrackingPDF,autoTable,fonts});
         const rtl=language==='ar',near=(a,b)=>Math.abs(a-b)<.12;
-        const rail=4.5,recordWidth=281-rail,column=recordWidth/3;
-        const anchors=Array.from({length:3},(_,i)=>rtl?289-i*column-2.6:8+rail+i*column+2.6);
+        const rail=4.5,recordWidth=281-rail;
+        const anchors=[1,2,3].flatMap(k=>Array.from({length:k},(_,i)=>rtl?289-i*recordWidth/k-2.6:8+rail+i*recordWidth/k+2.6));
         const notes=seen.filter(v=>anchors.some(x=>near(v.x,x))&&v.y>23&&v.y<194);
-        assert.ok(notes.length>8,'long observation rendered '+language);
-        assert.ok(notes.every(v=>v.w<=column-5.2+.12),'observation within column '+language);
+        assert.ok(notes.length>4,'long observation rendered '+language);
+        assert.ok(notes.every(v=>v.w<=recordWidth-5.2+.12),'observation within printable width '+language);
         const longPieces=notes.filter(v=>/[A-F0-9]{8,}/.test(v.text));
-        assert.ok(longPieces.length>2,'overlong token wraps '+language);
+        assert.ok(longPieces.length>=2,'overlong token wraps '+language);
+        assert.equal(longPieces.flatMap(v=>v.text.match(/[A-F0-9]{8,}/g)||[]).join(''),longToken,'entire overlong token preserved '+language);
         if(!rtl){
             const heading=seen.find(v=>v.text.startsWith('#1 |'));
             const dossier=seen.find(v=>v.text.startsWith('SPACING-TEST'));
@@ -348,5 +349,25 @@ test('detailed batch uses equal identity gaps and wraps observations inside thei
             assert.ok(first?.text.startsWith('·'),'title close to first note '+language);
         }
         assert.ok(report.pages>=1);
+    }
+});
+
+test('adaptive observation planning chooses one, two, three or mixed bands without splitting or losing a note',()=>{
+    const cases=[
+        {counts:{1:[1],2:[2],3:[4]},kind:'1',height:1},
+        {counts:{1:[1,1,1,1],2:[1,1,1,1],3:[3,3,3,3]},kind:'2',height:2},
+        {counts:{1:[1,1,1,1,1,1],2:[1,1,1,1,1,1],3:[1,1,1,1,1,1]},kind:'3',height:2},
+        {counts:{1:[1,1,1,1,1,1,1],2:[4,1,1,1,1,1,1],3:[8,1,1,1,1,1,1]},kind:'mixed',height:3+2.7/3.45},
+        {counts:{1:Array(12).fill(2),2:[2,2,2,2,4,5,4,2,2,2,2,2],3:[1,1,1,1,3,9,9,2,1,1,1,1]},max:11}
+    ];
+    for(const {counts,kind,height,max} of cases){
+        const before=JSON.stringify(counts),plan=PDFManager.observationPlan(counts);
+        assert.deepEqual(plan.bands.flatMap(b=>b.cols.flat()).sort((a,b)=>a-b),counts[1].map((_,i)=>i));
+        assert.ok(plan.bands.every(b=>b.cols.every(col=>col.every((v,i)=>!i||v>col[i-1]))));
+        if(kind)assert.equal(plan.kind,kind);
+        if(height!==undefined)assert.ok(Math.abs(plan.height-height)<1e-7);
+        if(max!==undefined)assert.ok(plan.height<=max);
+        assert.equal(JSON.stringify(counts),before);
+        assert.deepEqual(PDFManager.observationPlan(counts),plan);
     }
 });
