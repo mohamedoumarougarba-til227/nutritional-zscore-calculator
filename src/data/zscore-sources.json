@@ -1,10 +1,10 @@
 {
   "format": 1,
-  "version": "5.13.1",
+  "version": "5.14.0",
   "license": "GPL-3.0-only (original application code); upstream component licences retained",
   "file": "zscore-sources.zip",
-  "bytes": 8778061,
-  "sha256": "c82b50e807759fff4909fb8898b6bbdec91c319b6dcd621564332fe80e1ec6f4",
+  "bytes": 8841278,
+  "sha256": "6ca0436f0d7fc9d9fedf693936cf66984e1f266e4c2b91253c145d946e87ef1e",
   "files": [
     {
       "file": ".gitattributes",
@@ -54,7 +54,7 @@
     {
       "file": "README.md",
       "bytes": 11597,
-      "sha256": "1a4b9bb1270d82d77886bc525a76b25cee3175d9f2d7a255b7fb95b985e4189e"
+      "sha256": "a44b1f1b6aef4efede7aad58cb9f2296532a20d6165fcae0f22ee293f4e5d626"
     },
     {
       "file": "SECURITY.md",
@@ -98,8 +98,8 @@
     },
     {
       "file": "docs/guides/GUIDE_UTILISATEUR.md",
-      "bytes": 21020,
-      "sha256": "84342ce6600d1bdf12867e1bc919ed17d0894c98d2c013d53c0fabfd30b914c5"
+      "bytes": 21117,
+      "sha256": "d978ca8f4e1007235083204f34139c210db5f5832504024f6d39e226ac188c26"
     },
     {
       "file": "docs/guides/PERIMETRE_ET_VERIFICATION.md",
@@ -209,12 +209,12 @@
     {
       "file": "package-lock.json",
       "bytes": 722,
-      "sha256": "68246bf0fc1457bc566929762a6206e433e428036fc193f2e69fef333370321b"
+      "sha256": "b989eeae4b839d4b72675d9e9f64cd1b10af74371f752eefa6dd8deed61da7de"
     },
     {
       "file": "package.json",
       "bytes": 984,
-      "sha256": "68e4ec53478afa2ff5b0b3828c911971d3b5b6b1c83b3a7e4cdf525f69b36b8a"
+      "sha256": "a538268c0970bb90e60b3d1158e4a65d554f2cdf570cd98fabc7a912ce56a9e7"
     },
     {
       "file": "src/assets/icons/icon-128.png",
@@ -263,8 +263,8 @@
     },
     {
       "file": "src/css/workspace.css",
-      "bytes": 121008,
-      "sha256": "7684922c529d026d64c00fe82d72cad15e9045dd7099cc6925913eb309072745"
+      "bytes": 122559,
+      "sha256": "79bf3669363094369828eed39f9d7e6112800245a966d1f3221d3466b9072bd9"
     },
     {
       "file": "src/data/LICENSE-TIL.txt",
@@ -293,8 +293,8 @@
     },
     {
       "file": "src/data/interface-translations.json",
-      "bytes": 232249,
-      "sha256": "7ce43896253b0b2f868d85f8331869da33a30128bcee0b4292d270044b2c0780"
+      "bytes": 233231,
+      "sha256": "10191558db46b93574b17b05cfb4ba69a7fc96388137062a04b0d8f6f262f9b8"
     },
     {
       "file": "src/data/who-2007-manifest.json",
@@ -373,8 +373,8 @@
     },
     {
       "file": "src/js/services/history-manager.js",
-      "bytes": 23016,
-      "sha256": "9492cb4b715328294b9afa66f75877f390dde0637082b81d95fb7df315239b38"
+      "bytes": 23334,
+      "sha256": "f737d806ffd9943761f8fb1cc7d4c8a0d904e7cda6cea449da5040a7f51e0043"
     },
     {
       "file": "src/js/services/intergrowth-result.js",
@@ -408,8 +408,8 @@
     },
     {
       "file": "src/js/services/pdf-manager.js",
-      "bytes": 57741,
-      "sha256": "3492641adbbd2cafbc55b529bce183d88b204140af7d6eade0fbd266995cbb42"
+      "bytes": 92063,
+      "sha256": "c18e772b158ba8bbcb951ff34935a995052b4282816d4edfabeb3f94e91bd532"
     },
     {
       "file": "src/js/services/percentile-display.js",
@@ -453,8 +453,8 @@
     },
     {
       "file": "src/js/workspace-app.js",
-      "bytes": 214530,
-      "sha256": "854771cf7a6ffa4a5606f273f3acb1a17ab6f73dae2dd3d54bc3cd4051bfc4af"
+      "bytes": 219139,
+      "sha256": "46cf972d900050ea4765aacb63448866fec45800666d11c3d464eb31c77facca"
     },
     {
       "file": "src/js/workspace-bootstrap.js",
@@ -538,8 +538,8 @@
     },
     {
       "file": "tools/public-tests/batch-correction.test.cjs",
-      "bytes": 30769,
-      "sha256": "5ed8fc23a3399ce2ee844567b0230dc83a542380ff779b90f48b106c1fc11066"
+      "bytes": 32930,
+      "sha256": "961309b71e3edd0ed7fdfac2749f74af337e8750df6c2fd9ebbfa32f3941624a"
     },
     {
       "file": "tools/public-tests/cdc.test.cjs",
@@ -548,8 +548,8 @@
     },
     {
       "file": "tools/public-tests/individual-report.test.cjs",
-      "bytes": 9180,
-      "sha256": "7134282405ada8d078abbbf0d9ecceb9b0a0c3a146e3269da79eecf42f4aa375"
+      "bytes": 26260,
+      "sha256": "0d5cf4bc4df2361e04480ee468abe1934b7c5a7e4263da8e23052b5f9744e526"
     },
     {
       "file": "tools/public-tests/input-offline.test.cjs",
@@ -588,13 +588,13 @@
     },
     {
       "file": "tools/public-tests/profiles.test.cjs",
-      "bytes": 39029,
-      "sha256": "b63850d1f12ca4497a312648a0eff44d427ec2d10e581b5ca0af493db020c286"
+      "bytes": 39122,
+      "sha256": "67e7299300e52f765404d67c27c2941f21fa2a81e7e83e2f1d34ea3c8c23e9ee"
     },
     {
       "file": "tools/public-tests/public.test.cjs",
-      "bytes": 34873,
-      "sha256": "78d8da13ed5504db6349169f9ea3f9263d0f2003deaf08537347b2a6e8c5622f"
+      "bytes": 36839,
+      "sha256": "dda379b5a1d4ec6b9872e3035cc992de9208e3e655f8f19eda9fae57cc78d7a8"
     },
     {
       "file": "tools/public-tests/reporting.test.cjs",
@@ -1003,8 +1003,8 @@
     },
     {
       "file": "tools/scripts/vercel-build.cjs",
-      "bytes": 1689,
-      "sha256": "9129fe04625c1237977765d2006dbb3c564be18271037ffb150438f05e05fc67"
+      "bytes": 1727,
+      "sha256": "8a0121aec4d37ddc2669942f2ed48cd9d3112b11f1895d0ebba682c35a8cd833"
     },
     {
       "file": "tools/verification/README.md",

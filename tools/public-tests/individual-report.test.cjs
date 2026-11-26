@@ -113,7 +113,7 @@ test('individual layout preserves identity, localised age and dates, and numeric
     assert.equal(JSON.stringify(entry),before);
 });
 
-test('batch reports use a wide list and traceable annex, keep pending results, and do not recalculate',()=>{
+test('batch reports keep pending results and do not recalculate',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const entries=Array.from({length:13},(_,i)=>visit(i,{caseId:'BATCH-DEMO-'+i,careProtocol:i===1?'niger2025':'',oedema:i===4?'y':'n'}));
     const pending=entries.map(e=>({child:e.child,result:null})),before=JSON.stringify(entries);
@@ -128,17 +128,250 @@ test('batch reports use a wide list and traceable annex, keep pending results, a
     assert.equal(JSON.stringify(entries),before);
 });
 
-test('compact report codes retain every distinct clinical note and deduplicate repeat explanations',()=>{
+test('batch synthesis exposes important stored observations without a coded legend',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
-    const entries=[visit(),visit(31),visit(60,{oedema:'y'})];
-    const model=PDFManager.model(entries,{language:'fr',translations});
-    const compact=PDFManager.compact(model),legend=new Map(compact.legend);
-    for(let i=0;i<model.rows.length;i++){
-        const row=model.rows[i],codes=compact.body[i].at(-1).match(/N\d+/g)||[];
-        const decoded=codes.map(code=>legend.get(code));
-        for(const note of row.notes)assert.ok(decoded.includes(note));
-        assert.ok(compact.body[i].at(-1).includes(model.t('calculatedAt')+' : '+row.calculatedAt));
-        assert.ok(!decoded.some(note=>note.includes(row.calculatedAt)));
+    const ordinary=visit(),urgent=visit(60,{oedema:'y',cannotDrink:'y'});
+    ordinary.result.imported=true;
+    const entries=[ordinary,urgent,{child:visit(31).child,result:null}],before=JSON.stringify(entries);
+    for(const language of ['fr','en','ar']){
+        const model=PDFManager.model(entries,{language,translations});
+        const compact=PDFManager.compact(model,entries);
+        assert.match(compact.body[0].at(-1),new RegExp(ordinary.result.referenceVersion));
+        assert.ok(compact.body[0].at(-1).includes(model.t('pdfImportedShort')));
+        assert.ok(compact.body[1].at(-2).includes(model.t(urgent.result.nutrition.orientation)));
+        assert.ok(compact.body[1].includes(model.t('pdfOedemaSuspended')));
+        assert.ok(compact.body[2].includes(model.t('notCalculated')));
+        assert.equal(Object.hasOwn(compact,'legend'),false);
     }
-    assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
+    assert.equal(JSON.stringify(entries),before);
+});
+
+test('detailed lot has one horizontal block per child with explicit measures, notes and no annex',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const calculated=visit(0,{caseId:'DETAILED-CALC',careProtocol:'niger2025'});
+    const pending={child:{...calculated.child,caseId:'DETAILED-PENDING',ageMode:'dates',birthDate:'2024-05-25',weight:13500,height:92,position:'H'},result:null};
+    const pma={child:{...pending.child,caseId:'DETAILED-PMA',ageMode:'pma',ageDays:undefined,postmenstrualDays:252,position:'L'},result:null};
+    const entries=[calculated,pending,pma],before=JSON.stringify(entries);
+    for(const language of ['fr','en','ar']){
+        const calls=[],seen=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
+        function TrackingPDF(options){
+            const doc=new jsPDF(options),draw=doc.text.bind(doc);
+            doc.text=(value,x,y,opts,...rest)=>{
+                for(const line of Array.isArray(value)?value:[value])seen.push({text:String(line),x,y,w:doc.getTextWidth(String(line)),align:opts?.align||'left'});
+                return draw(value,x,y,opts,...rest);
+            };return doc;
+        }
+        TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF:TrackingPDF,autoTable:track,fonts,now:new Date('2026-11-25T23:33:36Z')});
+        assert.equal(report.entries,3);assert.equal(calls.length,0);
+        const model=PDFManager.model(entries,{language,translations}),row=entries.map((e,i)=>PDFManager.detailedRow(e,model.rows[i],model));
+        assert.ok(row[1].measures.includes(translations[language].pdfWeightShort));
+        assert.ok(row[1].measures.includes(PDFManager.detailedLabels(language).birth));
+        assert.ok(!row[1].measures.includes(translations[language].ageMode));
+        assert.ok(!row[2].measures.includes(translations[language].unknown+' '+translations[language].pdfDaysUnit));
+        assert.ok(row[0].notes.includes(translations[language].headCircumferenceForAge)||row[0].notes.includes(translations[language].additionalResults));
+        assert.ok(!row[0].notes.includes(calculated.result.referenceVersion));
+        assert.equal(row[1].notes,'—');
+        for(const e of entries)assert.equal(seen.filter(v=>v.text.includes(e.child.caseId)).length,1,'one identity '+language);
+        const content=seen.filter(v=>v.y>27&&v.y<194);
+        for(const v of content){const left=v.x-(v.align==='right'?v.w:v.align==='center'?v.w/2:0);assert.ok(left>=7&&left+v.w<=290,'block within printable width '+language);}
+        assert.ok(report.pages<=3);
+    }
+    assert.equal(JSON.stringify(entries),before);
+});
+
+test('export clock follows local date, time and offset without changing stored timestamps',()=>{
+    const previous=process.env.TZ,instant=new Date('2026-11-25T23:33:36.157Z');
+    try{
+        process.env.TZ='Africa/Niamey';
+        assert.equal(PDFManager.exportTimestamp(instant,'fr'),'26/11/2026 00:33 UTC+01:00');
+        assert.equal(PDFManager.exportFileStamp(instant),'2026-11-26T00-33-36-157+01-00');
+        process.env.TZ='Asia/Kathmandu';
+        assert.equal(PDFManager.exportTimestamp(instant,'en'),'2026-11-26 05:18 UTC+05:45');
+        process.env.TZ='America/New_York';
+        assert.equal(PDFManager.exportTimestamp(instant,'en'),'2026-11-25 18:33 UTC-05:00');
+        assert.equal(instant.toISOString(),'2026-11-25T23:33:36.157Z');
+    }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
+});
+test('both batch layouts use compact margins, aligned heading and two-line footer without overlap',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entry=visit(),now=new Date('2026-11-25T23:33:36Z');
+    for(const language of ['fr','en','ar'])for(const layout of ['detailed','compact'])for(const calculated of [false,true]){
+        const entries=[calculated?entry:{child:entry.child,result:null}],seen=[];
+        function TrackingPDF(options){
+            const doc=new jsPDF(options),draw=doc.text.bind(doc);
+            doc.text=(value,x,y,opts,...rest)=>{
+                for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,align:opts?.align||'left',size:doc.getFontSize(),width:doc.getTextWidth(String(part))});
+                return draw(value,x,y,opts,...rest);
+            };return doc;
+        }
+        TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+        const calls=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
+        const report=PDFManager.build(entries,{mode:'batch',layout,language,translations},{jsPDF:TrackingPDF,autoTable:track,fonts,now});
+        // Check physical positions even when Arabic glyphs are in visual order.
+        const rtl=language==='ar',edge=rtl?289:8,opposite=rtl?8:289;
+        const near=(a,b)=>Math.abs(a-b)<.1;
+        const brand=seen.find(v=>near(v.y,11)&&near(v.x,rtl?278:19));
+        const summary=seen.find(v=>near(v.y,11)&&near(v.x,opposite)&&v.align===(rtl?'left':'right'));
+        assert.ok(brand?.text&&summary?.text,'header blocks '+language+' '+layout);
+        assert.ok(summary.text.includes('|'),'summary separator '+language);
+        if(layout==='compact'){assert.equal(calls[0].margin.left,8);assert.equal(calls[0].margin.right,8);assert.equal(calls[0].margin.bottom,16);}else assert.equal(calls.length,0);
+        const expectedLegend=PDFManager.batchLegend(language,calculated);
+        const methodology=seen.filter(v=>near(v.y,17)&&near(v.x,edge));
+        assert.equal(methodology.length,report.pages,'one combined legend per page '+language);
+        assert.equal(seen.filter(v=>near(v.y,15)&&near(v.x,opposite)).length,0,'no redundant subtitle '+language);
+        const notice=seen.filter(v=>near(v.y,200)&&near(v.x,148.5)&&v.align==='center');
+        assert.equal(notice.length,report.pages,'single-line clinical footer '+language);
+        assert.ok(methodology.every(v=>v.width<=281.1&&v.size>=6),'combined legend fits '+language);
+        assert.equal(expectedLegend.header.includes('INTERGROWTH'),calculated,'conditional percentile help '+language);
+        if(!rtl){
+            assert.ok(brand.text.includes(translations[language].brand));
+            assert.ok(summary.text.includes(translations[language][layout==='compact'?'pdfCompactTitle':'pdfBatchTitle']));
+            assert.equal(notice[0].text,expectedLegend.notice);
+        }
+        const footer=seen.filter(v=>near(v.y,204.5)).slice(0,3);
+        assert.equal(footer.length,3,'three footer blocks '+language);
+        assert.ok(footer.every(v=>Math.abs(v.size-footer[0].size)<.01&&v.size>=8),'uniform readable footer '+language);
+        assert.ok(footer.some(v=>near(v.x,289)&&v.align==='right'&&v.text.includes('UTC')));
+        const pageNumber=footer.find(v=>near(v.x,148.5)&&v.align==='center');
+        assert.ok(pageNumber?.text.includes('/'),'centered pagination '+language);
+        const confidentiality=footer.find(v=>near(v.x,8)&&v.align==='left');
+        assert.ok(confidentiality?.text,'edge confidentiality '+language);
+        if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.equal(methodology[0].text,expectedLegend.header.replace(/−/g,'-'));}
+        const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
+        for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
+    }
+});
+
+test('explicit date and time preferences preserve calendar dates and handle zone changes',()=>{
+    const instant=new Date('2026-11-25T23:33:36.157Z');
+    assert.equal(PDFManager.exportTimestamp(instant,'fr','Africa/Niamey','iso'),'2026-11-26 00:33 UTC+01:00');
+    assert.equal(PDFManager.exportTimestamp(instant,'fr','America/New_York','mdy'),'11/25/2026 18:33 UTC-05:00');
+    assert.equal(PDFManager.exportFileStamp(instant,'Asia/Kathmandu'),'2026-11-26T05-18-36-157+05-45');
+    assert.equal(PDFManager.detailedDate('2024-02-29','fr','mdy'),'02/29/2024');
+    assert.equal(PDFManager.detailedDate('2024-02-29','fr','iso'),'2024-02-29');
+    assert.equal(PDFManager.validTimeZone('Not/AZone'),false);
+    assert.equal(PDFManager.validTimeZone('system'),true);
+});
+
+test('horizontal blocks keep calculated and uncalculated lots readable and use fewer pages for short records',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entries=Array.from({length:13},(_,i)=>visit(i,{caseId:'CARD-'+i,headCircumference:'',tricepsSkinfold:'',subscapularSkinfold:'',careProtocol:i===11?'niger2025':'',oedema:i===4?'y':'n'}));
+    for(const language of ['fr','en','ar']){
+        const pending=PDFManager.build(entries.map(e=>({child:e.child,result:null})),{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable,fonts});
+        const calculated=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable,fonts});
+        assert.ok(pending.pages<7,'pending blocks '+language);
+        assert.ok(calculated.pages<13,'calculated blocks '+language+' '+calculated.pages);
+    }
+});
+
+test('detailed grid reserves identity and screening, rotates imported markers and shortens common notes',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const first=visit(0,{caseId:'GRID-FIRST'}),second=visit(10,{caseId:'GRID-SECOND'});
+    const entries=[first,second].map(e=>({...e,result:{...e.result,imported:true}})),before=JSON.stringify(entries),seen=[],matrices=[];
+    function TrackingPDF(options){
+        const doc=new jsPDF(options),draw=doc.text.bind(doc),write=doc.internal.write.bind(doc.internal);
+        doc.internal.write=(...args)=>{if(/^0 1 -1 0 .* cm$/.test(String(args[0])))matrices.push({command:args[0],page:doc.internal.getCurrentPageInfo().pageNumber});return write(...args);};
+        doc.text=(value,x,y,opts,...rest)=>{
+            for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,angle:opts?.angle||0,page:doc.internal.getCurrentPageInfo().pageNumber});
+            return draw(value,x,y,opts,...rest);
+        };return doc;
+    }
+    TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+    const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language:'fr',translations},{jsPDF:TrackingPDF,autoTable,fonts});
+    assert.ok(report.pages<=2);
+    const heading=seen.find(v=>v.text.startsWith('#1'));
+    const weight=seen.find(v=>v.text.startsWith(translations.fr.pdfWeightShort+':'));
+    const sex=seen.find(v=>v.text.startsWith('Sexe:'));
+    assert.ok(heading&&heading.text.includes('#1 |')&&weight&&weight.page===heading.page&&weight.y>heading.y&&weight.x===heading.x);
+    assert.ok(weight.text.includes('Longueur:')&&sex.text.includes('Œdèmes:')&&weight.y<sex.y);
+    assert.ok(seen.some(v=>v.text.includes('GRID-FIRST · 03/01/2026')));
+    const imported=seen.filter(v=>v.text==='Résultat importé');
+    assert.equal(imported.length,2);
+    assert.equal(seen.filter(v=>v.text.startsWith('Résultat importé, conservé sans recalcul')).length,1);
+    assert.equal(matrices.length,2);assert.ok(imported.every(v=>v.x>8&&v.x<12&&matrices.some(m=>m.page===v.page)));
+    const pb=seen.filter(v=>v.text.startsWith('PB:'));
+    assert.equal(pb.length,2);assert.ok(pb.every(v=>v.x===heading.x));
+    assert.ok(seen.filter(v=>v.text.startsWith('IMC:')).every(v=>v.x>heading.x));
+    assert.equal(seen.filter(v=>v.text==='46.0 cm').length,0,'duplicate supplementary measure removed');
+    assert.equal(seen.filter(v=>v.text.startsWith('IMC/âge : repère')).length,1);
+    assert.ok(!seen.some(v=>v.text.includes('aucune décision de soins automatique')));
+    const screening=seen.filter(v=>v.text===translations.fr.uiScreening);
+    assert.equal(screening.length,2);
+    assert.ok(screening.every(v=>v.x>235));
+    const label=translations.fr.headCircumferenceForAge;
+    const occurrences=seen.filter(v=>{
+        if(!label.startsWith(v.text)||!v.text.startsWith('Périmètre crânien'))return false;
+        if(v.text===label)return true;
+        const next=seen.find(w=>w.page===v.page&&Math.abs(w.x-v.x)<.1&&Math.abs(w.y-v.y-3.45)<.1);
+        return !!next&&v.text+' '+next.text===label;
+    });
+    assert.equal(occurrences.length,2,'supplementary label preserved even when wrapped');
+    assert.ok(seen.some(v=>v.text.includes('Sexe: M')));
+    assert.equal(JSON.stringify(entries),before);
+});
+
+test('detailed batch uses equal identity gaps and wraps observations within adaptive columns',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const e=visit(0,{caseId:'SPACING-TEST'});
+    const seen=[],trackedTranslations=structuredClone(translations);
+    for(const language of ['fr','en','ar']){
+        // Exercise both many words and an uninterrupted overlong token.
+        const longToken='ABCDEF1234567890'.repeat(22);
+        trackedTranslations[language].testLongObservation='First '+longToken+' Last '+(language==='ar'?'ملاحظة سريرية طويلة '.repeat(12):'Observation clinique détaillée '.repeat(12));
+        const entries=[{...e,result:{...e.result,warnings:[...e.result.warnings,'testLongObservation']}}];
+        seen.length=0;
+        function TrackingPDF(options){
+            const doc=new jsPDF(options),draw=doc.text.bind(doc);
+            doc.text=(value,x,y,opts,...rest)=>{
+                for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,w:doc.getTextWidth(String(part)),align:opts?.align||'left',page:doc.internal.getCurrentPageInfo().pageNumber});
+                return draw(value,x,y,opts,...rest);
+            };return doc;
+        }
+        TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations:trackedTranslations},{jsPDF:TrackingPDF,autoTable,fonts});
+        const rtl=language==='ar',near=(a,b)=>Math.abs(a-b)<.12;
+        const rail=4.5,recordWidth=281-rail;
+        const anchors=[1,2,3].flatMap(k=>Array.from({length:k},(_,i)=>rtl?289-i*recordWidth/k-2.6:8+rail+i*recordWidth/k+2.6));
+        const notes=seen.filter(v=>anchors.some(x=>near(v.x,x))&&v.y>23&&v.y<194);
+        assert.ok(notes.length>4,'long observation rendered '+language);
+        assert.ok(notes.every(v=>v.w<=recordWidth-5.2+.12),'observation within printable width '+language);
+        const longPieces=notes.filter(v=>/[A-F0-9]{8,}/.test(v.text));
+        assert.ok(longPieces.length>=2,'overlong token wraps '+language);
+        assert.equal(longPieces.flatMap(v=>v.text.match(/[A-F0-9]{8,}/g)||[]).join(''),longToken,'entire overlong token preserved '+language);
+        if(!rtl){
+            const heading=seen.find(v=>v.text.startsWith('#1 |'));
+            const dossier=seen.find(v=>v.text.startsWith('SPACING-TEST'));
+            const age=seen.find(v=>v.text.startsWith(translations[language].pdfAgeShort+':'));
+            const sex=seen.find(v=>v.text.startsWith(translations[language].gender+':'));
+            const pb=seen.find(v=>v.text.startsWith(translations[language].pdfMuacShort+':'));
+            assert.ok(heading&&dossier&&age&&sex&&pb);
+            assert.ok(near(dossier.y-heading.y,3.8)&&near(age.y-dossier.y,3.8)&&near(pb.y-sex.y,3.8),'equal identity gaps '+language);
+            const obs=seen.find(v=>v.text===PDFManager.detailedLabels(language).observations);
+            assert.ok(obs);
+            const first=notes.find(v=>v.page===obs.page&&near(v.x,obs.x)&&near(v.y,obs.y+3.8));
+            assert.ok(first?.text.startsWith('·'),'title close to first note '+language);
+        }
+        assert.ok(report.pages>=1);
+    }
+});
+
+test('adaptive observation planning chooses one, two, three or mixed bands without splitting or losing a note',()=>{
+    const cases=[
+        {counts:{1:[1],2:[2],3:[4]},kind:'1',height:1},
+        {counts:{1:[1,1,1,1],2:[1,1,1,1],3:[3,3,3,3]},kind:'2',height:2},
+        {counts:{1:[1,1,1,1,1,1],2:[1,1,1,1,1,1],3:[1,1,1,1,1,1]},kind:'3',height:2},
+        {counts:{1:[1,1,1,1,1,1,1],2:[4,1,1,1,1,1,1],3:[8,1,1,1,1,1,1]},kind:'mixed',height:3+2.7/3.45},
+        {counts:{1:Array(12).fill(2),2:[2,2,2,2,4,5,4,2,2,2,2,2],3:[1,1,1,1,3,9,9,2,1,1,1,1]},max:11}
+    ];
+    for(const {counts,kind,height,max} of cases){
+        const before=JSON.stringify(counts),plan=PDFManager.observationPlan(counts);
+        assert.deepEqual(plan.bands.flatMap(b=>b.cols.flat()).sort((a,b)=>a-b),counts[1].map((_,i)=>i));
+        assert.ok(plan.bands.every(b=>b.cols.every(col=>col.every((v,i)=>!i||v>col[i-1]))));
+        if(kind)assert.equal(plan.kind,kind);
+        if(height!==undefined)assert.ok(Math.abs(plan.height-height)<1e-7);
+        if(max!==undefined)assert.ok(plan.height<=max);
+        assert.equal(JSON.stringify(counts),before);
+        assert.deepEqual(PDFManager.observationPlan(counts),plan);
+    }
 });

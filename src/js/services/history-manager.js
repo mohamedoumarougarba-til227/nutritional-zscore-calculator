@@ -63,7 +63,15 @@ class HistoryManager {
     checkpoint(workspace) {
         if (!HistoryManager.hasWork(workspace)) return;
         const signature=HistoryManager.signature(workspace);
-        if(signature===this.lastSaved||signature===this.lastCheckpoint&&localStorage.getItem(this.journalKey)!==null)return;
+        if(signature===this.lastSaved){
+            // An undone edit must not leave its transient state as the latest recovery copy.
+            if(this.lastCheckpoint&&this.lastCheckpoint!==signature){
+                localStorage.removeItem(this.journalKey);
+                this.lastCheckpoint='';
+            }
+            return;
+        }
+        if(signature===this.lastCheckpoint&&localStorage.getItem(this.journalKey)!==null)return;
         const snapshot = this.makeSnapshot(workspace, 'checkpoint');
         localStorage.setItem(this.journalKey, JSON.stringify(snapshot));
         this.lastCheckpoint=signature;
