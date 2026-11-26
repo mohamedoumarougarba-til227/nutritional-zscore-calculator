@@ -153,6 +153,14 @@ class PDFManager {
         const [y,m,d]=value.split('-'),format=dateFormat==='auto'?(language==='fr'?'dmy':'iso'):dateFormat;
         return format==='dmy'?d+'/'+m+'/'+y:format==='mdy'?m+'/'+d+'/'+y:value;
     }
+    static batchLegend(language,hasPercentiles) {
+        const labels={
+            fr:{stored:'Z = score enregistré, affiché à 2 décimales, sans recalcul.',percentiles:'P = centile du Z avant arrondi. OMS : −3 à +3 Z ; CDC/INTERGROWTH : indisponible si arrondi à 0 ou 100. Affichage : P < 0.1 ou P > 99.9. P -- : indisponible. Sans P : aucun centile enregistré.',notice:'Aide au dépistage, sans diagnostic ni prescription automatique. Ne remplace pas une évaluation clinique.'},
+            en:{stored:'Z = stored score, displayed to 2 decimals, without recalculation.',percentiles:'P = centile of unrounded Z. WHO: −3 to +3 Z; CDC/INTERGROWTH: unavailable if rounded to 0 or 100. Display: P < 0.1 or P > 99.9. P --: unavailable. No P: no stored centile.',notice:'Screening aid, without automatic diagnosis or prescription. Does not replace clinical assessment.'},
+            ar:{stored:'Z = درجة محفوظة تُعرض بمنزلتين عشريتين دون إعادة حساب.',percentiles:'P = مئين Z قبل التقريب. منظمة الصحة العالمية: من −3 إلى +3 Z؛ CDC وINTERGROWTH: غير متاح عند التقريب إلى 0 أو 100. العرض: P < 0.1 أو P > 99.9. P --: غير متاح. دون P: لا يوجد مئين محفوظ.',notice:'مساعدة في التحري دون تشخيص أو وصفة تلقائية. لا تغني عن التقييم السريري.'}
+        }[language];
+        return {header:labels.stored+(hasPercentiles?' '+labels.percentiles:''),notice:labels.notice};
+    }
     static detailedRow(entry,row,model) {
         const {language,t}=model,{child:c,result:r}=entry,l=this.detailedLabels(language);
         const n=(v,d=0)=>Number.isFinite(v)?new Intl.NumberFormat(language,{minimumFractionDigits:d,maximumFractionDigits:d}).format(v):t('unknown');
@@ -708,7 +716,7 @@ class PDFManager {
         };
         const headed=new Set(),usable=width-2*margin;
         const calculated=entries.filter(e=>!!e.result).length;
-        const detailedLabels=this.detailedLabels(language);
+        const detailedLabels=this.detailedLabels(language),legend=this.batchLegend(language,model.hasPercentiles);
         const bottom=16;
         let batchTop=24;
         const oneLine=(value,x,y,w,size,bold,align,color)=>{
@@ -730,12 +738,9 @@ class PDFManager {
             const brandText=render(t('brand'));
             const brandWidth=Math.max(doc.getTextWidth(brandText),doc.getTextWidth(visual(brandText)));
             oneLine(summary,opposite,11,usable-11-brandWidth-10,11.5,true,rtl?'left':'right',[23,99,72]);
-            oneLine(detailedLabels.stored,opposite,15,usable/2+20,8,false,rtl?'left':'right',[80,80,80]);
-            let ly=18;
-            if(model.hasPercentiles){
-                oneLine(t('percentileReportHelp').replace(/\s+/g,' '),lead,19,usable,8,false,rtl?'right':'left',[65,65,65]);
-                ly=22;
-            }
+            // One full-width legend for both calculated and pending lots.
+            oneLine(legend.header,lead,17,usable,8,false,rtl?'right':'left',[65,65,65]);
+            let ly=20;
             if(model.stale)ly=text(t('stale'),ly+2,9,true);
             doc.setDrawColor(205,216,210);doc.line(margin,ly,width-margin,ly);
             // Reserve space for a continuation marker on subsequent pages.
@@ -961,7 +966,7 @@ class PDFManager {
         for(let i=1;i<=pages;i++){
             doc.setPage(i);doc.setTextColor(65);doc.setFont(font,'normal');doc.setFontSize(8);
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
-            oneLine(t('appUsageNotice'),width/2,height-10,usable,8,false,'center',[65,65,65]);
+            oneLine(legend.notice,width/2,height-10,usable,8.5,false,'center',[65,65,65]);
             const exported=render(t('pdfExported')+' '+issued),confidential=render(t('pdfSensitive'));
             const page=String(i)+' / '+String(pages),size=8.5;
             doc.setFont(font,'normal');doc.setFontSize(size);doc.setTextColor(65);

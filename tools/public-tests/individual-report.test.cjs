@@ -213,17 +213,18 @@ test('both batch layouts use compact margins, aligned heading and two-line foote
         assert.ok(brand?.text&&summary?.text,'header blocks '+language+' '+layout);
         assert.ok(summary.text.includes('|'),'summary separator '+language);
         if(layout==='compact'){assert.equal(calls[0].margin.left,8);assert.equal(calls[0].margin.right,8);assert.equal(calls[0].margin.bottom,16);}else assert.equal(calls.length,0);
-        const methodology=seen.filter(v=>near(v.y,15)&&near(v.x,opposite));
-        assert.equal(methodology.length,report.pages,'stored-results statement '+language);
+        const expectedLegend=PDFManager.batchLegend(language,calculated);
+        const methodology=seen.filter(v=>near(v.y,17)&&near(v.x,edge));
+        assert.equal(methodology.length,report.pages,'one combined legend per page '+language);
+        assert.equal(seen.filter(v=>near(v.y,15)&&near(v.x,opposite)).length,0,'no redundant subtitle '+language);
         const notice=seen.filter(v=>near(v.y,200)&&near(v.x,148.5)&&v.align==='center');
         assert.equal(notice.length,report.pages,'single-line clinical footer '+language);
-        const percentile=seen.filter(v=>near(v.y,19)&&near(v.x,edge));
-        assert.equal(percentile.length,calculated?report.pages:0,'conditional single-line percentile help '+language);
-        if(calculated)assert.ok(percentile.every(v=>v.width<=281.1&&v.size>=6),'percentile fits '+language);
+        assert.ok(methodology.every(v=>v.width<=281.1&&v.size>=6),'combined legend fits '+language);
+        assert.equal(expectedLegend.header.includes('INTERGROWTH'),calculated,'conditional percentile help '+language);
         if(!rtl){
             assert.ok(brand.text.includes(translations[language].brand));
             assert.ok(summary.text.includes(translations[language][layout==='compact'?'pdfCompactTitle':'pdfBatchTitle']));
-            assert.equal(notice[0].text,translations[language].appUsageNotice);
+            assert.equal(notice[0].text,expectedLegend.notice);
         }
         const footer=seen.filter(v=>near(v.y,204.5)).slice(0,3);
         assert.equal(footer.length,3,'three footer blocks '+language);
@@ -233,7 +234,7 @@ test('both batch layouts use compact margins, aligned heading and two-line foote
         assert.ok(pageNumber?.text.includes('/'),'centered pagination '+language);
         const confidentiality=footer.find(v=>near(v.x,8)&&v.align==='left');
         assert.ok(confidentiality?.text,'edge confidentiality '+language);
-        if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.ok(methodology[0].text.includes(PDFManager.detailedLabels(language).stored));}
+        if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.equal(methodology[0].text,expectedLegend.header.replace(/−/g,'-'));}
         const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
         for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
     }
