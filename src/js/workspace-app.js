@@ -9,7 +9,7 @@ const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 const DateUI=typeof module!=='undefined'&&module.exports?require('./services/pdf-manager.js').PDFManager:PDFManager;
 class WorkspaceApp {
-    static version = '5.13.1';
+    static version = '5.14.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
     static draftForProfile(draft,profile) {
         ProfileUI.read({growthProfile:profile});
@@ -127,7 +127,7 @@ class WorkspaceApp {
             window.addEventListener('online', () => this.updateConnection()); window.addEventListener('offline', () => this.updateConnection());
             window.addEventListener('zscore-install-ready',()=>this.updateInstallStatus());
             window.addEventListener('pagehide', () => this.checkpoint());
-            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { this.checkpoint(); this.queueSave(); } });
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.persistDraft(); });
             matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (this.prefs.theme === 'system') this.applyPreferences(); });
             await this.registerOffline();
         } catch (error) {
@@ -1073,7 +1073,7 @@ class WorkspaceApp {
             if(header.open&&header.classList.contains('mobile-actions-dialog'))header.close();
             event.preventDefault(); this.readForms();
             try {
-                if (event.target.id === 'single-form') { this.state.single = this.engine.calculate(this.state.draft); this.state.draft.visitId = this.state.single.child.visitId; this.state.stale = false; await this.saveImmediate('calculated'); this.singleEditing=false;this.singleView='summary'; this.render('results-title'); }
+                if (event.target.id === 'single-form') { this.state.single = WorkspaceApp.retainCalculation(this.state.single,this.engine.calculate(this.state.draft)); this.state.draft.visitId = this.state.single.child.visitId; this.state.stale = false; await this.saveImmediate('calculated'); this.singleEditing=false;this.singleView='summary'; this.render('results-title'); }
                 else if (event.target.id === 'batch-form') {
                     if(this.csvBusy||this.csvReading||this.batchComputing)return;
                     const child = GrowthEngine.normalize(this.state.batchDraft);
@@ -1093,7 +1093,8 @@ class WorkspaceApp {
             if (event.target.id === 'history-search') { this.search = event.target.value; this.historyPage = 0; this.renderHistoryList(); return; }
             const displayOnly=['weightUnit','heightUnit'].includes(event.target.name)&&this.changeMeasureUnit(event.target);
             if (event.target.closest('#single-form,#batch-form') || event.target.id === 'paste-data') {
-                this.readForms(); if (!displayOnly&&event.target.closest('#single-form') && this.state.single) { this.state.stale = true; const target=document.getElementById('single-results'); if(target&&!target.querySelector('[data-stale-notice]')){const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');target.querySelector('.dashboard-toolbar')?.after(notice);} }
+                this.readForms();
+                if(!displayOnly&&event.target.closest('#single-form')&&this.state.single)this.updateDraftStaleness();
                 this.scheduleSave();
             }
         });
@@ -1178,11 +1179,40 @@ class WorkspaceApp {
         const paste = document.getElementById('paste-data'); if (paste && !this.csvBusy && !this.csvReading) this.state.paste = paste.value;
         this.state.mode = this.page === 'batch' ? 'batch' : this.page === 'single' ? 'single' : this.state.mode;
     }
+    updateDraftStaleness(){
+        const baseline=this.singleEditBaseline;
+        this.state.stale=baseline?.entry!==this.state.single||baseline.signature!==HistoryManager.signature({draft:this.state.draft});
+        const target=document.getElementById('single-results'),existing=target?.querySelector('[data-stale-notice]');
+        if(!this.state.stale){existing?.remove();return;}
+        if(target&&!existing){
+            const notice=document.createElement('p');notice.className='notice warn';notice.setAttribute('role','status');notice.setAttribute('data-stale-notice','');notice.textContent=this.t('stale');
+            target.querySelector('.dashboard-toolbar')?.after(notice);
+        }
+    }
     checkpoint(captureForm = true) {
         if (captureForm) this.readForms();
-        try { this.history.checkpoint(this.state); } catch (error) { this.saveState = 'unsaved'; this.updateSaveStatus(); }
+        try { this.history.checkpoint(this.state); return true; } catch (error) { this.saveState = 'unsaved'; this.updateSaveStatus(); return false; }
     }
-    scheduleSave() { this.saveRevision=(this.saveRevision||0)+1;this.checkpoint(); this.saveState = 'saving'; this.updateSaveStatus(); clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.queueSave(),800); }
+    persistDraft(){
+        if(!this.checkpoint())return this.queueSave();
+        this.saveState=HistoryManager.hasWork(this.state)?'saved':'ready';
+        this.updateSaveStatus();
+    }
+    scheduleSave() {
+        this.saveRevision=(this.saveRevision||0)+1;
+        clearTimeout(this.saveTimer);
+        if(this.checkpoint()){this.saveState=HistoryManager.hasWork(this.state)?'saved':'ready';this.updateSaveStatus();}
+        else this.saveTimer=setTimeout(()=>this.persistDraft(),800);
+    }
+    static retainCalculation(previous,calculated){
+        if(!previous?.result||previous.result.imported||previous.child.visitId!==calculated.child.visitId)return calculated;
+        const comparable=entry=>{
+            const {id,createdAt,...draft}=entry.child;
+            const {id:resultId,childId,calculatedAt,...result}=entry.result;
+            return HistoryManager.signature({draft,result});
+        };
+        return comparable(previous)===comparable(calculated)?previous:calculated;
+    }
     queueSave(reason='automatic',force=false) {
         const source=this.state,revision=this.saveRevision||0,request=this.saveRequest=(this.saveRequest||0)+1;
         const workspace = HistoryManager.clone(this.state);
@@ -1276,7 +1306,11 @@ class WorkspaceApp {
         else if(action==='stage-detail-page'){const page=Number(button.dataset.page);if(Number.isInteger(page)&&page>=0){this.stagePreviewPage=page;this.renderStagePreview();this.focusPagination('stage-detail-page');}}
         else if(action==='stage-back'&&this.preparedImport)this.showImportPreview(this.preparedImport,this.importOverview.name,this.importOverview.duplicate);
         else if(action==='page'){ this.page=button.dataset.page; if(this.page==='history'){this.historyPane=button.dataset.historyPane==='versions'?'versions':'backup';this.sessions=await this.history.catalog();} this.render(); document.getElementById('main').focus({preventScroll:true}); }
-        else if(action==='edit-measures'||action==='show-results'){ this.singleEditing=action==='edit-measures'; this.render(this.singleEditing?'single-caseId':'results-title'); }
+        else if(action==='edit-measures'||action==='show-results'){
+            this.singleEditing=action==='edit-measures';
+            if(this.singleEditing&&!this.state.stale&&this.state.single)this.singleEditBaseline={entry:this.state.single,signature:HistoryManager.signature({draft:this.state.draft})};
+            this.render(this.singleEditing?'single-caseId':'results-title');
+        }
         else if(action==='save'){ const hasWork=HistoryManager.hasWork(this.state),snapshot=await this.saveImmediate('manual',true); this.toast(!hasWork?'manualEmpty':snapshot?'manualSaved':'manualUnchanged'); if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();} }
         else if(action==='new'){ await this.saveImmediate('beforeNew'); this.state=this.emptyWorkspace();this.singleEditing=false;this.singleView='summary';this.batchPane='entry';this.batchSearch='';this.batchFilter='all';this.state.mode=this.page==='batch'?'batch':'single';this.batchPage=0; this.saveState='ready'; this.render(this.page==='batch'?'batch-caseId':'single-caseId'); }
         else if(action==='new-visit'){
@@ -1290,7 +1324,7 @@ class WorkspaceApp {
         else if(action==='calculate-batch'){
             if(this.batchComputing||this.csvBusy||this.csvReading)return;
             button.disabled=true;const workspace=this.state,entries=[];this.batchComputing=true;
-            try { for(let i=0;i<workspace.batch.length;i++){if(this.state!==workspace||this.page!=='batch')return;entries.push(this.engine.calculate(workspace.batch[i].child));if(i%100===99)await new Promise(resolve=>setTimeout(resolve,0));}if(this.state!==workspace||this.page!=='batch')return;workspace.batch=entries;this.batchPane='results';await this.saveImmediate('calculated');this.render('batch-results-title'); }
+            try { for(let i=0;i<workspace.batch.length;i++){if(this.state!==workspace||this.page!=='batch')return;const entry=workspace.batch[i];entries.push(WorkspaceApp.retainCalculation(entry,this.engine.calculate(entry.child)));if(i%100===99)await new Promise(resolve=>setTimeout(resolve,0));}if(this.state!==workspace||this.page!=='batch')return;workspace.batch=entries;this.batchPane='results';await this.saveImmediate('calculated');this.render('batch-results-title'); }
             finally {this.batchComputing=false;button.disabled=false;}
         }
         else if(action==='parse-csv') await this.addCSV(this.state.paste);

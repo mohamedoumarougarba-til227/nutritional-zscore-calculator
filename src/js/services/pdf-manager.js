@@ -310,17 +310,35 @@ class PDFManager {
         return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language,model.dateFormat)].join('\n'),
             measures:[...measures,...(bmi?[bmi]:[])].join('\n'),bmi,primaryMeasures:[ageLine,weightHeight,sexOedema],otherMeasures:measures.filter(v=>v!==ageLine&&v!==weightHeight&&v!==sexOedema),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
     }
-    static compact(model) {
-        const categories=new Map(),notes=new Map();
-        const code=(values,text,prefix)=>{
-            if(!text)return '';
-            if(!values.has(text))values.set(text,prefix+(values.size+1));
-            return values.get(text);
-        };
-        const body=model.rows.map(row=>[String(row.index),row.briefIdentity.join('\n'),row.measurementDate,row.briefMeasures.join('\n'),
-            ...row.scores.map((score,i)=>{const lines=score.split('\n'),numeric=lines[0].startsWith('Z = ');return (numeric?lines[0].slice(4):'--')+'\n'+code(categories,(numeric?lines.slice(1):lines).join('\n'),'C')+(row.percentiles[i]?'\n'+row.percentiles[i]:'');}),
-            [row.provenance||'',row.notes.map(note=>code(notes,note,'N')).filter(Boolean).join(' '),model.t('calculatedAt')+' : '+row.calculatedAt].filter(Boolean).join('\n')]);
-        return {body,legend:[...categories,...notes].map(([text,key])=>[key,text])};
+    static compact(model,entries) {
+        const {t,language,dateFormat}=model;
+        const body=model.rows.map((row,index)=>{
+            const entry=entries[index],{child,result}=entry,assessment=result?.nutrition;
+            const detail=this.detailedRow(entry,row,model);
+            const measured=child.measurementDate?this.detailedDate(child.measurementDate,language,dateFormat):t('unknown');
+            const pb=detail.otherMeasures.find(line=>line.startsWith(t('pdfMuacShort')+':'));
+            const measures=[...detail.primaryMeasures,pb||t('pdfMuacShort')+': '+t('unknown')];
+            if(child.ageMode==='dates'&&Number.isFinite(child.ageDays))measures.push(t('pdfAgeShort')+': '+child.ageDays+' '+t('pdfDaysUnit'));
+            if(Number.isFinite(result?.correctedHeight)&&Math.abs(result.correctedHeight-child.height)>.01){
+                measures.push(detail.otherMeasures.find(line=>line.startsWith(t('adjustedHeight')+':')));
+            }
+            const scores=model.indicators.map((key,i)=>{
+                const score=result?.[key];
+                if(!result)return t('notCalculated');
+                if(score?.error==='oedemaWarning')return t('pdfOedemaSuspended');
+                if(score?.notApplicable||!result.applicableIndicators?.includes(key))return t(score?.error||'pdfScoreNotApplicable');
+                if(!Number.isFinite(score?.zscore))return t(score?.error||'pdfScoreUnavailable');
+                const classification=t(score.classification||(result.referenceFamily==='INTERGROWTH2015'?'intergrowthDescriptive':'unknown'));
+                return ['Z '+score.zscore.toFixed(2)+(row.percentiles[i]?' | '+row.percentiles[i]:''),classification,score.flagged?t('flagged'):'',score.error?t(score.error):''].filter(Boolean).join('\n');
+            });
+            const context=[row.screening];
+            if(assessment?.orientation)context.push(t(assessment.orientation));
+            if(assessment?.missing?.length&&assessment.category!=='nutritionIncomplete')context.push(t('pdfClinicalMissing'));
+            const references=result?[result.referenceVersion,assessment?.reference&&assessment.reference+' v'+assessment.version,t('engineVersion')+' '+result.engineVersion]:[];
+            if(result?.imported)references.push(t('pdfImportedShort'));
+            return [String(row.index),[...row.briefIdentity,measured].join('\n'),measures.filter(Boolean).join('\n'),...scores,context.join('\n'),references.filter(Boolean).join('\n')];
+        });
+        return {body};
     }
     static scoreWithPercentile(row,index) {
         const score=row.scores[index],p=row.percentiles[index];
@@ -789,7 +807,7 @@ class PDFManager {
             });
             return {bytes:doc.output('arraybuffer'),pages:doc.getNumberOfPages(),entries:1};
         }
-        // Compact retains its coded report. Detailed batches keep clinical context in the same row.
+        // Both reports read stored results. The synthesis puts comparisons in a single table.
         const normalize=value=>this.clean(value).replace(/[\u202f\u00a0]/g,' ').replace(/−/g,'-').replace(/≥/g,'>=').replace(/≤/g,'<=');
         const western=value=>/^[\x20-\x7e\xa0-\xff\nœŒ‘’“”–—…€]*$/u.test(normalize(value));
         const strings=[...Object.values(options.translations[language]),...rows.flatMap(r=>[...r.identity,...r.measures,...r.scores,...r.percentiles,...r.notes])];
@@ -804,6 +822,10 @@ class PDFManager {
         const headed=new Set(),usable=width-2*margin;
         const calculated=entries.filter(e=>!!e.result).length;
         const detailedLabels=this.detailedLabels(language),legend=this.batchLegend(language,model.hasPercentiles);
+        const synthesisNotes=compact?[
+            entries.some(entry=>entry.result?.imported)?t('importedResult'):'',
+            entries.some(entry=>entry.result?.referenceFamily==='CDC2000')?t('cdcInterpretation'):''
+        ].filter(Boolean):[];
         const bottom=16;
         let batchTop=24;
         const oneLine=(value,x,y,w,size,bold,align,color)=>{
@@ -828,6 +850,9 @@ class PDFManager {
             // One full-width legend for both calculated and pending lots.
             oneLine(legend.header,lead,17,usable,8,false,rtl?'right':'left',[65,65,65]);
             let ly=20;
+            if(synthesisNotes.length){
+                ly=text(synthesisNotes.join(' '),ly+3,8);
+            }
             if(model.stale)ly=text(t('stale'),ly+2,9,true);
             doc.setDrawColor(205,216,210);doc.line(margin,ly,width-margin,ly);
             // Reserve space for a continuation marker on subsequent pages.
@@ -837,8 +862,6 @@ class PDFManager {
         const base={theme:'grid',margin:{top:batchTop,bottom,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
             headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
             didParseCell:data=>{data.cell.text=data.cell.text.map(render);}};
-        const ensure=space=>{if(y+space>height-bottom){doc.addPage();header();y=batchTop;}};
-        const section=key=>{ensure(25);y=text(t(key),y,11,true,[23,99,72]);};
         const table=(head,body,widths,overrides={})=>{
             if(!body.length)return;
             if(rtl){head=[...head].reverse();body=body.map(row=>[...row].reverse());widths=[...widths].reverse();}
@@ -853,11 +876,13 @@ class PDFManager {
                 }});
             y=doc.lastAutoTable.finalY+5;
         };
-        const reduced=compact?this.compact(model):null;
-        const count=model.indicators.length,scoreWidth=(usable-(compact?8+34+22+48+26+34:9+40+48+27+20))/Math.max(1,count);
-        const shortMeasures=r=>r.briefMeasures.filter(line=>line!==t('approximateAge')).join('\n');
         if(compact){
-            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,2),this.detailedDate(row[2],language,model.dateFormat),shortMeasures(rows[i]).split('\n').map(line=>line.replace(/\b\d{4}-\d{2}-\d{2}\b/g,v=>this.detailedDate(v,language,model.dateFormat))).join('\n'),rows[i].screening,...row.slice(4,-1),row.at(-1).replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,v=>this.exportTimestamp(new Date(v),language,model.timeZone,model.dateFormat))]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
+            const essential=[8,36,43,52,39],n=model.indicators.length;
+            const remaining=usable-essential.reduce((sum,width)=>sum+width,0);
+            if(!n)essential[3]+=remaining;
+            table(['pdfNumber','pdfCompactIdentity','pdfMeasures',...model.indicators,'uiScreening','pdfReferences'].map(t),
+                this.compact(model,entries).body,[...essential.slice(0,3),...model.indicators.map(()=>remaining/n),...essential.slice(3)],
+                {recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
             // Each child is one horizontal record block, rather than a tall grid row.
             // Measure wrapping before drawing, keep complete blocks together when they
@@ -955,6 +980,12 @@ class PDFManager {
                 };
                 const oedemaNote=t('oedemaWarning'),originalNotes=detailed.notes==='—'?[]:detailed.notes.split('\n');
                 const notes=originalNotes.filter(v=>v!==t('screeningTitle')&&v!==t('additionalResults'));
+                if(result){
+                    notes.push(t('pdfRefShort')+': '+result.referenceVersion+' · '+t('engineVersion')+' '+result.engineVersion);
+                    if(result.nutrition?.reference)notes.push(t('clinicalReference')+': '+result.nutrition.reference+' v'+result.nutrition.version);
+                    if(result.additionalGrowth?.referenceVersion&&result.additionalGrowth.referenceVersion!==result.referenceVersion)
+                        notes.push(t('pdfExtraShort')+': '+result.additionalGrowth.referenceVersion);
+                }
                 const groups=model.indicators.map((key,i)=>{
                     let lines=this.scoreWithPercentile(row,i).split('\n');
                     if(lines.includes(oedemaNote)){
@@ -992,7 +1023,7 @@ class PDFManager {
                 for(const key of commonKeys){
                     const value=t(key),i=notes.indexOf(value);
                     if(i>=0&&(key!=='orientationCompleteAssessment'||orientationShort===t('orientationCompleteAssessmentShort'))){
-                        if(key!=='importedResult')shared.add(key);
+                        shared.add(key);
                         for(let j=notes.length-1;j>=0;j--)if(notes[j]===value)notes.splice(j,1);
                     }
                 }
@@ -1070,19 +1101,11 @@ class PDFManager {
             if(shared.size){
                 const heading=band([cell(usable,[{value:local.shared,bold:true,color:green}])],[239,246,241]);
                 const bmiHelp={fr:'IMC/âge : repère de croissance complémentaire, distinct du poids/taille.',en:'BMI for age: an additional growth indicator, distinct from weight-for-height.',ar:'مؤشر كتلة الجسم بالنسبة للعمر مؤشر نمو إضافي يختلف عن الوزن بالنسبة للطول.'}[language];
-                const notes=[...shared].map(key=>({value:key==='bmiReportHelp'?bmiHelp:t('orientationCompleteAssessmentShort')+' : '+t(key)}));
+                const notes=[...shared].map(key=>({value:key==='bmiReportHelp'?bmiHelp:key==='orientationCompleteAssessment'?t('orientationCompleteAssessmentShort')+' : '+t(key):t(key)}));
                 const detail=band([cell(usable,notes)]);
                 if(y+bandHeight(heading)+bandHeight(detail)>limit)nextPage();
                 const top=y;y=drawBand(heading,0,heading.length,y);y=drawBand(detail,0,detail.length,y);closeFragment(top,y);
             }
-        }
-        if(compact&&model.provenances.length){
-            section('pdfReferences');
-            table([t('pdfCompactCode'),t('referenceVersion'),t('engineVersion')],model.provenances.map((p,i)=>['R'+(i+1),p[0],p[1]]),[18,usable-57,39],{styles:{...base.styles,fontSize:9,cellPadding:1.2}});
-        }
-        if(compact){
-            section('pdfCompactLegend');y=text(t('pdfBatchLegendEnd')+' '+t('pdfCompactHelp'),y,8);
-            table([t('pdfCompactCode'),t('pdfCompactMeaning')],reduced.legend,[19,usable-19],{styles:{...base.styles,fontSize:8.5,cellPadding:1.2}});
         }
         const pages=doc.getNumberOfPages();
         for(let i=1;i<=pages;i++){

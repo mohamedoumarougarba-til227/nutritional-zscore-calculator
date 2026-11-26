@@ -128,19 +128,22 @@ test('batch reports keep pending results and do not recalculate',()=>{
     assert.equal(JSON.stringify(entries),before);
 });
 
-test('compact report codes retain every distinct clinical note and deduplicate repeat explanations',()=>{
+test('batch synthesis exposes important stored observations without a coded legend',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
-    const entries=[visit(),visit(31),visit(60,{oedema:'y'})];
-    const model=PDFManager.model(entries,{language:'fr',translations});
-    const compact=PDFManager.compact(model),legend=new Map(compact.legend);
-    for(let i=0;i<model.rows.length;i++){
-        const row=model.rows[i],codes=compact.body[i].at(-1).match(/N\d+/g)||[];
-        const decoded=codes.map(code=>legend.get(code));
-        for(const note of row.notes)assert.ok(decoded.includes(note));
-        assert.ok(compact.body[i].at(-1).includes(model.t('calculatedAt')+' : '+row.calculatedAt));
-        assert.ok(!decoded.some(note=>note.includes(row.calculatedAt)));
+    const ordinary=visit(),urgent=visit(60,{oedema:'y',cannotDrink:'y'});
+    ordinary.result.imported=true;
+    const entries=[ordinary,urgent,{child:visit(31).child,result:null}],before=JSON.stringify(entries);
+    for(const language of ['fr','en','ar']){
+        const model=PDFManager.model(entries,{language,translations});
+        const compact=PDFManager.compact(model,entries);
+        assert.match(compact.body[0].at(-1),new RegExp(ordinary.result.referenceVersion));
+        assert.ok(compact.body[0].at(-1).includes(model.t('pdfImportedShort')));
+        assert.ok(compact.body[1].at(-2).includes(model.t(urgent.result.nutrition.orientation)));
+        assert.ok(compact.body[1].includes(model.t('pdfOedemaSuspended')));
+        assert.ok(compact.body[2].includes(model.t('notCalculated')));
+        assert.equal(Object.hasOwn(compact,'legend'),false);
     }
-    assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
+    assert.equal(JSON.stringify(entries),before);
 });
 
 test('detailed lot has one horizontal block per child with explicit measures, notes and no annex',()=>{
@@ -283,8 +286,9 @@ test('detailed grid reserves identity and screening, rotates imported markers an
     assert.ok(heading&&heading.text.includes('#1 |')&&weight&&weight.page===heading.page&&weight.y>heading.y&&weight.x===heading.x);
     assert.ok(weight.text.includes('Longueur:')&&sex.text.includes('Œdèmes:')&&weight.y<sex.y);
     assert.ok(seen.some(v=>v.text.includes('GRID-FIRST · 03/01/2026')));
-    const imported=seen.filter(v=>v.text.startsWith('Résultat importé'));
+    const imported=seen.filter(v=>v.text==='Résultat importé');
     assert.equal(imported.length,2);
+    assert.equal(seen.filter(v=>v.text.startsWith('Résultat importé, conservé sans recalcul')).length,1);
     assert.equal(matrices.length,2);assert.ok(imported.every(v=>v.x>8&&v.x<12&&matrices.some(m=>m.page===v.page)));
     const pb=seen.filter(v=>v.text.startsWith('PB:'));
     assert.equal(pb.length,2);assert.ok(pb.every(v=>v.x===heading.x));

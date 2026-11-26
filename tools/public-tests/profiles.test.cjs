@@ -209,7 +209,7 @@ test('CDC result views, compact/detailed PDF models and charts explain the actua
         assert.ok(charts.includes(ui.esc(ui.t('cdcChartTitle'))));assert.ok(charts.includes(entry.result.referenceVersion));assert.ok(!charts.includes('WHO-2007-'));
         const model=PDFManager.model([entry],{language,translations}),row=model.rows[0];
         assert.ok(row.notes.some(n=>n.includes('CDC2022-extended-BMI')));assert.ok(row.notes.some(n=>n.includes(ui.t('profileUS'))));assert.ok(row.scores.some(n=>n.includes(ui.t('cdcSevereObesity'))));
-        const compact=PDFManager.compact(model);assert.ok(compact.legend.some(r=>r[1].includes(ui.t('cdcInterpretation'))));
+        const compact=PDFManager.compact(model,[entry]);assert.ok(compact.body[0].at(-1).includes(entry.result.referenceVersion));assert.ok(compact.body[0].some(text=>text.includes(ui.t('cdcSevereObesity'))));
         const lot=LotAnalysis.html(LotAnalysis.build([entry],engine.cdc.data.referenceVersion,{family:'CDC2000'}),ui,{exportButton:false});assert.ok(lot.includes(ui.esc(ui.t('cdcLotRules'))));
         assert.ok(ui.settingsHTML().includes(ui.esc(ui.t('profileUS'))));assert.ok(ui.formHTML('single',entry.child).includes('name="growthProfile"'));assert.ok(ui.formHTML('single',entry.child).includes('data-info="usAgeHelp"'));assert.ok(!ui.formHTML('single',entry.child).includes(translations[language].ageHint));
         for(const key of ['growthProfile','profileWHO','profileUS','cdcCoverage','cdcInterpretation','cdcCompletedMonths','cdcSevereObesity'])assert.notEqual(ui.t(key),key);
@@ -228,7 +228,7 @@ test('extended CDC centiles near 100 remain bounded in results, history and PDF 
         assert.ok(ui.resultsHTML(entry,false,true).includes('P '+bounded));
         assert.ok(ui.chartsHTML([entry]).includes('P '+bounded));
         const model=PDFManager.model([entry],{language,translations});assert.ok(model.rows[0].percentiles.includes('P > 99.9'));
-        assert.ok(JSON.stringify(PDFManager.compact(model)).includes('P > 99.9'));
+        assert.ok(JSON.stringify(PDFManager.compact(model,[entry])).includes('P > 99.9'));
     }
     assert.equal(JSON.stringify(entry),before);assert.equal(CSVManager.results([entry]),csv);
 });
