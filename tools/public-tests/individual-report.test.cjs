@@ -189,7 +189,7 @@ test('detailed batch header and footer stay on a shared baseline without overlap
         function TrackingPDF(options){
             const doc=new jsPDF(options),draw=doc.text.bind(doc);
             doc.text=(value,x,y,opts,...rest)=>{
-                for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,align:opts?.align||'left',width:doc.getTextWidth(String(part))});
+                for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,align:opts?.align||'left',size:doc.getFontSize(),width:doc.getTextWidth(String(part))});
                 return draw(value,x,y,opts,...rest);
             };return doc;
         }
@@ -200,10 +200,12 @@ test('detailed batch header and footer stay on a shared baseline without overlap
         const rtl=language==='ar',edge=rtl?285:12;
         const near=(a,b)=>Math.abs(a-b)<.1;
         const brand=seen.find(v=>near(v.y,13)&&near(v.x,rtl?274:23));
-        const summary=seen.find(v=>near(v.y,13)&&near(v.x,148.5));
+        const summary=seen.find(v=>near(v.y,13)&&near(v.x,rtl?12:285)&&v.align===(rtl?'left':'right'));
         assert.ok(brand?.text&&summary?.text,'header blocks '+language);
         assert.ok(summary.text.includes('|'),'summary separator '+language);
-        const notice=seen.filter(v=>near(v.y,19)&&near(v.x,edge));
+        const notice=seen.filter(v=>near(v.y,20)&&near(v.x,edge));
+        const methodology=seen.filter(v=>near(v.y,24)&&near(v.x,edge));
+        assert.equal(methodology.length,1,'stored-results statement '+language);
         assert.equal(notice.length,1,'single-line notice '+language);
         if(!rtl){
             assert.ok(brand.text.includes(translations[language].brand));
@@ -212,10 +214,11 @@ test('detailed batch header and footer stay on a shared baseline without overlap
         }
         const footer=seen.filter(v=>near(v.y,201));
         assert.equal(footer.length,3,'three footer blocks '+language);
+        assert.ok(footer.every(v=>Math.abs(v.size-footer[0].size)<.01&&v.size>=8),'uniform readable footer '+language);
         assert.ok(footer.some(v=>near(v.x,edge)&&v.text.includes('UTC')));
         const confidentiality=footer.find(v=>near(v.x,148.5)&&v.align==='center');
         assert.ok(confidentiality?.text,'centered confidentiality '+language);
-        if(!rtl)assert.equal(confidentiality.text,translations[language].pdfSensitive);
+        if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.ok(methodology[0].text.includes(PDFManager.detailedLabels(language).stored));}
         const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
         for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
     }

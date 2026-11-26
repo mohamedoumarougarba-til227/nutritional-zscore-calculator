@@ -726,10 +726,17 @@ class PDFManager {
                 doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText),doc.getTextWidth(visual(valueText)))));
                 doc.text(valueText,x,y,{align});
             };
-            const lead=rtl?width-margin:margin;
-            oneLine(summary,width/2,13,usable/2-2,11,true,rtl?'right':'left',[23,99,72]);
-            oneLine(t('appUsageNotice'),lead,19,usable,8,false,rtl?'right':'left',[35,50,45]);
-            let ly=22;
+            const lead=rtl?width-margin:margin,opposite=rtl?margin:width-margin;
+            doc.setFont(font,'bold');doc.setFontSize(14);
+            const brandText=render(t('brand'));
+            const brandWidth=Math.max(doc.getTextWidth(brandText),doc.getTextWidth(visual(brandText)));
+            oneLine(summary,opposite,13,usable-11-brandWidth-10,11.5,true,rtl?'left':'right',[23,99,72]);
+            // Keep the clinical notice readable and the export methodology secondary.
+            // Both are full-width, single-line statements; the footer is reserved for
+            // the same three simple blocks as the individual report.
+            oneLine(t('appUsageNotice'),lead,20,usable,8.5,false,rtl?'right':'left',[65,65,65]);
+            oneLine(detailedLabels.stored,lead,24,usable,8,false,rtl?'right':'left',[90,90,90]);
+            let ly=27;
             if(model.hasPercentiles)ly=text(t('percentileReportHelp'),ly+2,8);
             if(model.stale)ly=text(t('stale'),ly+2,9,true);
             const rule=ly+1;
@@ -791,22 +798,17 @@ class PDFManager {
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
             if(compact)doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
             else{
-                const footer={fr:'Résultats enregistrés, sans recalcul. Scores à 2 décimales. Export : ',en:'Stored results, no recalculation. Two-decimal scores. Export: ',ar:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين. التصدير: '}[language];
-                const left=render(footer+issued),middle=render(t('pdfSensitive')),size=8;
+                const exported=render(t('pdfExported')+' '+issued),confidential=render(t('pdfSensitive'));
+                const page=String(i)+' / '+String(pages),size=8.5;
+                doc.setFontSize(size);
                 const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
-                const gap=3,half=usable/2,pageWidth=measured(String(i)+' / '+String(pages));
-                // The confidentiality notice is centered on the physical page.
-                // Fit both adjacent blocks without moving it or wrapping.
-                const middleSize=Math.min(7.5,7.5*(2*(half-pageWidth-gap))/Math.max(1,measured(middle)));
-                doc.setFontSize(middleSize);
-                const leftAvailable=half-measured(middle)/2-gap;
-                doc.setFontSize(size);
-                const fitted=Math.min(size,size*leftAvailable/Math.max(1,measured(left)));
-                doc.setFontSize(fitted);
-                doc.text(left,rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
-                doc.setFontSize(middleSize);
-                doc.text(middle,width/2,height-9,{align:'center'});
-                doc.setFontSize(size);
+                const half=usable/2,gap=5,centerHalf=measured(confidential)/2;
+                // A common font size, equal baseline and fixed physical center.
+                // Shrink uniformly only if a translation would otherwise overlap.
+                const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(page)+centerHalf));
+                doc.setFontSize(common);
+                doc.text(exported,rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+                doc.text(confidential,width/2,height-9,{align:'center'});
             }
             doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
             if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
