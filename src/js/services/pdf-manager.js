@@ -764,14 +764,101 @@ class PDFManager {
         if(compact){
             table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,2),this.detailedDate(row[2],language,model.dateFormat),shortMeasures(rows[i]).split('\n').map(line=>line.replace(/\b\d{4}-\d{2}-\d{2}\b/g,v=>this.detailedDate(v,language,model.dateFormat))).join('\n'),rows[i].screening,...row.slice(4,-1),row.at(-1).replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,v=>this.exportTimestamp(new Date(v),language,model.timeZone,model.dateFormat))]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
-            const labels=[t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('uiScreening'),...model.indicators.map(t),detailedLabels.observations];
-            const body=rows.map((r,index)=>{
-                const detailed=this.detailedRow(entries[index],r,model);
-                return [String(r.index),detailed.identity,detailed.measures,r.screening,...r.scores.map((_,i)=>this.scoreWithPercentile(r,i)),detailed.notes];
-            });
-            const widths=[8,33,63,25],notesWidth=68+(12-margin)*2;
-            const remaining=usable-widths.reduce((sum,value)=>sum+value,0)-notesWidth;
-            table(labels,body,[...widths,...model.indicators.map(()=>remaining/Math.max(1,count)),notesWidth+(count?0:remaining)],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.15}});
+            // Each child is one horizontal record block, rather than a tall grid row.
+            // Measure wrapping before drawing, keep complete blocks together when they
+            // fit, and split only genuinely oversized blocks with an explicit marker.
+            const inset=2,step=3.6,pad=1.7,gap=2.5,limit=height-bottom;
+            const ink=[32,44,39],green=[23,99,72],muted=[70,79,75];
+            const makeLines=(value,w,bold=false,color=ink,size=9)=>{
+                doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);
+                return String(value).split('\n').flatMap(line=>doc.splitTextToSize(render(line),Math.max(1,w-2*inset)))
+                    .map(text=>({text,bold,color,size}));
+            };
+            const cell=(w,parts)=>({w,lines:parts.flatMap(part=>makeLines(part.value,w,part.bold,part.color,part.size))});
+            const band=(cells,fill=null)=>({cells,fill,length:Math.max(1,...cells.map(c=>c.lines.length))});
+            const bandHeight=(b,n=b.length)=>2*pad+n*step;
+            const drawBand=(b,start,n,top)=>{
+                const h=bandHeight(b,n);
+                if(b.fill){doc.setFillColor(...b.fill);doc.rect(margin,top,usable,h,'F');}
+                let offset=0;
+                for(const c of b.cells){
+                    const left=rtl?width-margin-offset-c.w:margin+offset;
+                    for(const [i,line] of c.lines.slice(start,start+n).entries()){
+                        doc.setFont(font,line.bold?'bold':'normal');doc.setFontSize(line.size);doc.setTextColor(...line.color);
+                        doc.text(line.text,rtl?left+c.w-inset:left+inset,top+pad+2.75+i*step,{align:rtl?'right':'left'});
+                    }
+                    offset+=c.w;
+                }
+                return top+h;
+            };
+            const nextPage=()=>{doc.addPage();header();y=batchTop;};
+            const closeFragment=(top,end)=>{
+                doc.setDrawColor(190,207,198);doc.setLineWidth(.25);doc.rect(margin,top,usable,end-top,'S');
+            };
+            for(const [index,row] of rows.entries()){
+                const detailed=this.detailedRow(entries[index],row,model);
+                const heading='#'+row.index+' · '+row.briefIdentity[0];
+                const identity=row.briefIdentity[1]+' · '+t('measurementDate')+' : '+this.detailedDate(row.measurementDate,language,model.dateFormat);
+                const screeningWidth=usable*.31;
+                const bands=[band([
+                    cell(usable-screeningWidth,[{value:heading,bold:true,color:green,size:10},{value:identity,color:muted}]),
+                    cell(screeningWidth,[{value:t('uiScreening'),bold:true,color:green},{value:row.screening,bold:true}])
+                ],[239,246,241])];
+                // Measures have their own wide horizontal strip, leaving each of the
+                // four indicators a full quarter of the page instead of a narrow cell.
+                const measurements=detailed.measures.split('\n');
+                const mWidth=usable/3,measureColumns=Array.from({length:3},()=>[]);
+                const chunk=Math.max(1,Math.ceil(measurements.length/3));
+                measurements.forEach((v,i)=>measureColumns[Math.min(2,Math.floor(i/chunk))].push(v));
+                bands.push(band([cell(usable,[{value:t('pdfMeasures'),bold:true,color:green}])]));
+                bands.push(band(measureColumns.map(col=>cell(mWidth,col.map(value=>({value}))))));
+                const scoreLabels=model.indicators;
+                if(scoreLabels.length){
+                    const scoreWidth=usable/scoreLabels.length;
+                    bands.push(band(scoreLabels.map((key,i)=>{
+                        const lines=this.scoreWithPercentile(row,i).split('\n');
+                        return cell(scoreWidth,[{value:t(key),bold:true,color:green},{value:lines.shift(),bold:true},...lines.map(value=>({value}))]);
+                    }),[247,250,248]));
+                }
+                if(detailed.notes!=='—'){
+                    bands.push(band([cell(usable,[{value:detailedLabels.observations,bold:true,color:green}])]));
+                    // Keep note order (column by column) and wrap complete observations
+                    // in three broad text columns. No clinical note is dropped.
+                    const groups=detailed.notes.split('\n').map(v=>makeLines('· '+v,mWidth,false,ink,9));
+                    const cols=[[],[],[]];let col=0,remaining=groups.reduce((n,g)=>n+g.length,0);
+                    for(const g of groups){
+                        const target=Math.ceil(remaining/(3-col));
+                        if(col<2&&cols[col].length&&cols[col].length+g.length>target&&Math.abs(target-cols[col].length)<Math.abs(target-cols[col].length-g.length)){
+                            remaining-=cols[col].length;col++;
+                        }
+                        cols[col].push(...g);
+                    }
+                    bands.push(band(cols.map(lines=>({w:mWidth,lines}))));
+                }
+                const total=bands.reduce((n,b)=>n+bandHeight(b),0);
+                if(y>batchTop+.1&&y+total>limit)nextPage();
+                let top=y;
+                const continuation=()=>{
+                    closeFragment(top,y);
+                    nextPage();top=y;
+                    const marker=band([cell(usable,[{value:t('pdfRowContinuation').replace('{number}',row.index),bold:true,color:green}])],[239,246,241]);
+                    y=drawBand(marker,0,marker.length,y);
+                };
+                for(const [bi,b] of bands.entries()){
+                    let start=0;
+                    // Keep a small heading band with at least the start of its content.
+                    if(b.length===1&&bi+1<bands.length&&y+bandHeight(b)+bandHeight(bands[bi+1],1)>limit)continuation();
+                    while(start<b.length){
+                        let available=Math.floor((limit-y-2*pad+.001)/step);
+                        if(available<1){continuation();available=Math.floor((limit-y-2*pad+.001)/step);}
+                        const n=Math.min(available,b.length-start);
+                        if(n<1)throw new Error('pdfInvalid');
+                        y=drawBand(b,start,n,y);start+=n;
+                        if(start<b.length)continuation();
+                    }
+                }
+                closeFragment(top,y);y+=gap;
+            }
         }
         if(compact&&model.provenances.length){
             section('pdfReferences');
@@ -790,13 +877,13 @@ class PDFManager {
             const page=String(i)+' / '+String(pages),size=8.5;
             doc.setFont(font,'normal');doc.setFontSize(size);doc.setTextColor(65);
             const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
-            const half=usable/2,gap=5,centerHalf=measured(confidential)/2;
-            const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(page)+centerHalf));
+            const half=usable/2,gap=5,centerHalf=measured(page)/2;
+            const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(confidential)+centerHalf));
             doc.setFontSize(common);
             const baseline=height-5.5;
             doc.text(exported,rtl?width-margin:margin,baseline,{align:rtl?'right':'left'});
-            doc.text(confidential,width/2,baseline,{align:'center'});
-            doc.text(page,rtl?margin:width-margin,baseline,{align:rtl?'left':'right'});
+            doc.text(page,width/2,baseline,{align:'center'});
+            doc.text(confidential,rtl?margin:width-margin,baseline,{align:rtl?'left':'right'});
         }
         if(options.print)doc.internal.events.subscribe('putPage',({pageNumber})=>{if(pageNumber===1)doc.internal.write('/AA << /O << /S /Named /N /Print >> >>');});
         return {bytes:doc.output('arraybuffer'),pages,entries:rows.length};

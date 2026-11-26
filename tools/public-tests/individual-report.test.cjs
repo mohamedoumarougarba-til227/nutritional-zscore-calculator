@@ -143,27 +143,36 @@ test('compact report codes retain every distinct clinical note and deduplicate r
     assert.equal(new Set(compact.legend.filter(row=>row[0].startsWith('N')).map(row=>row[1])).size,compact.legend.filter(row=>row[0].startsWith('N')).length);
 });
 
-test('detailed lot has one table with explicit measures and useful notes, no duplicate annex or reference IDs',()=>{
+test('detailed lot has one horizontal block per child with explicit measures, notes and no annex',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const calculated=visit(0,{caseId:'DETAILED-CALC',careProtocol:'niger2025'});
     const pending={child:{...calculated.child,caseId:'DETAILED-PENDING',ageMode:'dates',birthDate:'2024-05-25',weight:13500,height:92,position:'H'},result:null};
     const pma={child:{...pending.child,caseId:'DETAILED-PMA',ageMode:'pma',ageDays:undefined,postmenstrualDays:252,position:'L'},result:null};
     const entries=[calculated,pending,pma],before=JSON.stringify(entries);
     for(const language of ['fr','en','ar']){
-        const calls=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
-        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable:track,fonts,now:new Date('2026-11-25T23:33:36Z')});
-        assert.equal(report.entries,3);assert.equal(calls.length,1);
-        const {head,body,columnStyles}=calls[0],rtl=language==='ar',row=body.map(value=>rtl?[...value].reverse():value);
-        assert.equal(row.length,3);
-        assert.equal((rtl?[...head[0]].reverse():head[0]).at(-1),PDFManager.detailedLabels(language).observations);
-        assert.ok(row[1][2].includes(translations[language].pdfWeightShort));
-        assert.ok(row[1][2].includes(PDFManager.detailedLabels(language).birth));
-        assert.ok(!row[1][2].includes(translations[language].ageMode));
-        assert.ok(!row[2][2].includes(translations[language].unknown+' '+translations[language].pdfDaysUnit));
-        assert.ok(row[0].at(-1).includes(translations[language].headCircumferenceForAge)||row[0].at(-1).includes(translations[language].additionalResults));
-        assert.ok(!row[0].at(-1).includes(calculated.result.referenceVersion));
-        assert.equal(row[1].at(-1),'—');
-        assert.ok(columnStyles[rtl?0:head[0].length-1].cellWidth>=65);
+        const calls=[],seen=[],track=(doc,opts)=>{calls.push(opts);return autoTable(doc,opts);};
+        function TrackingPDF(options){
+            const doc=new jsPDF(options),draw=doc.text.bind(doc);
+            doc.text=(value,x,y,opts,...rest)=>{
+                for(const line of Array.isArray(value)?value:[value])seen.push({text:String(line),x,y,w:doc.getTextWidth(String(line)),align:opts?.align||'left'});
+                return draw(value,x,y,opts,...rest);
+            };return doc;
+        }
+        TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
+        const report=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF:TrackingPDF,autoTable:track,fonts,now:new Date('2026-11-25T23:33:36Z')});
+        assert.equal(report.entries,3);assert.equal(calls.length,0);
+        const model=PDFManager.model(entries,{language,translations}),row=entries.map((e,i)=>PDFManager.detailedRow(e,model.rows[i],model));
+        assert.ok(row[1].measures.includes(translations[language].pdfWeightShort));
+        assert.ok(row[1].measures.includes(PDFManager.detailedLabels(language).birth));
+        assert.ok(!row[1].measures.includes(translations[language].ageMode));
+        assert.ok(!row[2].measures.includes(translations[language].unknown+' '+translations[language].pdfDaysUnit));
+        assert.ok(row[0].notes.includes(translations[language].headCircumferenceForAge)||row[0].notes.includes(translations[language].additionalResults));
+        assert.ok(!row[0].notes.includes(calculated.result.referenceVersion));
+        assert.equal(row[1].notes,'—');
+        for(const e of entries)assert.equal(seen.filter(v=>v.text.includes(e.child.caseId)).length,1,'one identity '+language);
+        const content=seen.filter(v=>v.y>27&&v.y<194);
+        for(const v of content){const left=v.x-(v.align==='right'?v.w:v.align==='center'?v.w/2:0);assert.ok(left>=7&&left+v.w<=290,'block within printable width '+language);}
+        assert.ok(report.pages<=3);
     }
     assert.equal(JSON.stringify(entries),before);
 });
@@ -203,7 +212,7 @@ test('both batch layouts use compact margins, aligned heading and two-line foote
         const summary=seen.find(v=>near(v.y,11)&&near(v.x,opposite)&&v.align===(rtl?'left':'right'));
         assert.ok(brand?.text&&summary?.text,'header blocks '+language+' '+layout);
         assert.ok(summary.text.includes('|'),'summary separator '+language);
-        assert.equal(calls[0].margin.left,8);assert.equal(calls[0].margin.right,8);assert.equal(calls[0].margin.bottom,16);
+        if(layout==='compact'){assert.equal(calls[0].margin.left,8);assert.equal(calls[0].margin.right,8);assert.equal(calls[0].margin.bottom,16);}else assert.equal(calls.length,0);
         const methodology=seen.filter(v=>near(v.y,15)&&near(v.x,opposite));
         assert.equal(methodology.length,report.pages,'stored-results statement '+language);
         const notice=seen.filter(v=>near(v.y,200)&&near(v.x,148.5)&&v.align==='center');
@@ -220,8 +229,10 @@ test('both batch layouts use compact margins, aligned heading and two-line foote
         assert.equal(footer.length,3,'three footer blocks '+language);
         assert.ok(footer.every(v=>Math.abs(v.size-footer[0].size)<.01&&v.size>=8),'uniform readable footer '+language);
         assert.ok(footer.some(v=>near(v.x,edge)&&v.text.includes('UTC')));
-        const confidentiality=footer.find(v=>near(v.x,148.5)&&v.align==='center');
-        assert.ok(confidentiality?.text,'centered confidentiality '+language);
+        const pageNumber=footer.find(v=>near(v.x,148.5)&&v.align==='center');
+        assert.ok(pageNumber?.text.includes('/'),'centered pagination '+language);
+        const confidentiality=footer.find(v=>near(v.x,opposite)&&v.align===(rtl?'left':'right'));
+        assert.ok(confidentiality?.text,'edge confidentiality '+language);
         if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.ok(methodology[0].text.includes(PDFManager.detailedLabels(language).stored));}
         const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
         for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
@@ -237,4 +248,15 @@ test('explicit date and time preferences preserve calendar dates and handle zone
     assert.equal(PDFManager.detailedDate('2024-02-29','fr','iso'),'2024-02-29');
     assert.equal(PDFManager.validTimeZone('Not/AZone'),false);
     assert.equal(PDFManager.validTimeZone('system'),true);
+});
+
+test('horizontal blocks keep calculated and uncalculated lots readable and use fewer pages for short records',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const entries=Array.from({length:13},(_,i)=>visit(i,{caseId:'CARD-'+i,headCircumference:'',tricepsSkinfold:'',subscapularSkinfold:'',careProtocol:i===11?'niger2025':'',oedema:i===4?'y':'n'}));
+    for(const language of ['fr','en','ar']){
+        const pending=PDFManager.build(entries.map(e=>({child:e.child,result:null})),{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable,fonts});
+        const calculated=PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF,autoTable,fonts});
+        assert.ok(pending.pages<7,'pending blocks '+language);
+        assert.ok(calculated.pages<13,'calculated blocks '+language+' '+calculated.pages);
+    }
 });
