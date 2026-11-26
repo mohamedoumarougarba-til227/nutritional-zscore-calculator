@@ -195,11 +195,27 @@ test('detailed batch header and footer stay on a shared baseline without overlap
         }
         TrackingPDF.__bidiEngine__=jsPDF.__bidiEngine__;
         PDFManager.build(entries,{mode:'batch',layout:'detailed',language,translations},{jsPDF:TrackingPDF,autoTable,fonts,now});
-        const brand=seen.find(v=>v.text===translations[language].brand),summary=seen.find(v=>v.text.includes(translations[language].pdfBatchTitle)&&v.text.includes('|'));
-        assert.ok(brand&&summary);assert.equal(brand.y,summary.y);assert.ok(Math.abs(summary.x-148.5)<.1);
-        assert.equal(seen.filter(v=>v.text===translations[language].appUsageNotice).length,1);
-        const footer=seen.filter(v=>Math.abs(v.y-201)<.1);
-        assert.ok(footer.some(v=>v.text.includes('UTC')));assert.ok(footer.some(v=>v.text===translations[language].pdfSensitive));
+        // The renderer passes visual-order Arabic glyphs to jsPDF. Check the
+        // physical positions for every language and logical strings in LTR.
+        const rtl=language==='ar',edge=rtl?285:12;
+        const near=(a,b)=>Math.abs(a-b)<.1;
+        const brand=seen.find(v=>near(v.y,13)&&near(v.x,rtl?274:23));
+        const summary=seen.find(v=>near(v.y,13)&&near(v.x,148.5));
+        assert.ok(brand?.text&&summary?.text,'header blocks '+language);
+        assert.ok(summary.text.includes('|'),'summary separator '+language);
+        const notice=seen.filter(v=>near(v.y,19)&&near(v.x,edge));
+        assert.equal(notice.length,1,'single-line notice '+language);
+        if(!rtl){
+            assert.ok(brand.text.includes(translations[language].brand));
+            assert.ok(summary.text.includes(translations[language].pdfBatchTitle));
+            assert.equal(notice[0].text,translations[language].appUsageNotice);
+        }
+        const footer=seen.filter(v=>near(v.y,201));
+        assert.equal(footer.length,3,'three footer blocks '+language);
+        assert.ok(footer.some(v=>near(v.x,edge)&&v.text.includes('UTC')));
+        const confidentiality=footer.find(v=>near(v.x,148.5)&&v.align==='center');
+        assert.ok(confidentiality?.text,'centered confidentiality '+language);
+        if(!rtl)assert.equal(confidentiality.text,translations[language].pdfSensitive);
         const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
         for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]-.2,'footer overlap '+language);
     }

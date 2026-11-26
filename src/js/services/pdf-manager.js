@@ -723,7 +723,7 @@ class PDFManager {
             const oneLine=(value,x,y,w,size,bold,align,color)=>{
                 doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
                 const valueText=render(value);
-                doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText))));
+                doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText),doc.getTextWidth(visual(valueText)))));
                 doc.text(valueText,x,y,{align});
             };
             const lead=rtl?width-margin:margin;
@@ -793,19 +793,20 @@ class PDFManager {
             else{
                 const footer={fr:'Résultats enregistrés, sans recalcul. Scores à 2 décimales. Export : ',en:'Stored results, no recalculation. Two-decimal scores. Export: ',ar:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين. التصدير: '}[language];
                 const left=render(footer+issued),middle=render(t('pdfSensitive')),size=8;
-                const pageWidth=doc.getTextWidth(String(i)+' / '+String(pages));
-                // Allow the middle block to shift just enough to accommodate the
-                // longer timestamp, while reserving the opposite edge for pagination.
-                const gap=3,leftWidth=doc.getTextWidth(left),middleWidth=doc.getTextWidth(middle);
-                const preferred=(width/2-margin)-middleWidth/2;
-                const maxStart=usable-pageWidth-gap-middleWidth;
-                const middleStart=Math.min(maxStart,Math.max(preferred,leftWidth+gap));
-                const fitted=Math.min(size,size*(middleStart-gap)/Math.max(1,leftWidth));
+                const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
+                const gap=3,half=usable/2,pageWidth=measured(String(i)+' / '+String(pages));
+                // The confidentiality notice is centered on the physical page.
+                // Fit both adjacent blocks without moving it or wrapping.
+                const middleSize=Math.min(7.5,7.5*(2*(half-pageWidth-gap))/Math.max(1,measured(middle)));
+                doc.setFontSize(middleSize);
+                const leftAvailable=half-measured(middle)/2-gap;
+                doc.setFontSize(size);
+                const fitted=Math.min(size,size*leftAvailable/Math.max(1,measured(left)));
                 doc.setFontSize(fitted);
                 doc.text(left,rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
+                doc.setFontSize(middleSize);
+                doc.text(middle,width/2,height-9,{align:'center'});
                 doc.setFontSize(size);
-                const center=rtl?width-margin-middleStart-middleWidth/2:margin+middleStart+middleWidth/2;
-                doc.text(middle,center,height-9,{align:'center'});
             }
             doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
             if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
