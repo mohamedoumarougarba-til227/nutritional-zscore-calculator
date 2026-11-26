@@ -23,7 +23,7 @@ class PDFManager {
         if (text.length > 6000) throw new Error('pdfInvalid');
         return text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '').replace(/\r\n?/g, '\n');
     }
-    static model(entries, { language = 'fr', translations, stale = false } = {}) {
+    static model(entries, { language = 'fr', translations, stale = false, dateFormat='auto', timeZone='system' } = {}) {
         if (!Array.isArray(entries) || !entries.length || entries.length > 5000 || !['fr', 'en', 'ar'].includes(language) || !translations?.[language]) throw new Error('pdfInvalid');
         const t = key => {const own=table=>table&&Object.hasOwn(table,key)&&typeof table[key]==='string'?table[key]:'';return this.clean(own(translations[language])||own(translations.fr)||key);};
         const number = (value, digits) => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : t('unknown');
@@ -113,19 +113,232 @@ class PDFManager {
             return {index:i+1,screening,identity,measures,compactMeasures,briefMeasures,briefIdentity:[this.clean(c.name||t('unknown')),this.clean(c.caseId||t('unknown'))],measurementDate:this.clean(c.measurementDate||t('unknown')),scores,percentiles,notes:[...new Set(notes.filter(Boolean))],provenance,calculatedAt:this.clean(r?.calculatedAt||t('unknown'))};
         });
         const hasPercentiles=rows.some(row=>row.percentiles.some(Boolean))||entries.some(entry=>Object.values(entry.result?.additionalGrowth?.indicators||{}).some(value=>CentilePDF.text(value)!==null));
-        return {language, t, indicators, rows, stale, provenances,hasPercentiles,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
+        return {language, t, indicators, rows, stale, provenances,hasPercentiles,dateFormat,timeZone,keys:['pdfNumber','pdfIdentity','pdfMeasures',...indicators,'pdfNotes']};
     }
-    static compact(model) {
-        const categories=new Map(),notes=new Map();
-        const code=(values,text,prefix)=>{
-            if(!text)return '';
-            if(!values.has(text))values.set(text,prefix+(values.size+1));
-            return values.get(text);
+    // Detailed batch presentation only: never alter the stored result, individual or compact models.
+    static detailedLabels(language) {
+        return {
+            fr:{observations:'Observations et vérifications',height:'Taille',length:'Longueur',birth:'Né(e) le',days:'jours',month:'mois',year:'an',years:'ans',head:'Périm. crânien',mm:'mm',cm:'cm',g:'g',stored:'Résultats enregistrés, sans recalcul. Scores à deux décimales.',exported:'Exporté le'},
+            en:{observations:'Observations and checks',height:'Height',length:'Length',birth:'Date of birth',days:'days',month:'months',year:'year',years:'years',head:'Head circumference',mm:'mm',cm:'cm',g:'g',stored:'Stored results, no recalculation. Two-decimal scores.',exported:'Exported'},
+            ar:{observations:'الملاحظات والتحقق',height:'القامة',length:'الطول مستلقيًا',birth:'تاريخ الميلاد',days:'يوم',month:'شهر',year:'سنة',years:'سنوات',head:'محيط الرأس',mm:'مم',cm:'سم',g:'غرام',stored:'نتائج محفوظة دون إعادة حساب. الدرجات بمنزلتين عشريتين.',exported:'تاريخ التصدير'}
+        }[language];
+    }
+    // Presentation/filenames use the device's local clock, including its offset at
+    // the instant of export. Stored clinical dates and interchange timestamps stay unchanged.
+    static validTimeZone(value) {
+        if(value==='system')return true;
+        if(typeof value!=='string'||!value||value.length>100)return false;
+        try{new Intl.DateTimeFormat('en',{timeZone:value});return true;}catch(_){return false;}
+    }
+    static exportClock(now=new Date(),timeZone='system') {
+        const pad=value=>String(value).padStart(2,'0');
+        const options={calendar:'gregory',numberingSystem:'latn',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'};
+        if(timeZone!=='system'&&this.validTimeZone(timeZone))options.timeZone=timeZone;
+        const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',options).formatToParts(now).map(p=>[p.type,p.value]));
+        const date=parts.year+'-'+parts.month+'-'+parts.day,time=parts.hour+':'+parts.minute;
+        const offset=Math.round((Date.UTC(+parts.year,+parts.month-1,+parts.day,+parts.hour,+parts.minute,+parts.second)-(now.getTime()-now.getMilliseconds()))/60000);
+        const sign=offset<0?'-':'+',absolute=Math.abs(offset),zone=sign+pad(Math.floor(absolute/60))+':'+pad(absolute%60);
+        return {date,time,zone,seconds:parts.second,milliseconds:String(now.getMilliseconds()).padStart(3,'0')};
+    }
+    static exportTimestamp(now,language='fr',timeZone='system',dateFormat='auto') {
+        const c=this.exportClock(now,timeZone);
+        return this.detailedDate(c.date,language,dateFormat)+' '+c.time+' UTC'+c.zone;
+    }
+    static exportFileStamp(now=new Date(),timeZone='system') {
+        const c=this.exportClock(now,timeZone);
+        return c.date+'T'+c.time.replace(':','-')+'-'+c.seconds+'-'+c.milliseconds+c.zone.replace(':','-');
+    }
+    static detailedDate(value,language,dateFormat='auto') {
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return value;
+        const [y,m,d]=value.split('-'),format=dateFormat==='auto'?(language==='fr'?'dmy':'iso'):dateFormat;
+        return format==='dmy'?d+'/'+m+'/'+y:format==='mdy'?m+'/'+d+'/'+y:value;
+    }
+    // Layout only: counts[k][i] is the actual wrapped line count for note i
+    // at k columns. A note is indivisible; its original text never changes.
+    static observationPlan(counts,bandOverhead=2.7/3.45) {
+        const ids=counts[1].map((_,i)=>i);
+        if(!ids.length)return {bands:[],height:0,kind:'empty'};
+        const inversions=order=>{
+            let n=0;for(let i=0;i<order.length;i++)for(let j=i+1;j<order.length;j++)if(order[i]>order[j])n++;
+            return n;
         };
-        const body=model.rows.map(row=>[String(row.index),row.briefIdentity.join('\n'),row.measurementDate,row.briefMeasures.join('\n'),
-            ...row.scores.map((score,i)=>{const lines=score.split('\n'),numeric=lines[0].startsWith('Z = ');return (numeric?lines[0].slice(4):'--')+'\n'+code(categories,(numeric?lines.slice(1):lines).join('\n'),'C')+(row.percentiles[i]?'\n'+row.percentiles[i]:'');}),
-            [row.provenance||'',row.notes.map(note=>code(notes,note,'N')).filter(Boolean).join(' '),model.t('calculatedAt')+' : '+row.calculatedAt].filter(Boolean).join('\n')]);
-        return {body,legend:[...categories,...notes].map(([text,key])=>[key,text])};
+        const balance=(indices,k)=>{
+            const w=counts[k],load=cols=>cols.map(c=>c.reduce((n,i)=>n+w[i],0));
+            const evaluate=cols=>{
+                // Order each column and order columns by first source item.
+                const ordered=cols.map(c=>[...c].sort((a,b)=>a-b)).sort((a,b)=>(a[0]??Infinity)-(b[0]??Infinity));
+                const heights=load(ordered),max=Math.max(...heights),spread=max-Math.min(...heights);
+                return {cols:ordered,max,spread,inv:inversions(ordered.flat())};
+            };
+            const better=(a,b)=>!b||a.max<b.max||a.max===b.max&&(a.spread<b.spread||a.spread===b.spread&&a.inv<b.inv);
+            if(k===1)return evaluate([indices]);
+            let best;
+            const consider=cols=>{const c=evaluate(cols);if(better(c,best))best=c;};
+            // A contiguous layout is preferred if equally balanced. Search all
+            // ordered boundaries for normal-sized records.
+            if(indices.length<=100){
+                for(let i=1;i<=indices.length-k+1;i++){
+                    if(k===2)consider([indices.slice(0,i),indices.slice(i)]);
+                    else for(let j=i+1;j<indices.length;j++)consider([indices.slice(0,i),indices.slice(i,j),indices.slice(j)]);
+                }
+            }
+            const sorted=[...indices].sort((a,b)=>w[b]-w[a]||a-b);
+            const greedy=Array.from({length:k},()=>[]),heights=Array(k).fill(0);
+            for(const i of sorted){
+                const j=heights.indexOf(Math.min(...heights));greedy[j].push(i);heights[j]+=w[i];
+            }
+            consider(greedy);
+            // Bounded branch-and-bound improves the worst column without
+            // exponential runtime for unusually large imported records.
+            const total=indices.reduce((s,i)=>s+w[i],0),lower=Math.max(Math.ceil(total/k),...indices.map(i=>w[i]));
+            if(best.max>lower&&indices.length<=64){
+                const cols=Array.from({length:k},()=>[]),loads=Array(k).fill(0);
+                let budget=6000;
+                const search=pos=>{
+                    if(--budget<0||best.max===lower)return;
+                    if(pos===sorted.length){if(cols.every(c=>c.length))consider(cols);return;}
+                    const i=sorted[pos],seen=new Set();
+                    for(const j of loads.map((_,j)=>j).sort((a,b)=>loads[a]-loads[b]||a-b)){
+                        if(seen.has(loads[j])||loads[j]+w[i]>=best.max)continue;
+                        seen.add(loads[j]);loads[j]+=w[i];cols[j].push(i);
+                        search(pos+1);cols[j].pop();loads[j]-=w[i];
+                        if(budget<0||best.max===lower)return;
+                    }
+                };
+                search(0);
+            }
+            return best;
+        };
+        let best;
+        const consider=(bands,kind)=>{
+            const height=bands.reduce((s,b)=>s+b.max,0)+(bands.length-1)*bandOverhead;
+            const inv=inversions(bands.flatMap(b=>b.cols.flat()));
+            const spread=bands.reduce((s,b)=>s+b.spread,0);
+            const rank=kind==='3'?0:kind==='2'?1:kind==='1'?2:3;
+            const candidate={bands,height,kind,inv,spread,rank};
+            // Prefer the established three-column design at equal height.
+            if(!best||height<best.height-1e-8||Math.abs(height-best.height)<1e-8&&
+                (rank<best.rank||rank===best.rank&&(spread<best.spread||spread===best.spread&&inv<best.inv)))best=candidate;
+        };
+        const make=(indices,k)=>({columns:k,...balance(indices,k)});
+        for(let k=1;k<=Math.min(3,ids.length);k++)consider([make(ids,k)],String(k));
+        // A mixed band gives long, independent notes their full width, while
+        // other notes share two or three columns. Evaluate the largest savings
+        // individually and a few combinations; never split a note across columns.
+        const long=ids.filter(i=>counts[3][i]>=3&&counts[3][i]-counts[1][i]>=2)
+            .sort((a,b)=>(counts[3][b]-counts[1][b])-(counts[3][a]-counts[1][a])||a-b).slice(0,5);
+        const subsets=long.map(i=>[i]);
+        for(let i=0;i<Math.min(3,long.length);i++)for(let j=i+1;j<Math.min(3,long.length);j++)subsets.push([long[i],long[j]]);
+        for(const selected of subsets){
+            const full=selected.slice().sort((a,b)=>a-b),rest=ids.filter(i=>!full.includes(i));
+            if(rest.length<2)continue;
+            const wide=make(full,1);
+            for(let k=2;k<=Math.min(3,rest.length);k++){
+                const narrow=make(rest,k);
+                consider([wide,narrow],'mixed');consider([narrow,wide],'mixed');
+            }
+        }
+        return best;
+    }
+    static batchLegend(language,hasPercentiles) {
+        const labels={
+            fr:{stored:'Z = score enregistré, affiché à 2 décimales, sans recalcul.',percentiles:'P = centile du Z avant arrondi. OMS : −3 à +3 Z ; CDC/INTERGROWTH : indisponible si arrondi à 0 ou 100. Affichage : P < 0.1 ou P > 99.9. P -- : indisponible. Sans P : aucun centile enregistré.',notice:'Aide au dépistage, sans diagnostic ni prescription automatique. Ne remplace pas une évaluation clinique.'},
+            en:{stored:'Z = stored score, displayed to 2 decimals, without recalculation.',percentiles:'P = centile of unrounded Z. WHO: −3 to +3 Z; CDC/INTERGROWTH: unavailable if rounded to 0 or 100. Display: P < 0.1 or P > 99.9. P --: unavailable. No P: no stored centile.',notice:'Screening aid, without automatic diagnosis or prescription. Does not replace clinical assessment.'},
+            ar:{stored:'Z = درجة محفوظة تُعرض بمنزلتين عشريتين دون إعادة حساب.',percentiles:'P = مئين Z قبل التقريب. منظمة الصحة العالمية: من −3 إلى +3 Z؛ CDC وINTERGROWTH: غير متاح عند التقريب إلى 0 أو 100. العرض: P < 0.1 أو P > 99.9. P --: غير متاح. دون P: لا يوجد مئين محفوظ.',notice:'مساعدة في التحري دون تشخيص أو وصفة تلقائية. لا تغني عن التقييم السريري.'}
+        }[language];
+        return {header:labels.stored+(hasPercentiles?' '+labels.percentiles:''),notice:labels.notice};
+    }
+    static detailedRow(entry,row,model) {
+        const {language,t}=model,{child:c,result:r}=entry,l=this.detailedLabels(language);
+        const n=(v,d=0)=>Number.isFinite(v)?new Intl.NumberFormat(language,{minimumFractionDigits:d,maximumFractionDigits:d}).format(v):t('unknown');
+        const flexible=v=>Number.isFinite(v)?new Intl.NumberFormat(language,{maximumFractionDigits:3}).format(v):t('unknown');
+        const u=(v,d,unit)=>Number.isFinite(v)?n(v,d)+' '+unit:t('unknown');
+        const f=(label,value)=>label+': '+this.clean(value??t('unknown'));
+        const short=key=>t(key).replace(/\s*\([^()]*\)\s*$/u,'');
+        const pair=(...fields)=>fields.filter(Boolean).join(' · ');
+        const heightLabel=c.position==='H'?l.height:c.position==='L'?l.length:t('pdfHeightShort');
+        const weightHeight=pair(f(t('pdfWeightShort'),u(c.weight,0,l.g)),f(heightLabel,u(c.height,1,l.cm)));
+        const measures=[weightHeight];
+        if(c.position!=='H'&&c.position!=='L')measures.push(f(t('position'),t('unknown')));
+        const ageDays=Number.isFinite(c.ageDays)?u(c.ageDays,0,l.days):'';
+        const estimated=['months','totalMonths'].includes(c.ageMode)||c.agePrecision==='completedMonths';
+        const ig=r?.intergrowthContext?.age;
+        if(c.ageMode==='dates'){
+            measures.push(f(l.birth,this.detailedDate(c.birthDate,language,model.dateFormat)||t('unknown')));
+        }else if(c.ageMode==='pma'){
+            measures.push(f(short('postmenstrualDays'),u(ig?.postmenstrualDays??c.postmenstrualDays,0,l.days)));
+        }else if(c.ageMode==='months'){
+            const parts=[];
+            if(Number.isFinite(c.ageYears)&&c.ageYears>0)parts.push(n(c.ageYears)+' '+(c.ageYears===1?l.year:l.years));
+            if(Number.isFinite(c.ageMonths)&&(c.ageMonths>0||!parts.length))parts.push(n(c.ageMonths)+' '+l.month);
+            measures.push(f(t('referenceEstimated'),(parts.join(' ')||ageDays||t('unknown'))+(parts.length&&ageDays?' ('+ageDays+')':'')));
+        }else if(c.ageMode==='totalMonths'){
+            const months=c.totalAgeMonths??c.ageTotalMonths;
+            measures.push(f(t('referenceEstimated'),Number.isFinite(months)?flexible(months)+' '+l.month+(ageDays?' ('+ageDays+')':''):(ageDays||t('unknown'))));
+        }else measures.push(f(t(estimated?'referenceEstimated':'pdfAgeShort'),ageDays||t('unknown')));
+        const ageLine=measures.at(-1);
+        const sexOedema=pair(f(t('gender'),c.gender==='M'||c.gender==='F'?c.gender:t('unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown')));
+        measures.push(sexOedema);
+        if(Number.isFinite(r?.correctedHeight)&&Math.abs(r.correctedHeight-c.height)>.01)measures.push(f(t('adjustedHeight'),u(r.correctedHeight,1,l.cm)));
+        const pb=Number.isFinite(c.muac)?f(t('pdfMuacShort'),u(c.muac,1,l.mm)):'';
+        const bmi=Number.isFinite(r?.bmi)?f(t('bmi'),u(r.bmi,2,'kg/m²')):'';
+        if(pb)measures.push(pb);
+        for(const key of SupplementaryPDF.fields)if(SupplementaryPDF.present(c[key])){
+            measures.push(f(key==='headCircumference'?l.head:short(key),u(c[key],1,key==='headCircumference'?l.cm:l.mm)));
+        }
+        if(ig){
+            if(c.ageMode!=='pma')measures.push(f(short('postmenstrualDays'),u(ig.postmenstrualDays,0,l.days)));
+            if(Number.isFinite(ig.birthGestationDays))measures.push(f(short('birthGestationDays'),u(ig.birthGestationDays,0,l.days)));
+        }
+        // Keep clinical context and complementary results, not internal reference IDs/versions.
+        const technicalPrefix=t('clinicalReference')+' : ';
+        const additionalPrefix=t('additionalResults')+' · ';
+        const igAgePrefix=t('postmenstrualDays')+' : ';
+        const notes=row.notes.filter(note=>note!==t('pdfUncalculated')&&!note.startsWith(technicalPrefix)&&!(ig&&note.startsWith(igAgePrefix)&&note.includes(t('birthGestationDays')+' : ')))
+            .map(note=>note.startsWith(additionalPrefix)?t('additionalResults'):note);
+        if(r?.nutrition){
+            const protocol=t(NutritionPDF.is2025(r.nutrition)?'screeningTitlePcima2025':NutritionPDF.isNational(r.nutrition)?'screeningTitlePcima':'screeningTitle');
+            notes.unshift(protocol);
+        }
+        const national=r?.nutrition?NutritionPDF.is2025(r.nutrition)?'2025':NutritionPDF.isNational(r.nutrition):c.careProtocol==='niger2025'?'2025':c.careProtocol==='niger2023';
+        const observations=[];
+        for(const key of new Set(NutritionPDF.inputFields)){
+            if(['muac','careProtocol'].includes(key)||c[key]===undefined||c[key]===null||c[key]==='')continue;
+            observations.push(f(t(key),t(NutritionPDF.observationLabel(key,c[key],national))));
+        }
+        if(observations.length)notes.push(...observations);
+        return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language,model.dateFormat)].join('\n'),
+            measures:[...measures,...(bmi?[bmi]:[])].join('\n'),bmi,primaryMeasures:[ageLine,weightHeight,sexOedema],otherMeasures:measures.filter(v=>v!==ageLine&&v!==weightHeight&&v!==sexOedema),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
+    }
+    static compact(model,entries) {
+        const {t,language,dateFormat}=model;
+        const body=model.rows.map((row,index)=>{
+            const entry=entries[index],{child,result}=entry,assessment=result?.nutrition;
+            const detail=this.detailedRow(entry,row,model);
+            const measured=child.measurementDate?this.detailedDate(child.measurementDate,language,dateFormat):t('unknown');
+            const pb=detail.otherMeasures.find(line=>line.startsWith(t('pdfMuacShort')+':'));
+            const measures=[...detail.primaryMeasures,pb||t('pdfMuacShort')+': '+t('unknown')];
+            if(child.ageMode==='dates'&&Number.isFinite(child.ageDays))measures.push(t('pdfAgeShort')+': '+child.ageDays+' '+t('pdfDaysUnit'));
+            if(Number.isFinite(result?.correctedHeight)&&Math.abs(result.correctedHeight-child.height)>.01){
+                measures.push(detail.otherMeasures.find(line=>line.startsWith(t('adjustedHeight')+':')));
+            }
+            const scores=model.indicators.map((key,i)=>{
+                const score=result?.[key];
+                if(!result)return t('notCalculated');
+                if(score?.error==='oedemaWarning')return t('pdfOedemaSuspended');
+                if(score?.notApplicable||!result.applicableIndicators?.includes(key))return t(score?.error||'pdfScoreNotApplicable');
+                if(!Number.isFinite(score?.zscore))return t(score?.error||'pdfScoreUnavailable');
+                const classification=t(score.classification||(result.referenceFamily==='INTERGROWTH2015'?'intergrowthDescriptive':'unknown'));
+                return ['Z '+score.zscore.toFixed(2)+(row.percentiles[i]?' | '+row.percentiles[i]:''),classification,score.flagged?t('flagged'):'',score.error?t(score.error):''].filter(Boolean).join('\n');
+            });
+            const context=[row.screening];
+            if(assessment?.orientation)context.push(t(assessment.orientation));
+            if(assessment?.missing?.length&&assessment.category!=='nutritionIncomplete')context.push(t('pdfClinicalMissing'));
+            const references=result?[result.referenceVersion,assessment?.reference&&assessment.reference+' v'+assessment.version,t('engineVersion')+' '+result.engineVersion]:[];
+            if(result?.imported)references.push(t('pdfImportedShort'));
+            return [String(row.index),[...row.briefIdentity,measured].join('\n'),measures.filter(Boolean).join('\n'),...scores,context.join('\n'),references.filter(Boolean).join('\n')];
+        });
+        return {body};
     }
     static scoreWithPercentile(row,index) {
         const score=row.scores[index],p=row.percentiles[index];
@@ -199,8 +412,8 @@ class PDFManager {
         const rtl=language==='ar',margin=12,right=198,width=186,bottom=277;
         const font=options.individualFont||'Amiri';
         const labels={fr:{year:'an',years:'ans',month:'mois',vigilance:'Évaluation clinique et vigilance',engine:'Moteur Z-score',calc:'Calcul',notice:'Repères de croissance selon la référence utilisée. Ne remplacent pas une évaluation clinique. Aucun diagnostic ni prescription automatique.'},en:{year:'year',years:'years',month:'months',vigilance:'Clinical assessment and cautions',engine:'Z-score engine',calc:'Calculated',notice:'Growth indicators use the stated reference. They do not replace clinical assessment. No automatic diagnosis or prescription.'},ar:{year:'سنة',years:'سنوات',month:'شهر',vigilance:'التقييم السريري والتنبيهات',engine:'محرك Z',calc:'الحساب',notice:'مؤشرات النمو حسب المرجع المستخدم. لا تحل محل التقييم السريري. لا تشخيص أو وصفة تلقائية.'}}[language];
-        const date=value=>language==='fr'&&/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4):value;
-        const timestamp=value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value||'')?date(value.slice(0,10))+' '+value.slice(11,-1)+' UTC':value;
+        const date=value=>this.detailedDate(value,language,model.dateFormat);
+        const timestamp=value=>value&&Number.isFinite(Date.parse(value))?this.exportTimestamp(new Date(value),language,model.timeZone,model.dateFormat):value;
         const centile=value=>language==='fr'?String(value??'—').replace(/(\d)\.(\d)/g,'$1,$2'):String(value??'—');
         const number=(value,digits=0)=>Number.isFinite(value)?new Intl.NumberFormat(language,{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(value):'—';
         const field=(key,value)=>t(key)+': '+(value||t('unknown'));
@@ -450,7 +663,7 @@ class PDFManager {
             if(key===active.at(-1)&&!selected.has(this.reportSections[0]))line(t('appUsageNotice'),{size:9});
         }
         const count=doc.getNumberOfPages();
-        const issued=date(now.toISOString().slice(0,10))+' '+now.toISOString().slice(11,16)+' UTC';
+        const issued=this.exportTimestamp(now,language,model.timeZone,model.dateFormat);
         for(let i=1;i<=count;i++){
             doc.setPage(i);
             place(language==='ar'?t('brand'):'Z-Score Niger',rtl?right:margin,12,{size:17,bold:true});
@@ -459,8 +672,13 @@ class PDFManager {
             if(reference)place(reference,rtl?margin:right,16,{size:7.5,align:rtl?'left':'right'});
             doc.setDrawColor(50).setLineWidth(.25);
             doc.line(margin,reference?19:16,right,reference?19:16);doc.line(margin,282,right,282);
-            place(t('pdfExported')+' '+issued,margin,287,{size:8,align:'left'});
-            place(t('pdfSensitive'),105,287,{size:8,align:'center'});
+            const exported=t('pdfExported')+' '+issued,confidential=t('pdfSensitive');
+            doc.setFont(font,'normal').setFontSize(8);
+            const confidentialWidth=doc.getTextWidth(safe(confidential));
+            const exportWidth=105-confidentialWidth/2-margin-3;
+            const exportSize=Math.min(8,8*exportWidth/Math.max(1,doc.getTextWidth(safe(exported))));
+            place(exported,margin,287,{size:exportSize,align:'left'});
+            place(confidential,105,287,{size:8,align:'center'});
             place(i+'/'+count,right,287,{size:8,align:'right'});
         }
     }
@@ -570,9 +788,9 @@ class PDFManager {
         const glyph = doc.getFont().metadata.characterToGlyph.bind(doc.getFont().metadata);
         const safe = value => Array.from(this.clean(value), char => char === '\n' || glyph(char.codePointAt(0)) ? char : ({'≥':'>=','≤':'<='}[char] || '[U+' + char.codePointAt(0).toString(16).toUpperCase() + ']')).join('')
             .replace(/\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?\b/g, value => '\u200E'+value+'\u200E');
-        const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = 12;
+        const width = doc.internal.pageSize.getWidth(), height = doc.internal.pageSize.getHeight(), margin = batch?8:12;
         const compact=batch&&options.layout==='compact';
-        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = now.toISOString();
+        const title = t(compact?'pdfCompactTitle':batch?'pdfBatchTitle':options.sections?.[0]||'pdfSingleReport'), issued = this.exportTimestamp(now,language,model.timeZone,model.dateFormat);
         doc.setProperties({title:t('brand')+' - '+title,subject:t('pdfStoredOnly'),author:t('brand'),creator:'Z-score Niger local PDF'});
         doc.setLanguage(language); doc.setCreationDate(now);
         if(!batch){
@@ -589,8 +807,7 @@ class PDFManager {
             });
             return {bytes:doc.output('arraybuffer'),pages:doc.getNumberOfPages(),entries:1};
         }
-        // A wide summary table first, then an independent annex. Never pack clinical prose
-        // into a narrow score column or create an orphan table header before the first record.
+        // Both reports read stored results. The synthesis puts comparisons in a single table.
         const normalize=value=>this.clean(value).replace(/[\u202f\u00a0]/g,' ').replace(/−/g,'-').replace(/≥/g,'>=').replace(/≤/g,'<=');
         const western=value=>/^[\x20-\x7e\xa0-\xff\nœŒ‘’“”–—…€]*$/u.test(normalize(value));
         const strings=[...Object.values(options.translations[language]),...rows.flatMap(r=>[...r.identity,...r.measures,...r.scores,...r.percentiles,...r.notes])];
@@ -603,25 +820,48 @@ class PDFManager {
             return y+lines.length*size/doc.internal.scaleFactor*1.13+2;
         };
         const headed=new Set(),usable=width-2*margin;
+        const calculated=entries.filter(e=>!!e.result).length;
+        const detailedLabels=this.detailedLabels(language),legend=this.batchLegend(language,model.hasPercentiles);
+        const synthesisNotes=compact?[
+            entries.some(entry=>entry.result?.imported)?t('importedResult'):'',
+            entries.some(entry=>entry.result?.referenceFamily==='CDC2000')?t('cdcInterpretation'):''
+        ].filter(Boolean):[];
+        const bottom=16;
+        let batchTop=24;
+        const oneLine=(value,x,y,w,size,bold,align,color)=>{
+            doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);doc.setTextColor(...color);
+            const valueText=render(value);
+            doc.setFontSize(Math.min(size,size*w/Math.max(1,doc.getTextWidth(valueText),doc.getTextWidth(visual(valueText)))));
+            doc.text(valueText,x,y,{align});
+        };
         const header=()=>{
             const page=doc.internal.getCurrentPageInfo().pageNumber;if(headed.has(page))return;headed.add(page);
-            doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,7,8,8,1.3,1.3,'F');
-            doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,12.8,{align:'center'});
-            doc.setTextColor(23,99,72);doc.setFontSize(14);doc.text(render(t('brand')+' - '+title),rtl?width-margin-11:margin+11,13,{align:rtl?'right':'left'});
-            text(t('pdfStoredOnly')+' | '+issued,19,8);
-            doc.setDrawColor(205,216,210);doc.line(margin,23,width-margin,23);
+            doc.setFillColor(23,99,72);doc.roundedRect(rtl?width-margin-8:margin,5,8,8,1.3,1.3,'F');
+            doc.setFont(font,'bold');doc.setFontSize(13);doc.setTextColor(255);doc.text('Z',rtl?width-margin-4:margin+4,10.8,{align:'center'});
+            doc.setTextColor(23,99,72);doc.setFontSize(14);
+            doc.text(render(t('brand')),rtl?width-margin-11:margin+11,11,{align:rtl?'right':'left'});
+            const labels={fr:{records:rows.length===1?'fiche':'fiches',done:'Calculé'},en:{records:rows.length===1?'record':'records',done:'Calculated'},ar:{records:'سجل',done:'محسوب'}}[language];
+            const summary=title+' : '+rows.length+' '+labels.records+' | '+labels.done+' : '+calculated+' | '+t('notCalculated')+' : '+(rows.length-calculated);
+            const lead=rtl?width-margin:margin,opposite=rtl?margin:width-margin;
+            doc.setFont(font,'bold');doc.setFontSize(14);
+            const brandText=render(t('brand'));
+            const brandWidth=Math.max(doc.getTextWidth(brandText),doc.getTextWidth(visual(brandText)));
+            oneLine(summary,opposite,11,usable-11-brandWidth-10,11.5,true,rtl?'left':'right',[23,99,72]);
+            // One full-width legend for both calculated and pending lots.
+            oneLine(legend.header,lead,17,usable,8,false,rtl?'right':'left',[65,65,65]);
+            let ly=20;
+            if(synthesisNotes.length){
+                ly=text(synthesisNotes.join(' '),ly+3,8);
+            }
+            if(model.stale)ly=text(t('stale'),ly+2,9,true);
+            doc.setDrawColor(205,216,210);doc.line(margin,ly,width-margin,ly);
+            // Reserve space for a continuation marker on subsequent pages.
+            batchTop=ly+(compact?5:3);
         };
-        header();let y=28;
-        const calculated=entries.filter(e=>!!e.result).length;
-        y=text(t('lotRows')+' : '+rows.length+'   |   '+t('pdfBatchCalculated')+' : '+calculated+'   |   '+t('notCalculated')+' : '+(rows.length-calculated),y,11,true,[23,99,72]);
-        y=text(t('appUsageNotice'),y,8);
-        if(model.hasPercentiles)y=text(t('percentileReportHelp'),y,8);
-        if(model.stale)y=text(t('stale'),y,9,true);
-        const base={theme:'grid',margin:{top:28,bottom:18,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
+        header();let y=batchTop;
+        const base={theme:'grid',margin:{top:batchTop,bottom,left:margin,right:margin},styles:{font,fontStyle:'normal',fontSize:9,textColor:[32,44,39],lineColor:[215,225,220],lineWidth:.12,cellPadding:1.6,overflow:'linebreak',halign:rtl?'right':'left',valign:'top'},
             headStyles:{fontStyle:'bold',fillColor:[23,99,72],textColor:255},alternateRowStyles:{fillColor:[247,250,248]},rowPageBreak:'avoid',showHead:'everyPage',willDrawPage:()=>header(),
             didParseCell:data=>{data.cell.text=data.cell.text.map(render);}};
-        const ensure=space=>{if(y+space>height-18){doc.addPage();header();y=28;}};
-        const section=key=>{ensure(25);y=text(t(key),y,11,true,[23,99,72]);};
         const table=(head,body,widths,overrides={})=>{
             if(!body.length)return;
             if(rtl){head=[...head].reverse();body=body.map(row=>[...row].reverse());widths=[...widths].reverse();}
@@ -632,39 +872,257 @@ class PDFManager {
                     const index=this.continuedRowIndex(data,rtl),page=doc.internal.getCurrentPageInfo().pageNumber;
                     if(!overrides.recordRows||index===null||continuedPages.has(page))return;
                     continuedPages.add(page);const size=doc.getFontSize(),color=doc.getTextColor();
-                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,26,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
+                    doc.setFontSize(8);doc.setTextColor(35);doc.text(render(t('pdfRowContinuation').replace('{number}',index)),rtl?width-margin:margin,batchTop-1.5,{align:rtl?'right':'left'});doc.setFontSize(size);doc.setTextColor(color);
                 }});
             y=doc.lastAutoTable.finalY+5;
         };
-        const reduced=compact?this.compact(model):null;
-        const count=model.indicators.length,scoreWidth=(usable-(compact?8+34+22+48+26+34:9+40+48+27+20))/Math.max(1,count);
-        const shortMeasures=r=>r.briefMeasures.filter(line=>line!==t('approximateAge')).join('\n');
         if(compact){
-            table(['pdfNumber','pdfCompactIdentity','measurementDate','pdfMeasures','uiScreening',...model.indicators,'pdfNotes'].map(t),reduced.body.map((row,i)=>[...row.slice(0,3),shortMeasures(rows[i]),rows[i].screening,...row.slice(4)]),[8,34,22,48,26,...model.indicators.map(()=>scoreWidth),34],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
+            const essential=[8,36,43,52,39],n=model.indicators.length;
+            const remaining=usable-essential.reduce((sum,width)=>sum+width,0);
+            if(!n)essential[3]+=remaining;
+            table(['pdfNumber','pdfCompactIdentity','pdfMeasures',...model.indicators,'uiScreening','pdfReferences'].map(t),
+                this.compact(model,entries).body,[...essential.slice(0,3),...model.indicators.map(()=>remaining/n),...essential.slice(3)],
+                {recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.1}});
         }else{
-            const body=rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),shortMeasures(r),r.screening,...r.scores.map((s,i)=>this.scoreWithPercentile(r,i)),r.provenance||t('notCalculated')]);
-            table(['pdfNumber','pdfIdentity','pdfMeasures','uiScreening',...model.indicators,'pdfRefShort'].map(t),body,[9,40,48,27,...model.indicators.map(()=>scoreWidth),20],{recordRows:true});
-        }
-        if(model.provenances.length){
-            section('pdfReferences');
-            table([t('pdfCompactCode'),t('referenceVersion'),t('engineVersion')],model.provenances.map((p,i)=>['R'+(i+1),p[0],p[1]]),[18,usable-57,39],{styles:{...base.styles,fontSize:9,cellPadding:1.2}});
-        }
-        if(compact){
-            section('pdfCompactLegend');y=text(t('pdfCompactHelp'),y,8);
-            table([t('pdfCompactCode'),t('pdfCompactMeaning')],reduced.legend,[19,usable-19],{styles:{...base.styles,fontSize:8.5,cellPadding:1.2}});
-        }else{
-            // Keep all stored clinical notes, raw supplementary observations and provenance in a
-            // wide annex. Row numbers refer to the unfiltered order of the main table.
-            section('pdfBatchAnnex');
-            table([t('pdfNumber'),t('pdfIdentity'),t('pdfMeasures'),t('pdfNotes')],rows.map(r=>[String(r.index),[...r.briefIdentity,r.measurementDate].join('\n'),r.measures.join('\n'),[r.provenance||'',r.calculatedAt,...r.notes].join('\n')]),[9,39,72,usable-120],{recordRows:true,styles:{...base.styles,fontSize:8.5,cellPadding:1.3}});
+            // Each child is one horizontal record block, rather than a tall grid row.
+            // Measure wrapping before drawing, keep complete blocks together when they
+            // fit, and split only genuinely oversized blocks with an explicit marker.
+            const inset=1.7,step=3.45,pad=1.35,gap=2.2,limit=height-bottom,rail=4.5,recordWidth=usable-rail;
+            const ink=[32,44,39],green=[23,99,72],muted=[70,79,75];
+            const makeLines=(value,w,bold=false,color=ink,size=8.5)=>{
+                doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);
+                return String(value).split('\n').flatMap(line=>doc.splitTextToSize(render(line),Math.max(1,w-2*inset)))
+                    .map(text=>({text,bold,color,size}));
+            };
+            const cell=(w,parts)=>({w,lines:parts.flatMap(part=>makeLines(part.value,w,part.bold,part.color,part.size))});
+            const band=(cells,fill=null)=>({cells,fill,length:Math.max(1,...cells.map(c=>c.lines.length))});
+            const bandHeight=(b,n=b.length,start=0)=>2*pad+Math.max(n*step,...b.cells.map(c=>c.lines.slice(start,start+n).reduce((sum,line,i)=>sum+(c.leading||step)+(i?(line.before||0):0),0)));
+            // Measure in the actual font and in visual (bidi) order too. Long
+            // uninterrupted strings must wrap, never spill into the next column.
+            const noteInset=2.6;
+            const wrapObservation=(value,w)=>{
+                doc.setFont(font,'normal');doc.setFontSize(8.5);
+                const max=w-2*noteInset-.35;
+                const fits=s=>Math.max(doc.getTextWidth(s),doc.getTextWidth(visual(s)))<=max;
+                const output=[];let line='';
+                const flush=()=>{if(line){output.push(line);line='';}};
+                const segmenter=typeof Intl.Segmenter==='function'?new Intl.Segmenter(language,{granularity:'grapheme'}):null;
+                for(const word of render(value).split(/\s+/u).filter(Boolean)){
+                    const combined=line?line+' '+word:word;
+                    if(fits(combined)){line=combined;continue;}
+                    flush();
+                    if(fits(word)){line=word;continue;}
+                    const pieces=segmenter?Array.from(segmenter.segment(word),v=>v.segment):Array.from(word);
+                    for(const piece of pieces){
+                        if(line&&!fits(line+piece))flush();
+                        // A single grapheme is much narrower than an observation
+                        // column. Keep it intact even for combining characters.
+                        line+=piece;
+                    }
+                }
+                flush();
+                return output.map(text=>({text,bold:false,color:ink,size:8.5}));
+            };
+            const drawBand=(b,start,n,top)=>{
+                const h=bandHeight(b,n,start);
+                if(b.fill){doc.setFillColor(...b.fill);doc.rect(margin,top,usable,h,'F');}
+                let offset=0;
+                const leftReserve=Math.max(0,usable-b.cells.reduce((sum,c)=>sum+c.w,0));
+                for(const c of b.cells){
+                    const left=rtl?width-margin-offset-c.w:margin+leftReserve+offset;
+                    let lineY=top+pad+2.65;
+                    for(const [i,line] of c.lines.slice(start,start+n).entries()){
+                        if(i)lineY+=line.before||0;
+                        doc.setFont(font,line.bold?'bold':'normal');doc.setFontSize(line.size);doc.setTextColor(...line.color);
+                        if(line.text)doc.text(line.text,rtl?left+c.w-(c.inset??inset):left+(c.inset??inset),lineY,{align:rtl?'right':'left'});
+                        lineY+=c.leading||step;
+                    }
+                    offset+=c.w;
+                }
+                return top+h;
+            };
+            const nextPage=()=>{doc.addPage();header();y=batchTop;};
+            const closeFragment=(top,end)=>{
+                doc.setDrawColor(190,207,198);doc.setLineWidth(.25);doc.rect(margin,top,usable,end-top,'S');
+            };
+            const shared=new Set();
+            const local={fr:{imported:'Résultat importé',shared:'Mentions communes',supplementary:'Indicateurs complémentaires'},en:{imported:'Imported result',shared:'Common notes',supplementary:'Additional indicators'},ar:{imported:'نتيجة مستوردة',shared:'ملاحظات مشتركة',supplementary:'مؤشرات إضافية'}}[language];
+            for(const [index,row] of rows.entries()){
+                const entry=entries[index],result=entry.result,detailed=this.detailedRow(entry,row,model);
+                const heading='#'+row.index+' | '+row.briefIdentity[0];
+                const identityWidth=recordWidth*.265,screeningWidth=recordWidth*.18,fieldWidth=(recordWidth-identityWidth-screeningWidth)/4;
+                const identityGroups=[
+                    [{value:heading,bold:true,color:green,size:10}],
+                    [{value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted}],
+                    detailed.primaryMeasures.map(value=>({value})),
+                    detailed.otherMeasures.map(value=>({value}))
+                ].filter(group=>group.length);
+                const id={w:identityWidth,leading:3.0,lines:identityGroups.flatMap((group,i)=>{
+                    const lines=cell(identityWidth,group).lines;
+                    if(i&&lines.length)lines[0].before=.8;
+                    return lines;
+                })};
+                // Only stored scores occupy the four middle columns; the input
+                // measurements now live with the identity. BMI is a stored result.
+                const right=Array.from({length:4},()=>[]);
+                const emptyLine=()=>({text:'',bold:false,color:ink,size:8.5});
+                const appendGrid=groups=>{
+                    if(!groups.length)return;
+                    if(right.some(lines=>lines.length))right.forEach(lines=>lines.push(emptyLine()));
+                    for(let i=0;i<groups.length;i+=4){
+                        const cells=Array.from({length:4},(_,j)=>cell(fieldWidth,groups[i+j]||[]));
+                        const h=Math.max(...cells.map(c=>c.lines.length),1);
+                        cells.forEach((c,j)=>{
+                            right[j].push(...c.lines);
+                            for(let k=c.lines.length;k<h;k++)right[j].push(emptyLine());
+                        });
+                    }
+                };
+                const oedemaNote=t('oedemaWarning'),originalNotes=detailed.notes==='—'?[]:detailed.notes.split('\n');
+                const notes=originalNotes.filter(v=>v!==t('screeningTitle')&&v!==t('additionalResults'));
+                if(result){
+                    notes.push(t('pdfRefShort')+': '+result.referenceVersion+' · '+t('engineVersion')+' '+result.engineVersion);
+                    if(result.nutrition?.reference)notes.push(t('clinicalReference')+': '+result.nutrition.reference+' v'+result.nutrition.version);
+                    if(result.additionalGrowth?.referenceVersion&&result.additionalGrowth.referenceVersion!==result.referenceVersion)
+                        notes.push(t('pdfExtraShort')+': '+result.additionalGrowth.referenceVersion);
+                }
+                const groups=model.indicators.map((key,i)=>{
+                    let lines=this.scoreWithPercentile(row,i).split('\n');
+                    if(lines.includes(oedemaNote)){
+                        notes.push(oedemaNote);
+                        lines=lines.filter(v=>v!==oedemaNote);
+                        if(lines[0]===t('notCalculated'))lines[0]=t('pdfOedemaSuspended');
+                    }
+                    return [{value:t(key),bold:true,color:green},...(key==='bmiForAge'&&detailed.bmi?[{value:detailed.bmi}]:[]),{value:lines.shift(),bold:true},...lines.map(value=>({value}))];
+                });
+                const protocol=result?.nutrition?(NutritionPDF.is2025(result.nutrition)?t('screeningTitlePcima2025'):NutritionPDF.isNational(result.nutrition)?t('screeningTitlePcima'):t('uiScreening')):t('uiScreening');
+                const orientation=result?.nutrition?.orientation,orientationShort=orientation?t(orientation+'Short'):'';
+                const screening=cell(screeningWidth,[{value:protocol,bold:true,color:green},{value:row.screening,bold:true},...(orientationShort&&orientationShort!==orientation+'Short'?[{value:orientationShort,bold:true}]:[])]);
+                for(const label of [protocol,row.screening])for(let i=notes.length-1;i>=0;i--)if(notes[i]===label)notes.splice(i,1);
+                appendGrid(groups);
+                const supplemental=[];
+                for(const key of Object.keys(result?.additionalGrowth?.indicators||{})){
+                    const prefix=t(key)+' : ',i=notes.findIndex(v=>v.startsWith(prefix));
+                    if(i<0)continue;
+                    const note=notes.splice(i,1)[0].slice(prefix.length),parts=note.split(' | ');
+                    // Suppress a repeated measure only when it exactly matches
+                    // the recorded input and its expected unit. Preserve mismatches
+                    // or missing input for traceability, including suspended scores.
+                    const fields={headCircumferenceForAge:['headCircumference','cm'],armCircumferenceForAge:['muac','mm'],tricepsForAge:['tricepsSkinfold','mm'],subscapularForAge:['subscapularSkinfold','mm']};
+                    const spec=fields[key],stored=result.additionalGrowth.indicators[key];
+                    const duplicate=spec&&Number.isFinite(entry.child[spec[0]])&&stored.measure===entry.child[spec[0]]&&stored.unit===spec[1];
+                    const values=parts[1]?.startsWith('Z = ')?[...(duplicate?[]:[parts[0]]),parts[1]+(parts[2]?.startsWith('P ')?' | '+parts[2]:''),...parts.slice(parts[2]?.startsWith('P ')?3:2)]:parts.slice(duplicate?1:0);
+                    supplemental.push([{value:t(key),bold:true,color:green},...values.map(value=>({value,bold:value.startsWith('Z = ')}))]);
+                }
+                if(detailed.bmi&&!model.indicators.includes('bmiForAge'))supplemental.push([{value:detailed.bmi}]);
+                if(supplemental.length)appendGrid(supplemental);
+                const bands=[band([id,...right.map(lines=>({w:fieldWidth,lines})),screening],[247,250,248])];
+                // A repeated generic statement is moved once to the end of the
+                // report; the relevant row keeps its identifying status/short label.
+                const commonKeys=['importedResult','bmiReportHelp','orientationCompleteAssessment'];
+                for(const key of commonKeys){
+                    const value=t(key),i=notes.indexOf(value);
+                    if(i>=0&&(key!=='orientationCompleteAssessment'||orientationShort===t('orientationCompleteAssessmentShort'))){
+                        shared.add(key);
+                        for(let j=notes.length-1;j>=0;j--)if(notes[j]===value)notes.splice(j,1);
+                    }
+                }
+                const uniqueNotes=[...new Set(notes.filter(Boolean))];
+                if(uniqueNotes.length){
+                    // Simulate actual typography at every width before drawing.
+                    const wrapped={};
+                    for(let k=1;k<=3;k++)wrapped[k]=uniqueNotes.map(v=>wrapObservation('· '+v,recordWidth/k));
+                    const counts=Object.fromEntries([1,2,3].map(k=>[k,wrapped[k].map(lines=>lines.length)]));
+                    const plan=this.observationPlan(counts,2*pad/step);
+                    for(const [bi,part] of plan.bands.entries()){
+                        const w=recordWidth/part.columns,cols=part.cols.map(indices=>indices.flatMap(i=>wrapped[part.columns][i]));
+                        const titleLines=bi===0?makeLines(detailedLabels.observations,w-2*(noteInset-inset),true,green,8.5):[];
+                        const titleCount=titleLines.length;
+                        const blank=()=>({text:'',bold:false,color:ink,size:8.5});
+                        const observationBand=band(cols.map((lines,i)=>({
+                            w,inset:noteInset,
+                            lines:[...(i===0?titleLines:Array.from({length:titleCount},blank)),...lines.map((line,j)=>j===0&&titleCount?{...line,before:.35}:line)]
+                        })));
+                        observationBand.minFirst=titleCount+1;
+                        bands.push(observationBand);
+                    }
+                }
+                const total=bands.reduce((n,b)=>n+bandHeight(b),0);
+                if(y>batchTop+.1&&y+total>limit)nextPage();
+                let top=y,firstFragment=true;
+                const finishRecordFragment=()=>{
+                    closeFragment(top,y);
+                    if(firstFragment&&result?.imported){
+                        // Draw a dedicated rail inside the printable block. Use
+                        // an explicit PDF graphics transform, not jsPDF's angle +
+                        // centered-alignment combination (which can misplace text).
+                        doc.setFillColor(...green);doc.rect(margin,top,rail,y-top,'F');
+                        doc.setFont(font,'bold');doc.setFontSize(7.5);
+                        const label=render(local.imported),length=Math.max(doc.getTextWidth(label),doc.getTextWidth(visual(label)));
+                        const available=Math.max(1,y-top-4),size=Math.min(7.5,7.5*available/Math.max(1,length));
+                        doc.setFontSize(size);
+                        const x=margin+3.2,center=(top+y)/2,textLength=Math.max(doc.getTextWidth(label),doc.getTextWidth(visual(label)));
+                        const baseline=center+textLength/2,k=doc.internal.scaleFactor,X=x*k,Y=(height-baseline)*k;
+                        doc.setTextColor(255,255,255);
+                        doc.internal.write('q');
+                        try{
+                            doc.internal.write('0 1 -1 0 '+(X+Y).toFixed(6)+' '+(Y-X).toFixed(6)+' cm');
+                            doc.text(label,x,baseline,{align:'left'});
+                        }finally{doc.internal.write('Q');}
+                    }
+                    firstFragment=false;
+                };
+                const continuation=()=>{
+                    finishRecordFragment();
+                    nextPage();top=y;
+                    const marker=band([cell(recordWidth,[{value:t('pdfRowContinuation').replace('{number}',row.index),bold:true,color:green}])],[239,246,241]);
+                    y=drawBand(marker,0,marker.length,y);
+                };
+                for(const [bi,b] of bands.entries()){
+                    let start=0;
+                    // Keep a small heading band with at least the start of its content.
+                    if(b.length===1&&bi+1<bands.length&&y+bandHeight(b)+bandHeight(bands[bi+1],1)>limit)continuation();
+                    if(b.minFirst&&y+bandHeight(b,b.minFirst)>limit)continuation();
+                    while(start<b.length){
+                        const fitting=()=>{
+                            let n=Math.min(b.length-start,Math.floor((limit-y-2*pad+.001)/step));
+                            while(n>0&&y+bandHeight(b,n,start)>limit+.001)n--;
+                            return n;
+                        };
+                        let n=fitting();
+                        if(n<1){continuation();n=fitting();}
+                        if(n<1)throw new Error('pdfInvalid');
+                        y=drawBand(b,start,n,y);start+=n;
+                        if(start<b.length)continuation();
+                    }
+                }
+                finishRecordFragment();y+=gap;
+            }
+            if(shared.size){
+                const heading=band([cell(usable,[{value:local.shared,bold:true,color:green}])],[239,246,241]);
+                const bmiHelp={fr:'IMC/âge : repère de croissance complémentaire, distinct du poids/taille.',en:'BMI for age: an additional growth indicator, distinct from weight-for-height.',ar:'مؤشر كتلة الجسم بالنسبة للعمر مؤشر نمو إضافي يختلف عن الوزن بالنسبة للطول.'}[language];
+                const notes=[...shared].map(key=>({value:key==='bmiReportHelp'?bmiHelp:key==='orientationCompleteAssessment'?t('orientationCompleteAssessmentShort')+' : '+t(key):t(key)}));
+                const detail=band([cell(usable,notes)]);
+                if(y+bandHeight(heading)+bandHeight(detail)>limit)nextPage();
+                const top=y;y=drawBand(heading,0,heading.length,y);y=drawBand(detail,0,detail.length,y);closeFragment(top,y);
+            }
         }
         const pages=doc.getNumberOfPages();
         for(let i=1;i<=pages;i++){
             doc.setPage(i);doc.setTextColor(65);doc.setFont(font,'normal');doc.setFontSize(8);
             doc.setDrawColor(205,216,210);doc.line(margin,height-14,width-margin,height-14);
-            doc.text(render(t('pdfSensitive')),rtl?width-margin:margin,height-9,{align:rtl?'right':'left'});
-            doc.text(String(i)+' / '+String(pages),rtl?margin:width-margin,height-9,{align:rtl?'left':'right'});
-            if(compact)doc.text(render(t('pdfBatchLegendEnd')),width/2,height-4,{align:'center'});
+            oneLine(legend.notice,width/2,height-10,usable,8.5,false,'center',[65,65,65]);
+            const exported=render(t('pdfExported')+' '+issued),confidential=render(t('pdfSensitive'));
+            const page=String(i)+' / '+String(pages),size=8.5;
+            doc.setFont(font,'normal');doc.setFontSize(size);doc.setTextColor(65);
+            const measured=value=>Math.max(doc.getTextWidth(value),doc.getTextWidth(visual(value)));
+            const half=usable/2,gap=5,centerHalf=measured(page)/2;
+            const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(confidential)+centerHalf));
+            doc.setFontSize(common);
+            const baseline=height-5.5;
+            doc.text(confidential,margin,baseline,{align:'left'});
+            doc.text(page,width/2,baseline,{align:'center'});
+            doc.text(exported,width-margin,baseline,{align:'right'});
         }
         if(options.print)doc.internal.events.subscribe('putPage',({pageNumber})=>{if(pageNumber===1)doc.internal.write('/AA << /O << /S /Named /N /Print >> >>');});
         return {bytes:doc.output('arraybuffer'),pages,entries:rows.length};

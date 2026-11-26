@@ -14,6 +14,14 @@ const {SupplementaryGrowth}=require('../../src/js/services/supplementary-growth.
 const {LotAnalysis}=require('../../src/js/components/lot-analysis.js');
 const json=file=>JSON.parse(fs.readFileSync(path.join(__dirname,'../..',file),'utf8'));
 
+test('the startup fallback remains available when bootstrap and PDF services are missing',()=>{
+    const vm=require('node:vm'),root={setAttribute(name,value){this[name]=value;},append(button){this.retry=button;}};
+    const document={getElementById:()=>root,createElement:()=>({addEventListener(){}})};
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../src/js/workspace-app.js'),'utf8'),{document});
+    assert.equal(root.role,'alert');
+    assert.match(root.retry.textContent,/Réessayer/);
+});
+
 test('offline installation does not wait for the pinned GPL source downloads',async()=>{
     const vm=require('node:vm'),scope='https://example.test/',handlers={},writes=new Map(),requests=[];
     const read=name=>fs.readFileSync(path.join(__dirname,'../../src',name));
@@ -363,6 +371,38 @@ test('parallel unchanged saves serialize and restored durable content does not c
     await history.resumeSaved(restored);assert.equal(await history.save(restored,'manual',true),null);
     restored.draft.name='FICTIF-EDIT';assert.ok(await history.save(restored,'automatic'));assert.equal(store.records.sessions.length,2);
     assert.equal(store.records.sessions[0].metadata.workspace.single.child.id,work.single.child.id);
+});
+
+test('draft typing and tab hiding update one recovery journal without archiving intermediate states',async t=>{
+    const storage=new Map(),previous=global.localStorage;
+    global.localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
+    t.after(()=>{global.localStorage=previous;});
+    const records=new MemoryHistory(),history=new HistoryManager(records),work=workspace(engine.calculate(example()));
+    const ui=Object.assign(Object.create(WorkspaceApp.prototype),{state:work,history,readForms(){},updateSaveStatus(){}});
+    await history.save(work,'calculated');
+    const original=work.draft.weight;
+    work.draft.weight='8600';ui.scheduleSave();ui.persistDraft();
+    work.draft.weight='8700';ui.scheduleSave();
+    assert.equal(storage.size,1);
+    assert.equal(JSON.parse(storage.get(history.journalKey)).metadata.workspace.draft.weight,'8700');
+    assert.equal(records.records.sessions.length,1);
+    work.draft.weight=original;ui.persistDraft();
+    assert.equal(storage.size,0);
+    assert.equal(records.records.sessions.length,1);
+    work.draft.weight='8750';ui.scheduleSave();
+    assert.ok(await history.save(work,'beforeUpdate',true));
+    assert.equal(records.records.sessions.length,2);
+});
+
+test('equivalent recalculation keeps the original calculation timestamp and real changes remain distinct',()=>{
+    const before=engine.calculate(example());
+    const onceMore=engine.calculate({...before.child,weight:'8,5',weightUnit:'kg'});
+    assert.notEqual(before.result.id,onceMore.result.id);
+    assert.equal(WorkspaceApp.retainCalculation(before,onceMore),before);
+    const changed=engine.calculate({...before.child,weight:8600});
+    assert.equal(WorkspaceApp.retainCalculation(before,changed),changed);
+    const imported=structuredClone(before);imported.result.imported=true;
+    assert.equal(WorkspaceApp.retainCalculation(imported,onceMore),onceMore);
 });
 
  test('hidden result form is not reread as changed work after restoring a durable snapshot',async t=>{
