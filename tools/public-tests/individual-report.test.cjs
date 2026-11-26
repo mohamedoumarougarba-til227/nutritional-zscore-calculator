@@ -289,7 +289,14 @@ test('detailed grid reserves identity and screening, rotates imported markers an
     const screening=seen.filter(v=>v.text===translations.fr.uiScreening);
     assert.equal(screening.length,2);
     assert.ok(screening.every(v=>v.x>235));
-    assert.equal(seen.filter(v=>v.text===translations.fr.headCircumferenceForAge).length,2);
+    const label=translations.fr.headCircumferenceForAge;
+    const occurrences=seen.filter(v=>{
+        if(!label.startsWith(v.text)||!v.text.startsWith('Périmètre crânien'))return false;
+        if(v.text===label)return true;
+        const next=seen.find(w=>w.page===v.page&&Math.abs(w.x-v.x)<.1&&Math.abs(w.y-v.y-3.45)<.1);
+        return !!next&&v.text+' '+next.text===label;
+    });
+    assert.equal(occurrences.length,2,'supplementary label preserved even when wrapped');
     assert.ok(seen.some(v=>v.text.includes('Sexe: M')));
     assert.equal(JSON.stringify(entries),before);
 });
