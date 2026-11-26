@@ -162,7 +162,8 @@ class PDFManager {
         const short=key=>t(key).replace(/\s*\([^()]*\)\s*$/u,'');
         const pair=(...fields)=>fields.filter(Boolean).join(' · ');
         const heightLabel=c.position==='H'?l.height:c.position==='L'?l.length:t('pdfHeightShort');
-        const measures=[pair(f(t('pdfWeightShort'),u(c.weight,0,l.g)),f(heightLabel,u(c.height,1,l.cm)))];
+        const weightHeight=pair(f(t('pdfWeightShort'),u(c.weight,0,l.g)),f(heightLabel,u(c.height,1,l.cm)));
+        const measures=[weightHeight];
         if(c.position!=='H'&&c.position!=='L')measures.push(f(t('position'),t('unknown')));
         const ageDays=Number.isFinite(c.ageDays)?u(c.ageDays,0,l.days):'';
         const estimated=['months','totalMonths'].includes(c.ageMode)||c.agePrecision==='completedMonths';
@@ -180,7 +181,9 @@ class PDFManager {
             const months=c.totalAgeMonths??c.ageTotalMonths;
             measures.push(f(t('referenceEstimated'),Number.isFinite(months)?flexible(months)+' '+l.month+(ageDays?' ('+ageDays+')':''):(ageDays||t('unknown'))));
         }else measures.push(f(t(estimated?'referenceEstimated':'pdfAgeShort'),ageDays||t('unknown')));
-        measures.push(pair(f(t('gender'),c.gender==='M'||c.gender==='F'?c.gender:t('unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown'))));
+        const ageLine=measures.at(-1);
+        const sexOedema=pair(f(t('gender'),c.gender==='M'||c.gender==='F'?c.gender:t('unknown')),f(t('pdfOedema'),t(c.oedema==='y'?'yes':c.oedema==='n'?'no':'unknown')));
+        measures.push(sexOedema);
         if(Number.isFinite(r?.correctedHeight)&&Math.abs(r.correctedHeight-c.height)>.01)measures.push(f(t('adjustedHeight'),u(r.correctedHeight,1,l.cm)));
         const pb=Number.isFinite(c.muac)?f(t('pdfMuacShort'),u(c.muac,1,l.mm)):'';
         const bmi=Number.isFinite(r?.bmi)?f(t('bmi'),u(r.bmi,2,'kg/m²')):'';
@@ -210,7 +213,7 @@ class PDFManager {
         }
         if(observations.length)notes.push(...observations);
         return {identity:[...row.briefIdentity,this.detailedDate(row.measurementDate,language,model.dateFormat)].join('\n'),
-            measures:measures.join('\n'),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
+            measures:measures.join('\n'),primaryMeasures:[ageLine,weightHeight,sexOedema],otherMeasures:measures.filter(v=>v!==ageLine&&v!==weightHeight&&v!==sexOedema),notes:[...new Set(notes.filter(Boolean))].join('\n')||'—'};
     }
     static compact(model) {
         const categories=new Map(),notes=new Map();
@@ -767,7 +770,7 @@ class PDFManager {
             // Each child is one horizontal record block, rather than a tall grid row.
             // Measure wrapping before drawing, keep complete blocks together when they
             // fit, and split only genuinely oversized blocks with an explicit marker.
-            const inset=1.7,step=3.25,pad=1.25,gap=2.2,limit=height-bottom;
+            const inset=1.7,step=3.45,pad=1.35,gap=2.2,limit=height-bottom;
             const ink=[32,44,39],green=[23,99,72],muted=[70,79,75];
             const makeLines=(value,w,bold=false,color=ink,size=8.5)=>{
                 doc.setFont(font,bold?'bold':'normal');doc.setFontSize(size);
@@ -799,25 +802,26 @@ class PDFManager {
             const local={fr:{imported:'Résultat importé',shared:'Mentions communes',supplementary:'Indicateurs complémentaires'},en:{imported:'Imported result',shared:'Common notes',supplementary:'Additional indicators'},ar:{imported:'نتيجة مستوردة',shared:'ملاحظات مشتركة',supplementary:'مؤشرات إضافية'}}[language];
             for(const [index,row] of rows.entries()){
                 const entry=entries[index],result=entry.result,detailed=this.detailedRow(entry,row,model);
-                const heading='#'+row.index+' · '+row.briefIdentity[0];
-                const identityWidth=usable*.205,fieldWidth=(usable-identityWidth)/5;
+                const heading='#'+row.index+' | '+row.briefIdentity[0];
+                const identityWidth=usable*.265,screeningWidth=usable*.18,fieldWidth=(usable-identityWidth-screeningWidth)/4;
                 const id=cell(identityWidth,[
                     {value:heading,bold:true,color:green,size:10},
-                    {value:row.briefIdentity[1],color:muted},
-                    {value:t('measurementDate')+' : '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted},
-                    ...(result?.imported?[{value:local.imported,bold:true,color:muted}]:[])
+                    {value:row.briefIdentity[1]+' · '+this.detailedDate(row.measurementDate,language,model.dateFormat),color:muted},
+                    ...detailed.primaryMeasures.map(value=>({value}))
                 ]);
-                // Pack individual fields from the recorded measurements; unlike
-                // the earlier separate bands, the identity shares their vertical space.
-                const fields=detailed.measures.split('\n').flatMap(line=>line.split(' · '));
-                const right=Array.from({length:5},()=>[]);
+                // Four central columns; the last column is reserved for screening.
+                const fields=detailed.otherMeasures.flatMap(line=>line.split(' · '));
+                const right=Array.from({length:4},()=>[]);
+                const emptyLine=()=>({text:'',bold:false,color:ink,size:8.5});
                 const appendGrid=groups=>{
-                    for(let i=0;i<groups.length;i+=5){
-                        const cells=Array.from({length:5},(_,j)=>cell(fieldWidth,groups[i+j]||[]));
+                    if(!groups.length)return;
+                    if(right.some(lines=>lines.length))right.forEach(lines=>lines.push(emptyLine()));
+                    for(let i=0;i<groups.length;i+=4){
+                        const cells=Array.from({length:4},(_,j)=>cell(fieldWidth,groups[i+j]||[]));
                         const h=Math.max(...cells.map(c=>c.lines.length),1);
                         cells.forEach((c,j)=>{
                             right[j].push(...c.lines);
-                            for(let k=c.lines.length;k<h;k++)right[j].push({text:'',bold:false,color:ink,size:8.5});
+                            for(let k=c.lines.length;k<h;k++)right[j].push(emptyLine());
                         });
                     }
                 };
@@ -835,7 +839,7 @@ class PDFManager {
                 });
                 const protocol=result?.nutrition?(NutritionPDF.is2025(result.nutrition)?t('screeningTitlePcima2025'):NutritionPDF.isNational(result.nutrition)?t('screeningTitlePcima'):t('uiScreening')):t('uiScreening');
                 const orientation=result?.nutrition?.orientation,orientationShort=orientation?t(orientation+'Short'):'';
-                groups.push([{value:protocol,bold:true,color:green},{value:row.screening,bold:true},...(orientationShort&&orientationShort!==orientation+'Short'?[{value:orientationShort,bold:true}]:[])]);
+                const screening=cell(screeningWidth,[{value:protocol,bold:true,color:green},{value:row.screening,bold:true},...(orientationShort&&orientationShort!==orientation+'Short'?[{value:orientationShort,bold:true}]:[])]);
                 for(const label of [protocol,row.screening])for(let i=notes.length-1;i>=0;i--)if(notes[i]===label)notes.splice(i,1);
                 appendGrid(groups);
                 const supplemental=[];
@@ -849,14 +853,14 @@ class PDFManager {
                     supplemental.push([{value:t(key),bold:true,color:green},...values.map((value,j)=>({value,bold:j===1}))]);
                 }
                 if(supplemental.length)appendGrid(supplemental);
-                const bands=[band([id,...right.map(lines=>({w:fieldWidth,lines}))],[247,250,248])];
+                const bands=[band([id,...right.map(lines=>({w:fieldWidth,lines})),screening],[247,250,248])];
                 // A repeated generic statement is moved once to the end of the
                 // report; the relevant row keeps its identifying status/short label.
                 const commonKeys=['importedResult','bmiReportHelp','orientationCompleteAssessment'];
                 for(const key of commonKeys){
                     const value=t(key),i=notes.indexOf(value);
                     if(i>=0&&(key!=='orientationCompleteAssessment'||orientationShort===t('orientationCompleteAssessmentShort'))){
-                        shared.add(key);
+                        if(key!=='importedResult')shared.add(key);
                         for(let j=notes.length-1;j>=0;j--)if(notes[j]===value)notes.splice(j,1);
                     }
                 }
@@ -879,9 +883,23 @@ class PDFManager {
                 }
                 const total=bands.reduce((n,b)=>n+bandHeight(b),0);
                 if(y>batchTop+.1&&y+total>limit)nextPage();
-                let top=y;
-                const continuation=()=>{
+                let top=y,firstFragment=true;
+                const finishRecordFragment=()=>{
                     closeFragment(top,y);
+                    if(firstFragment&&result?.imported){
+                        // Status rotated on the physical left edge, outside the content inset.
+                        doc.setFont(font,'bold');doc.setFontSize(7.5);
+                        const label=render(local.imported),length=Math.max(doc.getTextWidth(label),doc.getTextWidth(visual(label)));
+                        const available=Math.max(1,y-top-4),size=Math.min(7.5,7.5*available/Math.max(1,length));
+                        doc.setFontSize(size);
+                        const span=Math.min(available,length*size/7.5)+2,center=(top+y)/2;
+                        doc.setFillColor(247,250,248);doc.rect(margin-2.7,center-span/2,3.5,span,'F');
+                        doc.setTextColor(...green);doc.text(label,margin+.45,center,{angle:90,align:'center'});
+                    }
+                    firstFragment=false;
+                };
+                const continuation=()=>{
+                    finishRecordFragment();
                     nextPage();top=y;
                     const marker=band([cell(usable,[{value:t('pdfRowContinuation').replace('{number}',row.index),bold:true,color:green}])],[239,246,241]);
                     y=drawBand(marker,0,marker.length,y);
@@ -899,11 +917,12 @@ class PDFManager {
                         if(start<b.length)continuation();
                     }
                 }
-                closeFragment(top,y);y+=gap;
+                finishRecordFragment();y+=gap;
             }
             if(shared.size){
                 const heading=band([cell(usable,[{value:local.shared,bold:true,color:green}])],[239,246,241]);
-                const notes=[...shared].map(key=>({value:(key==='orientationCompleteAssessment'?t('orientationCompleteAssessmentShort')+' : ':'')+t(key)}));
+                const bmiHelp={fr:'IMC/âge : repère de croissance complémentaire, distinct du poids/taille.',en:'BMI for age: an additional growth indicator, distinct from weight-for-height.',ar:'مؤشر كتلة الجسم بالنسبة للعمر مؤشر نمو إضافي يختلف عن الوزن بالنسبة للطول.'}[language];
+                const notes=[...shared].map(key=>({value:key==='bmiReportHelp'?bmiHelp:t('orientationCompleteAssessmentShort')+' : '+t(key)}));
                 const detail=band([cell(usable,notes)]);
                 if(y+bandHeight(heading)+bandHeight(detail)>limit)nextPage();
                 const top=y;y=drawBand(heading,0,heading.length,y);y=drawBand(detail,0,detail.length,y);closeFragment(top,y);
@@ -930,9 +949,9 @@ class PDFManager {
             const common=Math.min(size,size*(half-gap)/Math.max(1,measured(exported)+centerHalf,measured(confidential)+centerHalf));
             doc.setFontSize(common);
             const baseline=height-5.5;
-            doc.text(exported,rtl?width-margin:margin,baseline,{align:rtl?'right':'left'});
+            doc.text(confidential,margin,baseline,{align:'left'});
             doc.text(page,width/2,baseline,{align:'center'});
-            doc.text(confidential,rtl?margin:width-margin,baseline,{align:rtl?'left':'right'});
+            doc.text(exported,width-margin,baseline,{align:'right'});
         }
         if(options.print)doc.internal.events.subscribe('putPage',({pageNumber})=>{if(pageNumber===1)doc.internal.write('/AA << /O << /S /Named /N /Print >> >>');});
         return {bytes:doc.output('arraybuffer'),pages,entries:rows.length};

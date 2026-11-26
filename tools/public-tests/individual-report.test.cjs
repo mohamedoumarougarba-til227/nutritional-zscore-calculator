@@ -228,10 +228,10 @@ test('both batch layouts use compact margins, aligned heading and two-line foote
         const footer=seen.filter(v=>near(v.y,204.5)).slice(0,3);
         assert.equal(footer.length,3,'three footer blocks '+language);
         assert.ok(footer.every(v=>Math.abs(v.size-footer[0].size)<.01&&v.size>=8),'uniform readable footer '+language);
-        assert.ok(footer.some(v=>near(v.x,edge)&&v.text.includes('UTC')));
+        assert.ok(footer.some(v=>near(v.x,289)&&v.align==='right'&&v.text.includes('UTC')));
         const pageNumber=footer.find(v=>near(v.x,148.5)&&v.align==='center');
         assert.ok(pageNumber?.text.includes('/'),'centered pagination '+language);
-        const confidentiality=footer.find(v=>near(v.x,opposite)&&v.align===(rtl?'left':'right'));
+        const confidentiality=footer.find(v=>near(v.x,8)&&v.align==='left');
         assert.ok(confidentiality?.text,'edge confidentiality '+language);
         if(!rtl){assert.equal(confidentiality.text,translations[language].pdfSensitive);assert.ok(footer.some(v=>v.text.startsWith(translations[language].pdfExported+' ')));assert.ok(methodology[0].text.includes(PDFManager.detailedLabels(language).stored));}
         const spans=footer.map(v=>{const start=v.x-(v.align==='center'?v.width/2:v.align==='right'?v.width:0);return [start,start+v.width];}).sort((a,b)=>a[0]-b[0]);
@@ -261,14 +261,14 @@ test('horizontal blocks keep calculated and uncalculated lots readable and use f
     }
 });
 
-test('detailed grid shares identity and measures, keeps supplementary scores, and renders generic notes only once',()=>{
+test('detailed grid reserves identity and screening, rotates imported markers and shortens common notes',()=>{
     globalThis.ClinicalEngine=ClinicalEngine;
     const first=visit(0,{caseId:'GRID-FIRST'}),second=visit(10,{caseId:'GRID-SECOND'});
     const entries=[first,second].map(e=>({...e,result:{...e.result,imported:true}})),before=JSON.stringify(entries),seen=[];
     function TrackingPDF(options){
         const doc=new jsPDF(options),draw=doc.text.bind(doc);
         doc.text=(value,x,y,opts,...rest)=>{
-            for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,page:doc.internal.getCurrentPageInfo().pageNumber});
+            for(const part of Array.isArray(value)?value:[value])seen.push({text:String(part),x,y,angle:opts?.angle||0,page:doc.internal.getCurrentPageInfo().pageNumber});
             return draw(value,x,y,opts,...rest);
         };return doc;
     }
@@ -277,9 +277,18 @@ test('detailed grid shares identity and measures, keeps supplementary scores, an
     assert.ok(report.pages<=2);
     const heading=seen.find(v=>v.text.startsWith('#1'));
     const weight=seen.find(v=>v.text.startsWith(translations.fr.pdfWeightShort+':'));
-    assert.ok(heading&&weight&&heading.page===weight.page&&Math.abs(heading.y-weight.y)<.1&&weight.x>heading.x);
-    assert.equal(seen.filter(v=>v.text.startsWith('Résultat importé')).length,3);
+    const sex=seen.find(v=>v.text.startsWith('Sexe:'));
+    assert.ok(heading&&heading.text.includes('#1 |')&&weight&&weight.page===heading.page&&weight.y>heading.y&&weight.x===heading.x);
+    assert.ok(weight.text.includes('Longueur:')&&sex.text.includes('Œdèmes:')&&weight.y<sex.y);
+    assert.ok(seen.some(v=>v.text.includes('GRID-FIRST · 03/01/2026')));
+    const imported=seen.filter(v=>v.text.startsWith('Résultat importé'));
+    assert.equal(imported.length,2);
+    assert.ok(imported.every(v=>v.angle===90&&v.x<10));
     assert.equal(seen.filter(v=>v.text.startsWith('IMC/âge : repère')).length,1);
+    assert.ok(!seen.some(v=>v.text.includes('aucune décision de soins automatique')));
+    const screening=seen.filter(v=>v.text===translations.fr.uiScreening);
+    assert.equal(screening.length,2);
+    assert.ok(screening.every(v=>v.x>235));
     assert.equal(seen.filter(v=>v.text===translations.fr.headCircumferenceForAge).length,2);
     assert.ok(seen.some(v=>v.text.includes('Sexe: M')));
     assert.equal(JSON.stringify(entries),before);
