@@ -7,7 +7,8 @@ const ProfileUI=typeof module!=='undefined'&&module.exports?require('./services/
 const PretermUI=typeof module!=='undefined'&&module.exports?require('./services/reference-intergrowth.js').IntergrowthPostnatal:globalThis.IntergrowthPostnatal;
 const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/lot-quality.js').LotQuality:globalThis.LotQuality;
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
-const DateUI=typeof module!=='undefined'&&module.exports?require('./services/pdf-manager.js').PDFManager:PDFManager;
+const DateUI=typeof module!=='undefined'&&module.exports?require('./services/pdf-manager.js').PDFManager:typeof PDFManager!=='undefined'?PDFManager:null;
+const DraftHistoryUI=typeof module!=='undefined'&&module.exports?require('./services/history-manager.js').HistoryManager:globalThis.HistoryManager;
 class WorkspaceApp {
     static version = '5.14.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
@@ -1181,7 +1182,7 @@ class WorkspaceApp {
     }
     updateDraftStaleness(){
         const baseline=this.singleEditBaseline;
-        this.state.stale=baseline?.entry!==this.state.single||baseline.signature!==HistoryManager.signature({draft:this.state.draft});
+        this.state.stale=baseline?.entry!==this.state.single||baseline.signature!==DraftHistoryUI.signature({draft:this.state.draft});
         const target=document.getElementById('single-results'),existing=target?.querySelector('[data-stale-notice]');
         if(!this.state.stale){existing?.remove();return;}
         if(target&&!existing){
@@ -1209,7 +1210,7 @@ class WorkspaceApp {
         const comparable=entry=>{
             const {id,createdAt,...draft}=entry.child;
             const {id:resultId,childId,calculatedAt,...result}=entry.result;
-            return HistoryManager.signature({draft,result});
+            return DraftHistoryUI.signature({draft,result});
         };
         return comparable(previous)===comparable(calculated)?previous:calculated;
     }
@@ -1308,7 +1309,7 @@ class WorkspaceApp {
         else if(action==='page'){ this.page=button.dataset.page; if(this.page==='history'){this.historyPane=button.dataset.historyPane==='versions'?'versions':'backup';this.sessions=await this.history.catalog();} this.render(); document.getElementById('main').focus({preventScroll:true}); }
         else if(action==='edit-measures'||action==='show-results'){
             this.singleEditing=action==='edit-measures';
-            if(this.singleEditing&&!this.state.stale&&this.state.single)this.singleEditBaseline={entry:this.state.single,signature:HistoryManager.signature({draft:this.state.draft})};
+            if(this.singleEditing&&!this.state.stale&&this.state.single)this.singleEditBaseline={entry:this.state.single,signature:DraftHistoryUI.signature({draft:this.state.draft})};
             this.render(this.singleEditing?'single-caseId':'results-title');
         }
         else if(action==='save'){ const hasWork=HistoryManager.hasWork(this.state),snapshot=await this.saveImmediate('manual',true); this.toast(!hasWork?'manualEmpty':snapshot?'manualSaved':'manualUnchanged'); if(this.page==='history'){this.sessions=await this.history.catalog();this.renderHistoryList();await this.refreshCapacity();} }
