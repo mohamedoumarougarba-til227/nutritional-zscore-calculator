@@ -699,6 +699,7 @@ class WorkspaceApp {
         frame.title=this.t('tourDemo');frame.setAttribute('sandbox','allow-same-origin');frame.referrerPolicy='no-referrer';
         const originalLanguage=this.prefs.language,originalTheme=this.prefs.theme||'system';
         let language=originalLanguage,theme=originalTheme,index=0,demo=null,route=[],finished=false,resize=null,doc=null,detachLayout=()=>{};
+        let started=false,configurationOpen=false,startChapter='Welcome';
         const themeMedia=matchMedia('(prefers-color-scheme: dark)');
         // The iframe remains scriptless and contains only the fictitious workspace. All
         // interactive tour controls belong to the real dialog, not the sandboxed document.
@@ -735,7 +736,12 @@ class WorkspaceApp {
             doc.documentElement.dataset.navCollapsed='false';
             const target=demo.contextTourRender(demo,step,doc,mobile());
             const chapters=[...new Set(route.map(s=>s.chapter))];
-            tip.innerHTML='<div class="tour-topline"><span>'+label('tourDemo')+'</span><span>'+demo.number(index+1,0)+' / '+demo.number(route.length,0)+'</span></div><div class="tour-selectors"><select data-tour-language aria-label="'+label('tourLanguage')+'">'+[['fr','Français'],['en','English'],['ar','العربية']].map(([v,n])=>'<option value="'+v+'"'+(language===v?' selected':'')+'>'+n+'</option>').join('')+'</select><select data-tour-theme aria-label="'+label('theme')+'">'+['system','light','dark'].map(v=>'<option value="'+v+'"'+(theme===v?' selected':'')+'>'+label(v)+'</option>').join('')+'</select><select data-tour-chapter aria-label="'+label('tourChapter')+'">'+chapters.map(v=>'<option value="'+v+'"'+(step.chapter===v?' selected':'')+'>'+label('tourCh'+v)+'</option>').join('')+'</select></div><h2 id="tour-heading" tabindex="-1">'+label(step.key+'Title')+'</h2><p>'+label(step.key+'Text')+'</p>'+(!target&&step.target?'<p class="tour-missing">'+label('tourUnavailable')+'</p>':'')+'<div class="tour-controls"><button class="btn" data-tour="skip">'+label('tourSkip')+'</button><div>'+ (index?'<button class="btn" data-tour="prev">'+label('previous')+'</button>':'')+'<button class="btn primary" data-tour="'+(index===route.length-1?'finish':'next')+'">'+label(index===0?'tourStart':index===route.length-1?'tourFinish':'next')+'</button></div></div>';
+            const chosenChapter=started?step.chapter:startChapter;
+            const showConfiguration=!started||configurationOpen;
+            const icon=name=>host.icon(name);
+            const field=(name,title,aria,options,selected,symbol,wide=false)=>'<label class="tour-setting'+(wide?' tour-setting-wide':'')+'"><span>'+icon(symbol)+label(title)+'</span><select data-tour-'+name+' aria-label="'+label(aria)+'">'+options.map(([v,n])=>'<option value="'+v+'"'+(v===selected?' selected':'')+'>'+n+'</option>').join('')+'</select></label>';
+            const settings='<section id="tour-configuration" class="tour-configuration" aria-label="'+label('tourConfiguration')+'"'+(showConfiguration?'':' hidden')+'>'+(started?'<div class="tour-config-heading"><strong>'+label('tourConfiguration')+'</strong><button type="button" class="btn tour-config-button" data-tour="configure" aria-label="'+label('close')+'" title="'+label('close')+'">'+icon('close')+'</button></div>':'')+'<div class="tour-selectors">'+field('language','language','tourLanguage',[['fr','Français'],['en','English'],['ar','العربية']],language,'language')+field('theme','tourTheme','tourTheme',['system','light','dark'].map(v=>[v,label(v)]),theme,theme)+field('chapter',started?'tourChapter':'tourStartChapter',started?'tourChapter':'tourStartChapter',chapters.map(v=>[v,label('tourCh'+v)]),chosenChapter,'references',true)+'</div></section>';
+            tip.innerHTML='<div class="tour-topline"><span>'+label('tourDemo')+'</span><span>'+demo.number(index+1,0)+' / '+demo.number(route.length,0)+'</span></div><h2 id="tour-heading" tabindex="-1">'+label(step.key+'Title')+'</h2><p>'+label(step.key+'Text')+'</p>'+(!target&&step.target?'<p class="tour-missing">'+label('tourUnavailable')+'</p>':'')+settings+'<div class="tour-controls"><div class="tour-control-start"><button type="button" class="btn" data-tour="skip">'+label('tourSkip')+'</button>'+(started?'<button type="button" class="btn tour-config-button" data-tour="configure" data-tour-config-toggle aria-controls="tour-configuration" aria-expanded="'+configurationOpen+'" aria-label="'+label('tourConfiguration')+'" title="'+label('tourConfiguration')+'">'+icon('settings')+'</button>':'')+'</div><div class="tour-control-end">'+(index?'<button type="button" class="btn" data-tour="prev">'+label('previous')+'</button>':'')+'<button type="button" class="btn primary" data-tour="'+(started&&index===route.length-1?'finish':'next')+'">'+label(!started?'tourStart':index===route.length-1?'tourFinish':'next')+'</button></div></div>';
             const view=frame.contentWindow;
             const layout=()=>{
                 if(finished)return;
@@ -809,7 +815,7 @@ class WorkspaceApp {
                         demo.tourBubblePosition=WorkspaceApp.floatingSnap(bounds,r.left,r.top);
                         const pos=WorkspaceApp.floatingAnchor(bounds,demo.tourBubblePosition);
                         target.style.setProperty('--floating-z-x',pos.x+'px');target.style.setProperty('--floating-z-y',pos.y+'px');layout();
-                    }else if(step.mode==='mobile-dock'||step.mode==='mobile-moved'){index=Math.min(route.length-1,index+1);build();}
+                    }else if(step.mode==='mobile-dock'||step.mode==='mobile-moved'){configurationOpen=false;index=Math.min(route.length-1,index+1);build();}
                 };
                 shield.onpointercancel=()=>{gesture=null;};
             }
@@ -825,14 +831,26 @@ class WorkspaceApp {
             const btn=e.target.closest?.('button[data-tour]');if(!btn||!tip.contains(btn))return;
             e.preventDefault();e.stopPropagation();const cmd=btn.dataset.tour;
             if(['skip','finish'].includes(cmd)){finish();return;}
+            if(cmd==='configure'&&started){configurationOpen=!configurationOpen;build('[data-tour-config-toggle]');return;}
             if(!['prev','next'].includes(cmd)||!route.length)return;
-            index=Math.max(0,Math.min(route.length-1,index+(cmd==='prev'?-1:1)));build();
+            configurationOpen=false;
+            if(!started&&cmd==='next'){
+                started=true;
+                const first=route.findIndex(s=>s.chapter===startChapter);
+                index=Math.max(1,first);
+            }else index=Math.max(0,Math.min(route.length-1,index+(cmd==='prev'?-1:1)));
+            build();
         });
         dialog.addEventListener('change',e=>{
-            if(!tip.contains(e.target))return;
+            if(!tip.contains(e.target)||started&&!configurationOpen)return;
             if(e.target.matches('[data-tour-language]')&&['fr','en','ar'].includes(e.target.value)){language=e.target.value;build('[data-tour-language]');}
             else if(e.target.matches('[data-tour-theme]')&&['system','light','dark'].includes(e.target.value)){theme=e.target.value;build('[data-tour-theme]');}
-            else if(e.target.matches('[data-tour-chapter]')){const next=route.findIndex(s=>s.chapter===e.target.value);if(next>=0){index=next;build('[data-tour-chapter]');}}
+            else if(e.target.matches('[data-tour-chapter]')){
+                const next=route.findIndex(s=>s.chapter===e.target.value);
+                if(next<0)return;
+                if(!started){startChapter=e.target.value;build('[data-tour-chapter]');}
+                else{index=next;configurationOpen=false;build('[data-tour-config-toggle]');}
+            }
         });
         frame.addEventListener('load',()=>{
             if(finished)return;

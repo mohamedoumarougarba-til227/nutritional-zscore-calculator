@@ -1245,12 +1245,22 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 #tour-tip p{margin:0 0 10px}
 .tour-topline,.tour-controls,.tour-selectors{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .tour-topline{color:var(--muted);font-size:11px}
-.tour-selectors{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin-top:6px}
+.tour-configuration{margin:10px 0;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
+.tour-config-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px;font-size:12px}
+.tour-selectors{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.tour-setting{display:grid;gap:4px;min-width:0}
+.tour-setting>span{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted)}
+.tour-setting .ui-icon{width:15px;height:15px;flex:none}
+.tour-setting-wide{grid-column:1/-1}
 .tour-selectors select{min-width:0;width:100%;max-width:100%;font-size:12px;padding:5px;min-height:34px}
-.tour-selectors [data-tour-chapter]{grid-column:1/-1}
-.tour-controls{padding-top:8px;border-top:1px solid var(--line)}
-.tour-controls>div{display:flex;gap:5px}
+.tour-controls{padding-top:8px;border-top:1px solid var(--line);flex-wrap:wrap}
+.tour-controls>div{display:flex;align-items:center;gap:5px;min-width:0}
+.tour-control-end{margin-inline-start:auto}
 .tour-controls .btn{font-size:12px;padding:6px 8px;min-height:36px}
+#tour-tip .tour-config-button{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:5px;flex:none}
+#tour-tip .tour-config-button .ui-icon{width:19px;height:19px;flex:none}
+#tour-tip .tour-config-button[aria-expanded=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+@media(pointer:coarse){#tour-tip .tour-config-button{min-width:44px;width:44px;height:44px}.tour-selectors select{min-height:44px}}
 .tour-missing{font-size:11px;color:var(--muted)}
 .tour-demo-menu{position:fixed;z-index:30;top:60px;inset-inline-end:8px;width:min(340px,calc(100% - 16px));max-height:calc(100dvh - 70px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
 .tour-demo-menu.mobile-actions-dialog{top:auto;bottom:60px}

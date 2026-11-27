@@ -597,7 +597,7 @@ test('contextual demo uses separate fictitious records without storage or clinic
 test('contextual tour controls advance desktop and mobile and persist only chosen interface preferences',()=>{
     const tr=json('src/data/interface-translations.json');
     const names=['document','matchMedia','localStorage','ResizeObserver'],old=names.map(k=>Object.getOwnPropertyDescriptor(globalThis,k));
-    const run=(width,firstKey)=>{
+    const run=(width,firstKey,startAt='Welcome')=>{
         const eventNode=()=>({events:{},dataset:{},style:{},setAttribute(){},addEventListener(k,fn){this.events[k]=fn;},removeEventListener(k,fn){if(this.events[k]===fn)delete this.events[k];},fire(k,e={}){this.events[k]?.(e);}});
         const focus={focus(){}},tip=Object.assign(eventNode(),{offsetWidth:300,offsetHeight:220,classList:{toggle(){}},contains:()=>true,querySelector:()=>focus});
         const spot=eventNode(),arrow=eventNode(),shield=eventNode(),choice=Object.assign(eventNode(),{innerHTML:''});
@@ -622,18 +622,27 @@ test('contextual tour controls advance desktop and mobile and persist only chose
         assert.ok(!frame.srcdoc.includes('id="tour-tip"'));
         const click=cmd=>dialog.fire('click',{target:{closest:()=>({dataset:{tour:cmd}})},preventDefault(){},stopPropagation(){}});
         const select=(name,value)=>dialog.fire('change',{target:{value,matches:k=>k==='[data-tour-'+name+']'}});
-        click('next');assert.ok(tip.innerHTML.includes(tr.fr[firstKey+'Title']));
+        const configHidden=()=>tip.innerHTML.includes('aria-label="'+(dialog.lang==='ar'?tr.ar.tourConfiguration:tr.fr.tourConfiguration)+'" hidden');
+        assert.ok(!configHidden());assert.ok(tip.innerHTML.includes(tr.fr.tourStartChapter));
+        if(startAt!=='Welcome'){select('chapter',startAt);assert.ok(tip.innerHTML.includes(tr.fr.tour0Title));assert.ok(tip.innerHTML.includes('value="'+startAt+'" selected'));}
+        click('next');assert.ok(tip.innerHTML.includes(tr.fr[firstKey+'Title']));assert.ok(configHidden());
+        assert.ok(tip.innerHTML.includes('data-tour-config-toggle'));
+        select('theme','dark');assert.equal(dialog.dataset.theme,'light');
+        click('configure');assert.ok(!configHidden());
         select('theme','dark');assert.equal(dialog.dataset.theme,'dark');assert.equal(demoDoc.documentElement.dataset.theme,'dark');
         assert.ok(tip.innerHTML.includes(tr.fr[firstKey+'Title']));assert.equal(app.prefs.theme,'system');assert.equal(persisted,0);
         select('language','ar');assert.equal(dialog.dir,'rtl');assert.ok(tip.innerHTML.includes(tr.ar[firstKey+'Title']));
         select('theme','system');media.matches=true;media.fire('change');assert.equal(dialog.dataset.theme,'dark');
         select('theme','light');assert.equal(dialog.dataset.theme,'light');
-        click('prev');assert.ok(tip.innerHTML.includes(tr.ar.tour0Title));click('skip');
+        click('configure');assert.ok(configHidden());
+        click('configure');select('chapter','Welcome');assert.ok(configHidden());assert.ok(tip.innerHTML.includes(tr.ar.tour0Title));
+        click('next');assert.ok(configHidden());
+        click('prev');assert.ok(tip.innerHTML.includes(tr.ar.tour0Title));assert.ok(configHidden());click('skip');
         assert.equal(app.prefs.theme,'light');assert.equal(app.prefs.language,'ar');assert.equal(persisted,1);assert.equal(rendered,1);
         assert.equal(app.state,clinical);assert.equal(app.state.draft.name,'PRIVATE');assert.equal(app.contextTourActive,false);
         assert.equal(saved.length,1);assert.equal(media.events.change,undefined);
     };
-    try{run(1440,'tour1');run(390,'tour3');}finally{names.forEach((k,i)=>old[i]?Object.defineProperty(globalThis,k,old[i]):delete globalThis[k]);}
+    try{run(1440,'tour1');run(390,'tour3');const start=WorkspaceApp.contextTourRoute(false).find(s=>s.chapter==='Batch');run(1440,start.key,'Batch');}finally{names.forEach((k,i)=>old[i]?Object.defineProperty(globalThis,k,old[i]):delete globalThis[k]);}
 });
 
 test('contextual tour highlights only real status children and separate dropdown rectangles',()=>{
