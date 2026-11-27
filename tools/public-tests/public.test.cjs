@@ -557,3 +557,34 @@ test('floating menu defaults to upper right and retains saved device position',(
         }
     }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
 });
+
+
+test('contextual tour routes differ by device, are translated, and stay within the viewport',()=>{
+    const tr=json('src/data/interface-translations.json');
+    const desktop=WorkspaceApp.contextTourRoute(false),mobile=WorkspaceApp.contextTourRoute(true);
+    assert.ok(desktop.length>45&&mobile.length>45);
+    assert.ok(desktop.some(s=>s.target==='#sidebar-button')&&!mobile.some(s=>s.target==='#sidebar-button'));
+    assert.ok(mobile.some(s=>s.target==='#menu-button')&&!desktop.some(s=>s.target==='#menu-button'));
+    for(const s of WorkspaceApp.contextTourSteps)for(const l of ['fr','en','ar']){
+        assert.ok(tr[l][s.key+'Title']&&tr[l][s.key+'Text']&&tr[l]['tourCh'+s.chapter]);
+    }
+    for(const [w,h] of [[320,568],[360,800],[1440,900]])for(const y of [5,h/2,h-50]){
+        const p=WorkspaceApp.contextTourPlacement({width:w,height:h},{left:8,right:52,top:y,bottom:y+44,width:44,height:44},Math.min(320,w-16),220);
+        assert.ok(p.x>=8&&p.y>=8&&p.x+Math.min(320,w-16)<=w-8&&p.y+220<=h-8);
+    }
+});
+test('contextual demo uses separate fictitious records without storage or clinical workspace mutations',()=>{
+    const engine=new GrowthEngine(json('src/data/who-official.json'),json('src/data/who-2007.json'),json('src/data/who-additional.json'),json('src/data/cdc-growth.json'));
+    const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',theme:'system',dateFormat:'auto',timeZone:'system'},translations:json('src/data/interface-translations.json'),engine,manifest:json('src/data/who-manifest.json'),olderManifest:json('src/data/who-2007-manifest.json'),cdcManifest:json('src/data/cdc-growth-manifest.json'),state:{draft:{name:'PRIVATE'},batch:[]},history:{},offlineState:'offlineReady'});
+    const before=JSON.stringify(app.state);
+    for(const l of ['fr','en','ar']){
+        const demo=app.contextTourDemo(l);
+        assert.notEqual(demo.state,app.state);assert.notEqual(demo.history,app.history);assert.equal(demo.storage,undefined);
+        assert.equal(demo.state.batch.length,10);assert.ok(demo.tourExample.result);
+        for(const page of ['single','batch','history','settings','references']){
+            demo.page=page;demo.batchPane='statistics';demo.historyPane='versions';
+            const html=demo.workspaceHTML();assert.ok(html.includes('id="main-nav"'));assert.ok(!html.includes('PRIVATE'));
+        }
+    }
+    assert.equal(JSON.stringify(app.state),before);
+});

@@ -132,6 +132,7 @@ class WorkspaceApp {
             window.addEventListener('pagehide', () => this.checkpoint());
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.persistDraft(); });
             matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (this.prefs.theme === 'system') this.applyPreferences(); });
+            this.offerContextTour();
             await this.registerOffline();
         } catch (error) {
             if(!this.translations||error.message==='releaseInvalid'){ReleaseGuard.fail();console.error('Release verification failed',error);return;}
@@ -257,6 +258,11 @@ class WorkspaceApp {
         const buttons=document.querySelectorAll?.(`[data-action="${action}"][aria-current="page"]`);
         if(buttons)Array.from(buttons).find(b=>b.getClientRects().length)?.focus({preventScroll:true});
     }
+    mobileNavigationHTML(){
+        const workPage=['single','batch'].includes(this.page);
+        const workActions=workPage?this.toolButton('newWork','new','new',{showLabel:true})+this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'}):'';
+        return `<div class="dialog-top"><h2 id="header-dialog-title" class="sr-only">${this.esc(this.t('menu'))}</h2><div class="mobile-menu-status">${workPage?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="menu-connection" class="connection-badge" role="status"></span></div><div class="mobile-menu-work-actions">${workActions}</div></div><div class="dialog-body header-options">${['single','batch','history','references','settings'].map(value=>`<button type="button" class="header-choice" data-action="header-page" data-value="${value}" ${this.page===value?'aria-current="page"':''}>${this.icon(value)}<span class="choice-label">${this.esc(this.t(value))}</span>${this.page===value?this.icon('check'):''}</button>`).join('')}</div>`;
+    }
     openHeaderPanel(kind) {
         if (!['language','theme','growthProfile','careProtocol','menu'].includes(kind)) return;
         if(kind!=='menu'){this.openChoice(kind+'-button',kind);return;}
@@ -264,10 +270,8 @@ class WorkspaceApp {
         const d = document.getElementById('header-dialog');
         d.classList.remove('app-info-dialog','mobile-actions-dialog');
         d.classList.add('mobile-navigation-dialog');
-        const workPage=['single','batch'].includes(this.page);
-        const workActions=workPage?this.toolButton('newWork','new','new',{showLabel:true})+this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'}):'';
         d.dataset.opener='menu-button';
-        d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title" class="sr-only">${this.esc(this.t('menu'))}</h2><div class="mobile-menu-status">${workPage?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="menu-connection" class="connection-badge" role="status"></span></div><div class="mobile-menu-work-actions">${workActions}</div></div><div class="dialog-body header-options">${['single','batch','history','references','settings'].map(value=>`<button type="button" class="header-choice" data-action="header-page" data-value="${value}" ${this.page===value?'aria-current="page"':''}>${this.icon(value)}<span class="choice-label">${this.esc(this.t(value))}</span>${this.page===value?this.icon('check'):''}</button>`).join('')}</div>`;
+        d.innerHTML=this.mobileNavigationHTML();
         this.updateConnection();this.updateSaveStatus();
         document.getElementById(d.dataset.opener)?.setAttribute('aria-expanded','true');
         d.showModal();
@@ -313,7 +317,7 @@ class WorkspaceApp {
         if(select.dataset?.choiceBirthLabel&&select.value==='dates')return select.dataset.choiceBirthLabel;
         return value;
     }
-    enhanceSelects() {
+    enhanceSelects(document=globalThis.document) {
         if(typeof document.querySelectorAll!=='function')return;
         for(const p of document.querySelectorAll('#single-form>p.hint,#batch-form>p.hint'))p.style.marginBlock='8px';
         for(const b of document.querySelectorAll('.additional-fields>[data-action="clear-unsupported-skinfolds"]'))b.style.marginBlockStart='10px';
@@ -402,10 +406,8 @@ class WorkspaceApp {
             if(button&&button.dataset.kind!=='menu'){event.preventDefault();this.openChoice(button.id,button.dataset.kind||'field',button.dataset.select||'');}
         }
     }
-    render(focusId = '') {
-        this.closeChoice();this.closeInfo();
-        this.renderEpoch = (this.renderEpoch || 0) + 1;
-        document.getElementById('app-root').innerHTML = `
+    workspaceHTML() {
+        return `
             <a class="skip" href="#main">${this.t('skip')}</a>
             <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
             <button id="menu-button" class="brand-mark mobile-menu-button mobile-floating-menu" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}" title="${this.esc(this.t('floatingMenuHelp'))}">Z</button>
@@ -416,6 +418,11 @@ class WorkspaceApp {
               ${this.history.recoveryErrors.length ? `<div class="notice warn" role="alert">${this.t('recoveryDamaged')}</div>` : ''}
               <footer class="compact-footer"><a class="feedback-footer-link" href="${this.prefs.language==='ar'?'https://tally.so/r/GeKzve':this.prefs.language==='en'?'https://tally.so/r/o9Dy6b':'https://tally.so/r/bZ9xb7'}" target="_blank" rel="noopener noreferrer" title="${this.esc(this.prefs.language==='ar'?'يتطلب الاتصال بالإنترنت':this.prefs.language==='en'?'External feedback form — internet required':'Formulaire externe — connexion Internet requise')}"><span class="mobile-label-wide">${this.esc(this.prefs.language==='ar'?'إرسال ملاحظة أو الإبلاغ عن مشكلة':this.prefs.language==='en'?'Send feedback or report a problem':'Donner un avis ou signaler un problème')}</span><span class="mobile-label-short">${this.esc(this.t('mobileFeedbackShort'))}</span></a><a class="github-footer-link" href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator" target="_blank" rel="noopener noreferrer" title="${this.esc(this.t('githubProjectHelp'))}">${this.t('githubProject')}</a><div class="footer-meta"><a class="legal-footer-link" href="${this.prefs.language==='ar'?'legal-ar.html':this.prefs.language==='en'?'legal-en.html':'legal.html'}" target="_blank" rel="noopener noreferrer"><span class="mobile-label-wide">${this.t('legalNoticeLink')}</span><span class="mobile-label-short">${this.t('mobileLegal')}</span></a><span class="footer-version">v${WorkspaceApp.version}</span></div><div class="footer-offline"><span class="mobile-label-wide" data-offline-status>${this.t(this.offlineState)}</span><span class="mobile-label-short" data-mobile-offline-status>${this.t(this.offlineState==='offlineFailed'?'mobileOfflineFailed':this.offlineState)}</span><span class="about-label">${this.t('aboutShort')}</span>${this.toolButton('information','info','show-info',{attrs:'id="app-info-button" data-info="appInfo"'})}</div></footer>
             </main></div>${['single','batch'].includes(this.page)?`<nav class="mobile-action-dock" aria-label="${this.esc(this.t('mobileActions'))}"><button id="mobile-actions-button" class="btn primary" data-action="mobile-actions" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false">${this.icon('batch')}<span>${this.t('mobileActions')}</span></button></nav>`:''}`;
+    }
+    render(focusId = '') {
+        this.closeChoice();this.closeInfo();
+        this.renderEpoch = (this.renderEpoch || 0) + 1;
+        document.getElementById('app-root').innerHTML = this.workspaceHTML();
         this.observeHeader();
         this.mountFloatingMenu();
         this.updateConnection(); this.updateSaveStatus(); this.updateToast(); this.syncImportNotice();
@@ -570,12 +577,159 @@ class WorkspaceApp {
         const select=(key,label,choices)=>'<div class="setting-row"><label for="'+key+'-button">'+this.esc(label)+'</label><select class="choice-trigger" id="'+key+'-button" data-date-preference="'+key+'">'+choices.map(([v,name])=>'<option value="'+this.esc(v)+'"'+(this.prefs[key]===v?' selected':'')+'>'+this.esc(name)+'</option>').join('')+'</select></div>';
         return select('timeZone',labels.zone,[['system',labels.system],...zones.map(v=>[v,v])])+select('dateFormat',labels.format,[['auto',labels.auto],['dmy','JJ/MM/AAAA · DD/MM/YYYY'],['mdy','MM/DD/YYYY'],['iso','YYYY-MM-DD']])+'<p class="hint">'+this.esc(labels.help)+'</p>';
     }
+
+    static contextTourKey='zscore-context-tour-v1';
+    static contextTourSteps=[{"page":"single","view":"entry","mode":"welcome","target":"","key":"tour0","chapter":"Welcome"},{"page":"single","view":"entry","mode":"desktop","target":"#sidebar-button","key":"tour1","chapter":"Welcome"},{"page":"single","view":"entry","mode":"desktop","target":"#main-nav","key":"tour2","chapter":"Welcome"},{"page":"single","view":"entry","mode":"mobile","target":"#menu-button","key":"tour3","chapter":"Welcome"},{"page":"single","view":"entry","mode":"mobile-menu","target":".header-options","key":"tour4","chapter":"Welcome"},{"page":"single","view":"entry","mode":"status","target":".workspace-status-line|.mobile-menu-status","key":"tour5","chapter":"Welcome"},{"page":"single","view":"entry","mode":"work","target":".workspace-heading-actions|.mobile-menu-work-actions","key":"tour6","chapter":"Welcome"},{"page":"single","view":"entry","mode":"","target":"#single-form [data-field=caseId]","key":"tour7","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form [data-field=name]","key":"tour8","chapter":"Single"},{"page":"single","view":"entry","mode":"choice","target":"#single-ageMode-picker","key":"tour9","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form .age-fields:not([hidden])","key":"tour10","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form [data-field=measurementDate]","key":"tour11","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-gender-picker","key":"tour12","chapter":"Single"},{"page":"single","view":"entry","mode":"choice","target":"#single-weightUnit-picker","key":"tour13","chapter":"Single"},{"page":"single","view":"entry","mode":"choice","target":"#single-heightUnit-picker","key":"tour14","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-position-picker","key":"tour15","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form [data-field=muac]","key":"tour16","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-oedema-picker","key":"tour17","chapter":"Single"},{"page":"single","view":"entry","mode":"choice","target":"#single-growthProfile-picker","key":"tour18","chapter":"Single"},{"page":"single","view":"entry","mode":"choice","target":"#single-careProtocol-picker","key":"tour19","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form .clinical-fields>summary","key":"tour20","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form .clinical-fields .form-grid","key":"tour21","chapter":"Single"},{"page":"single","view":"entry","mode":"","target":"#single-form .additional-fields","key":"tour22","chapter":"Single"},{"page":"single","view":"entry","mode":"actions","target":".form-top-actions|.mobile-actions-grid","key":"tour23","chapter":"Single"},{"page":"single","view":"result","mode":"","target":".nutrition-result","key":"tour24","chapter":"Single"},{"page":"single","view":"result","mode":"","target":".indicator-grid","key":"tour25","chapter":"Single"},{"page":"single","view":"charts","mode":"","target":".workspace-view-nav","key":"tour26","chapter":"Single"},{"page":"single","view":"details","mode":"actions","target":".result-toolbar|.mobile-actions-grid","key":"tour27","chapter":"Single"},{"page":"batch","view":"entry","mode":"","target":".workspace-view-nav","key":"tour28","chapter":"Batch"},{"page":"batch","view":"entry","mode":"","target":"#batch-form .entry-core-grid","key":"tour29","chapter":"Batch"},{"page":"batch","view":"entry","mode":"actions","target":".form-top-actions|.mobile-actions-grid","key":"tour30","chapter":"Batch"},{"page":"batch","view":"entry","mode":"csv","target":".csv-tools","key":"tour31","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"#batch-search","key":"tour32","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":".batch-selection-bar","key":"tour33","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"#batch-mobile-filter|.batch-kpis","key":"tour34","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"[data-batch-select]","key":"tour35","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"#batch-delete-0","key":"tour36","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"#batch-correct-0","key":"tour37","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":".batch-record-body","key":"tour38","chapter":"Batch"},{"page":"batch","view":"results","mode":"","target":"#batch-browser-live .list-pagination","key":"tour39","chapter":"Batch"},{"page":"batch","view":"results","mode":"actions","target":".batch-actions|.mobile-actions-grid","key":"tour40","chapter":"Batch"},{"page":"batch","view":"quality","mode":"","target":"#quality-mobile-filter|.quality-heading-counts|.quality-review>summary","key":"tour41","chapter":"Batch"},{"page":"batch","view":"quality","mode":"","target":"#batch-view-quality .table-scroll","key":"tour42","chapter":"Batch"},{"page":"batch","view":"quality","mode":"","target":".quality-exports","key":"tour43","chapter":"Batch"},{"page":"batch","view":"statistics","mode":"","target":".lot-analysis","key":"tour44","chapter":"Batch"},{"page":"batch","view":"statistics","mode":"","target":".lot-heading-actions","key":"tour45","chapter":"Batch"},{"page":"history","view":"backup","mode":"","target":".workspace-view-nav","key":"tour46","chapter":"History"},{"page":"history","view":"backup","mode":"","target":"#history-view-backup>.toolbar","key":"tour47","chapter":"History"},{"page":"history","view":"backup","mode":"","target":"#storage-capacity","key":"tour48","chapter":"History"},{"page":"history","view":"versions","mode":"","target":".history-filter-bar","key":"tour49","chapter":"History"},{"page":"history","view":"versions","mode":"","target":"#history-list","key":"tour50","chapter":"History"},{"page":"history","view":"versions","mode":"","target":"#history-pages","key":"tour51","chapter":"History"},{"page":"settings","view":"","mode":"","target":"#language-button","key":"tour52","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":"#theme-button","key":"tour53","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":"#timeZone-button","key":"tour54","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":"#dateFormat-button","key":"tour55","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":".settings-clinical","key":"tour56","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":".settings-update","key":"tour57","chapter":"Settings"},{"page":"settings","view":"","mode":"","target":"#install-status","key":"tour58","chapter":"Settings"},{"page":"references","view":"","mode":"","target":".quick-guide","key":"tour59","chapter":"References"},{"page":"references","view":"","mode":"","target":".compact-footer","key":"tour60","chapter":"References"},{"page":"single","view":"entry","mode":"end","target":"","key":"tour61","chapter":"Single"}];
+    static contextTourRoute(mobile){
+        return this.contextTourSteps.filter(s=>s.mode!==(mobile?'desktop':'mobile')&&(mobile||s.mode!=='mobile-menu'));
+    }
+    contextTourSeen(){
+        if(this.contextTourDismissed)return true;
+        try{return localStorage.getItem(WorkspaceApp.contextTourKey)==='1';}catch(_){return false;}
+    }
+    offerContextTour(){
+        if(this.contextTourSeen())return;
+        try{this.startContextTour();}catch(e){console.warn('Optional contextual tour unavailable',e);}
+    }
+    // The demo owns its own objects. The real workspace, storage manager and history manager
+    // are never passed to it. Only the read-only growth engine/reference resources are shared.
+    contextTourDemo(language){
+        const demo=Object.create(WorkspaceApp.prototype);
+        Object.assign(demo,{prefs:{...this.prefs,language,navCollapsed:false,growthProfile:'who',careProtocol:''},translations:this.translations,engine:this.engine,manifest:this.manifest,olderManifest:this.olderManifest,cdcManifest:this.cdcManifest,history:{recoveryErrors:[],catalogStats:{versions:10,backupBytes:16384}},offlineState:this.offlineState,saveState:'ready',page:'single',batchPage:0,qualityPage:0,historyPage:0,search:'',batchSearch:'',batchFilter:'all',historyFilter:'all'});
+        demo.state=demo.emptyWorkspace();
+        const sample=(i)=>({...demo.emptyDraft('who'),caseId:'DEMO-'+String(i+1).padStart(2,'0'),name:({fr:'Enfant fictif',en:'Fictitious child',ar:'طفل افتراضي'}[language])+' '+(i+1),ageMode:'months',ageYears:'2',ageMonths:String(i%6),weight:String(11500+i*180),height:String(86+i*.5),gender:i%2?'F':'M',position:'H',oedema:i===2?'':'n',muac:'130'});
+        const entries=Array.from({length:10},(_,i)=>this.engine.calculate(sample(i)));
+        demo.tourExample=entries[0];demo.state.batch=entries.map((e,i)=>i===1||i===2?{child:e.child,result:null}:e);
+        demo.sessions=entries.map((e,i)=>({id:'demo-'+i,name:e.child.name,createdAt:new Date(2026,0,1,10,i).toISOString(),metadata:{reason:'manual',workspace:{mode:'single',single:e,batch:[]}}}));
+        demo.capacityInfo={usage:24576,quota:104857600};
+        return demo;
+    }
+    contextTourRender(demo,step,doc,mobile){
+        demo.page=step.page;demo.batchPane=step.page==='batch'?step.view:'entry';demo.historyPane=step.view==='versions'?'versions':'backup';
+        demo.singleEditing=step.view==='entry';
+        demo.state.single=step.page==='single'&&step.view!=='entry'?demo.tourExample:null;
+        demo.singleView=['charts','details'].includes(step.view)?step.view:'summary';
+        const root=doc.getElementById('app-root');root.innerHTML=demo.workspaceHTML();
+        demo.enhanceSelects(doc);
+        if(step.page==='history')demo.renderHistoryList(doc);
+        if(step.page==='single'&&step.view==='charts'){const charts=root.querySelector('[data-single-charts]');if(charts)charts.innerHTML=demo.chartsHTML([demo.tourExample]);}
+        for(const el of root.querySelectorAll('.reference-profile,.clinical-fields,.additional-fields,.quality-review,.compact-lot-summary'))el.open=true;
+        if(step.mode==='csv')for(const id of ['csv-tools-body','csv-heading-actions']){const el=doc.getElementById(id);if(el)el.hidden=false;}
+        for(const el of root.querySelectorAll('[data-save-state]'))el.textContent=demo.t('ready');
+        const setConnection=el=>{if(el)el.textContent=demo.t(navigator.onLine?'online':'offline');};
+        setConnection(doc.getElementById('connection'));
+        const menu=doc.getElementById('tour-demo-menu');menu.hidden=true;menu.innerHTML='';menu.className='tour-demo-menu';
+        if(mobile&&['mobile-menu','status','work'].includes(step.mode)){
+            menu.classList.add('mobile-navigation-dialog');menu.innerHTML=demo.mobileNavigationHTML();menu.hidden=false;
+            setConnection(menu.querySelector('#menu-connection'));
+            for(const el of menu.querySelectorAll('[data-save-state]'))el.textContent=demo.t('ready');
+        }
+        if(mobile&&step.mode==='actions'){
+            menu.classList.add('mobile-actions-dialog');
+            const selector=demo.page==='batch'?(step.view==='entry'?'.form-top-actions button':'.batch-actions button'):(step.view==='entry'?'.form-top-actions button':'.result-toolbar button');
+            menu.innerHTML='<div class="dialog-top"><h2>'+demo.esc(demo.t('mobileActions'))+'</h2></div><div class="mobile-actions-grid"></div>';
+            for(const el of root.querySelectorAll(selector)){const copy=el.cloneNode(true);copy.removeAttribute('id');menu.querySelector('.mobile-actions-grid').append(copy);}
+            menu.hidden=false;
+        }
+        const choice=doc.getElementById('tour-demo-choice');choice.hidden=true;choice.innerHTML='';
+        if(step.mode==='choice'){
+            const trigger=root.querySelector(step.target),sel=trigger&&doc.getElementById(trigger.dataset.select);
+            if(sel){choice.innerHTML=[...sel.options].map(o=>'<button type="button" role="option" aria-selected="'+o.selected+'">'+demo.esc(o.textContent)+'</button>').join('');}
+        }
+        root.inert=true;menu.inert=true;choice.inert=true;
+        const visible=el=>el&&el.getClientRects().length&&el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0;
+        return step.target.split('|').filter(Boolean).map(s=>doc.querySelector(s)).find(visible)||null;
+    }
+    static contextTourPlacement(view,rect,w,h){
+        const m=8,g=12,maxX=Math.max(m,view.width-w-m),maxY=Math.max(m,view.height-h-m);
+        if(!rect)return {x:Math.max(m,(view.width-w)/2),y:Math.max(m,(view.height-h)/2),side:'none'};
+        const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+        const candidates=[
+            {side:'bottom',space:view.height-rect.bottom-m,x:rect.left+(rect.width-w)/2,y:rect.bottom+g,need:h+g},
+            {side:'top',space:rect.top-m,x:rect.left+(rect.width-w)/2,y:rect.top-h-g,need:h+g},
+            {side:'right',space:view.width-rect.right-m,x:rect.right+g,y:rect.top+(rect.height-h)/2,need:w+g},
+            {side:'left',space:rect.left-m,x:rect.left-w-g,y:rect.top+(rect.height-h)/2,need:w+g}];
+        const chosen=candidates.find(c=>c.space>=c.need)||candidates.sort((a,b)=>b.space-b.need-(a.space-a.need))[0];
+        return {x:clamp(chosen.x,m,maxX),y:clamp(chosen.y,m,maxY),side:chosen.side};
+    }
+    startContextTour(){
+        if(this.contextTourActive||document.querySelector('dialog[open]')||this.batchInlineEdit||this.batchDeleting||this.transferBusy||this.batchComputing)return;
+        const host=this,opener=document.activeElement,dialog=document.createElement('dialog'),frame=document.createElement('iframe');
+        dialog.className='context-tour-host';dialog.setAttribute('aria-label',this.t('tourLaunch'));
+        frame.title=this.t('tourDemo');frame.setAttribute('sandbox','allow-same-origin');frame.referrerPolicy='no-referrer';
+        const originalLanguage=this.prefs.language;let language=originalLanguage,index=0,demo=null,route=[],finished=false,resize=null,doc=null;
+        this.contextTourActive=true;
+        const finish=()=>{
+            if(finished)return;finished=true;host.contextTourDismissed=true;host.contextTourActive=false;
+            try{localStorage.setItem(WorkspaceApp.contextTourKey,'1');}catch(_){}
+            if(resize)resize.disconnect();
+            dialog.close();dialog.remove();
+            // Only an explicitly chosen language is persisted. No clinical action is dispatched.
+            if(language!==originalLanguage){host.readForms();host.prefs.language=language;host.persistPreferences();host.applyPreferences();host.render();}
+            else if(opener?.isConnected)opener.focus?.({preventScroll:true});
+        };
+        const mobile=()=>frame.clientWidth<=680;
+        const label=k=>demo.esc(demo.t(k));
+        const build=()=>{
+            if(finished||!doc)return;
+            const key=route[index]?.key;
+            route=WorkspaceApp.contextTourRoute(mobile());
+            const same=route.findIndex(s=>s.key===key);index=same>=0?same:Math.min(index,route.length-1);
+            const step=route[index];
+            if(!demo||demo.prefs.language!==language)demo=host.contextTourDemo(language);
+            doc.documentElement.lang=language;doc.documentElement.dir=language==='ar'?'rtl':'ltr';
+            doc.documentElement.dataset.theme=document.documentElement.dataset.theme||'light';
+            doc.documentElement.dataset.navCollapsed='false';
+            const target=demo.contextTourRender(demo,step,doc,mobile()),tip=doc.getElementById('tour-tip'),spot=doc.getElementById('tour-spot');
+            const chapters=[...new Set(route.map(s=>s.chapter))];
+            tip.innerHTML='<div class="tour-topline"><span>'+label('tourDemo')+'</span><span>'+demo.number(index+1,0)+' / '+demo.number(route.length,0)+'</span></div><div class="tour-selectors"><select data-tour-language aria-label="'+label('tourLanguage')+'">'+[['fr','Français'],['en','English'],['ar','العربية']].map(([v,n])=>'<option value="'+v+'"'+(language===v?' selected':'')+'>'+n+'</option>').join('')+'</select><select data-tour-chapter aria-label="'+label('tourChapter')+'">'+chapters.map(v=>'<option value="'+v+'"'+(step.chapter===v?' selected':'')+'>'+label('tourCh'+v)+'</option>').join('')+'</select></div><h2 id="tour-heading" tabindex="-1">'+label(step.key+'Title')+'</h2><p>'+label(step.key+'Text')+'</p>'+(!target&&step.target?'<p class="tour-missing">'+label('tourUnavailable')+'</p>':'')+'<div class="tour-controls"><button class="btn" data-tour="skip">'+label('tourSkip')+'</button><div>'+ (index?'<button class="btn" data-tour="prev">'+label('previous')+'</button>':'')+'<button class="btn primary" data-tour="'+(index===route.length-1?'finish':'next')+'">'+label(index===0?'tourStart':index===route.length-1?'tourFinish':'next')+'</button></div></div>';
+            const view=frame.contentWindow;
+            const layout=()=>{
+                if(finished)return;
+                const w=doc.documentElement.clientWidth,h=doc.documentElement.clientHeight;
+                let rect=target?.getBoundingClientRect();
+                const choice=doc.getElementById('tour-demo-choice');
+                if(rect&&step.mode==='choice'&&choice.innerHTML){
+                    choice.hidden=false;choice.style.left=Math.max(8,Math.min(w-188,rect.left))+'px';choice.style.top=Math.max(8,Math.min(h-choice.offsetHeight-8,rect.bottom+4))+'px';
+                    const c=choice.getBoundingClientRect();rect={left:Math.min(rect.left,c.left),right:Math.max(rect.right,c.right),top:Math.min(rect.top,c.top),bottom:Math.max(rect.bottom,c.bottom),width:Math.max(rect.right,c.right)-Math.min(rect.left,c.left),height:Math.max(rect.bottom,c.bottom)-Math.min(rect.top,c.top)};
+                }
+                if(rect){
+                    const x=Math.max(0,rect.left-4),y=Math.max(0,rect.top-4),right=Math.min(w,rect.right+4),bottom=Math.min(h,rect.bottom+4);
+                    if(right>x&&bottom>y){spot.hidden=false;Object.assign(spot.style,{left:x+'px',top:y+'px',width:(right-x)+'px',height:(bottom-y)+'px'});rect={left:x,right,top:y,bottom,width:right-x,height:bottom-y};}
+                    else{spot.hidden=true;rect=null;}
+                }else spot.hidden=true;
+                tip.classList.toggle('tour-centered',!rect);
+                const pos=WorkspaceApp.contextTourPlacement({width:w,height:h},rect,tip.offsetWidth,tip.offsetHeight);
+                tip.style.left=pos.x+'px';tip.style.top=pos.y+'px';tip.dataset.side=pos.side;
+                if(rect){tip.style.setProperty('--tour-arrow-x',Math.max(12,Math.min(tip.offsetWidth-12,rect.left+rect.width/2-pos.x))+'px');tip.style.setProperty('--tour-arrow-y',Math.max(12,Math.min(tip.offsetHeight-12,rect.top+rect.height/2-pos.y))+'px');}
+            };
+            if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else view.scrollTo(0,0);
+            layout();tip.querySelector('#tour-heading').focus({preventScroll:true});
+            view.onresize=layout;view.onscroll=layout;
+        };
+        frame.addEventListener('load',()=>{
+            if(finished)return;
+            try{
+                doc=frame.contentDocument;
+                doc.addEventListener('click',e=>{const btn=e.target.closest('[data-tour]');if(!btn)return;e.preventDefault();const cmd=btn.dataset.tour;if(['skip','finish'].includes(cmd)){finish();return;}index=Math.max(0,Math.min(route.length-1,index+(cmd==='prev'?-1:1)));build();});
+                doc.addEventListener('change',e=>{if(e.target.matches('[data-tour-language]')&&['fr','en','ar'].includes(e.target.value)){language=e.target.value;build();}else if(e.target.matches('[data-tour-chapter]')){index=route.findIndex(s=>s.chapter===e.target.value);build();}});
+                doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish();}});
+                build();
+                if(typeof ResizeObserver==='function'){let width=frame.clientWidth;resize=new ResizeObserver(()=>{if(width!==frame.clientWidth){width=frame.clientWidth;build();}});resize.observe(frame);}
+            }catch(e){console.warn('Context tour unavailable',e);finish();}
+        },{once:true});
+        dialog.addEventListener('cancel',e=>{e.preventDefault();finish();});
+        frame.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="css/workspace.css"></head><body><div id="app-root"></div><div id="tour-demo-menu" hidden></div><div id="tour-demo-choice" class="choice-popup" hidden></div><div id="tour-shield"></div><div id="tour-spot" hidden></div><section id="tour-tip" role="region" aria-labelledby="tour-heading"></section></body></html>';
+        dialog.append(frame);document.body.append(dialog);
+        try{dialog.showModal();}catch(e){dialog.remove();this.contextTourActive=false;throw e;}
+    }
+
     settingsHTML() {
         const names={fr:'Français',en:'English',ar:'العربية'};
         const label=kind=>kind==='growthProfile'?'growthProfileDefault':kind==='careProtocol'?'careProtocolDefault':kind;
         const value=kind=>kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':kind==='careProtocol'?this.prefs.careProtocol==='niger2025'?'careNiger2025':this.prefs.careProtocol==='niger2023'?'careNiger2023':'careWHO':this.prefs.theme);
         const picker=kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(label(kind))}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='theme'?this.prefs.theme:kind==='careProtocol'?'references':'language')}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(value(kind))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
-        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}${this.dateSettingsHTML()}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div></div>`;
+        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}${this.dateSettingsHTML()}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div><section class="card settings-tour"><h2>${this.icon('info')}${this.t('tourLaunch')}</h2><p class="hint">${this.t('tourReplayHelp')}</p><button class="btn" type="button" data-action="start-context-tour">${this.t('tourLaunch')}</button></section></div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -1148,7 +1302,7 @@ class WorkspaceApp {
         const name=this.historyName(session),aliases=name===this.t('draft')?this.t('draftSearchAliases'):'';
         return this.historySearchKey(`${session.summary?.searchText || this.historySearchIndex.get(session) || ''} ${name} ${aliases}`);
     }
-    renderHistoryList() {
+    renderHistoryList(document=globalThis.document) {
         const query = this.historySearchKey(this.search);
         const filter=this.historyFilter||'all';
         const filtered=this.sessions.filter(s=>(!query||this.historySearchText(s).includes(query))&&WorkspaceApp.historyMatches(s,filter));
@@ -1171,7 +1325,7 @@ class WorkspaceApp {
         document.querySelector('[data-action="history-next"]').disabled = this.historyPage >= pages-1;
     }
     quickGuideHTML() {
-        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2><div class="quick-guide-grid">${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</div></section>`;
+        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2><button type="button" class="btn" data-action="start-context-tour">${this.t('tourLaunch')}</button><div class="quick-guide-grid">${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</div></section>`;
     }
     referencesHTML() {
         const links = [['sourceClinical2023','https://www.who.int/publications/i/item/9789240082830'],['sourceClinical2026','https://www.who.int/publications/i/item/9789240122840'],['sourceWHO','https://www.who.int/tools/child-growth-standards/standards'],['sourceAnthro','https://www.who.int/toolkits/child-growth-standards/software'],['sourceClassification','https://www.who.int/data/nutrition/nlis/info/malnutrition-in-children/'],['sourceCode','https://github.com/WorldHealthOrganization/anthro/tree/'+this.engine.data.sourceCommit+'/data-raw/growthstandards'],['sourceLicense','data/LICENSE-anthro.txt'],['sourceWHO2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],['sourceLicense2007','data/LICENSE-anthroplus.txt'],['sourceCDC','https://www.cdc.gov/growthcharts/cdc-data-files.htm'],['sourceCDC2022','https://www.cdc.gov/growthcharts/extended-bmi-data-files.htm'],['sourceIntergrowth','https://intergrowth21.com/tools-resources/postnatal-growth-preterm-infants'],['sourceIntergrowthUse','https://globalhealthtrainingcentre.tghn.org/preterm-infant-feeding-and-growth-monitoring-implementation-intergrowth-21st-protocol/faqs/'],['sourceIntergrowthCode','https://github.com/ropensci/gigs/blob/fb58fe6596d4b289d5362c5efe00f882984d3186/R/ig_png.R']];
@@ -1408,6 +1562,7 @@ class WorkspaceApp {
     updateToast(){const el=document.getElementById('toast');if(el){el.textContent=this.toastKey?(this.t(this.toastKey)===this.toastKey?this.t('error'):this.t(this.toastKey)):'';el.setAttribute('role',this.toastIsError?'alert':'status');}}
     toast(key,error=false) { this.toastKey=key;this.toastIsError=error;this.updateToast();clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>{this.toastKey=null;this.updateToast();},6500); }
     async action(action,button) {
+        if(action==='start-context-tour'){this.startContextTour();return;}
         if(action==='dismiss-update-notice'){this.dismissUpdateNotice();return;}
         if(this.batchDeleting||this.batchInlineEdit?.busy)return;
         if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
