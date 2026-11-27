@@ -593,3 +593,45 @@ test('contextual demo uses separate fictitious records without storage or clinic
     }
     assert.equal(JSON.stringify(app.state),before);
 });
+
+test('contextual tour controls advance desktop and mobile and persist only chosen interface preferences',()=>{
+    const tr=json('src/data/interface-translations.json');
+    const names=['document','matchMedia','localStorage','ResizeObserver'],old=names.map(k=>Object.getOwnPropertyDescriptor(globalThis,k));
+    const run=(width,firstKey)=>{
+        const eventNode=()=>({events:{},dataset:{},style:{},setAttribute(){},addEventListener(k,fn){this.events[k]=fn;},removeEventListener(k,fn){if(this.events[k]===fn)delete this.events[k];},fire(k,e={}){this.events[k]?.(e);}});
+        const focus={focus(){}},tip=Object.assign(eventNode(),{offsetWidth:300,offsetHeight:220,classList:{toggle(){}},contains:()=>true,querySelector:()=>focus});
+        const spot=eventNode(),arrow=eventNode(),shield=eventNode(),choice=Object.assign(eventNode(),{innerHTML:''});
+        const overlay={'#tour-tip':tip,'#tour-spot':spot,'#tour-arrow':arrow,'#tour-shield':shield};
+        const dialog=Object.assign(eventNode(),{querySelector:k=>overlay[k],prepend(){},showModal(){this.open=true;},close(){this.open=false;},remove(){}});
+        const demoDoc={documentElement:{clientWidth:width,clientHeight:800,dataset:{}},getElementById:k=>k==='tour-demo-choice'?choice:null};
+        const view=Object.assign(eventNode(),{scrollTo(){}});
+        const frame=Object.assign(eventNode(),{clientWidth:width,contentDocument:demoDoc,contentWindow:view});
+        const media=Object.assign(eventNode(),{matches:false});
+        const saved=[];
+        Object.assign(globalThis,{document:{activeElement:{isConnected:true,focus(){}},querySelector:()=>null,createElement:k=>k==='dialog'?dialog:frame,body:{append(){}}},matchMedia:()=>media,localStorage:{setItem:(k,v)=>saved.push([k,v])},ResizeObserver:undefined});
+        const clinical={draft:{name:'PRIVATE'},batch:[]};
+        let persisted=0,rendered=0;
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{
+            prefs:{language:'fr',theme:'system'},state:clinical,t:k=>tr.fr[k]||k,
+            contextTourDemo(language){return {prefs:{language},esc:s=>s,t:k=>tr[language][k]||k,number:n=>String(n),contextTourRender(_demo,step){return step.target?{getBoundingClientRect:()=>({left:8,right:52,top:8,bottom:52,width:44,height:44}),scrollIntoView(){}}:null;}};},
+            readForms(){},persistPreferences(){persisted++;},applyPreferences(){},render(){rendered++;}
+        });
+        app.startContextTour();frame.fire('load');
+        assert.ok(dialog.open&&app.contextTourActive);
+        assert.ok(tip.innerHTML.includes(tr.fr.tour0Title));
+        assert.ok(!frame.srcdoc.includes('id="tour-tip"'));
+        const click=cmd=>dialog.fire('click',{target:{closest:()=>({dataset:{tour:cmd}})},preventDefault(){},stopPropagation(){}});
+        const select=(name,value)=>dialog.fire('change',{target:{value,matches:k=>k==='[data-tour-'+name+']'}});
+        click('next');assert.ok(tip.innerHTML.includes(tr.fr[firstKey+'Title']));
+        select('theme','dark');assert.equal(dialog.dataset.theme,'dark');assert.equal(demoDoc.documentElement.dataset.theme,'dark');
+        assert.ok(tip.innerHTML.includes(tr.fr[firstKey+'Title']));assert.equal(app.prefs.theme,'system');assert.equal(persisted,0);
+        select('language','ar');assert.equal(dialog.dir,'rtl');assert.ok(tip.innerHTML.includes(tr.ar[firstKey+'Title']));
+        select('theme','system');media.matches=true;media.fire('change');assert.equal(dialog.dataset.theme,'dark');
+        select('theme','light');assert.equal(dialog.dataset.theme,'light');
+        click('prev');assert.ok(tip.innerHTML.includes(tr.ar.tour0Title));click('skip');
+        assert.equal(app.prefs.theme,'light');assert.equal(app.prefs.language,'ar');assert.equal(persisted,1);assert.equal(rendered,1);
+        assert.equal(app.state,clinical);assert.equal(app.state.draft.name,'PRIVATE');assert.equal(app.contextTourActive,false);
+        assert.equal(saved.length,1);assert.equal(media.events.change,undefined);
+    };
+    try{run(1440,'tour1');run(390,'tour3');}finally{names.forEach((k,i)=>old[i]?Object.defineProperty(globalThis,k,old[i]):delete globalThis[k]);}
+});

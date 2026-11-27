@@ -669,32 +669,44 @@ class WorkspaceApp {
         const host=this,opener=document.activeElement,dialog=document.createElement('dialog'),frame=document.createElement('iframe');
         dialog.className='context-tour-host';dialog.setAttribute('aria-label',this.t('tourLaunch'));
         frame.title=this.t('tourDemo');frame.setAttribute('sandbox','allow-same-origin');frame.referrerPolicy='no-referrer';
-        const originalLanguage=this.prefs.language;let language=originalLanguage,index=0,demo=null,route=[],finished=false,resize=null,doc=null;
+        const originalLanguage=this.prefs.language,originalTheme=this.prefs.theme||'system';
+        let language=originalLanguage,theme=originalTheme,index=0,demo=null,route=[],finished=false,resize=null,doc=null,detachLayout=()=>{};
+        const themeMedia=matchMedia('(prefers-color-scheme: dark)');
+        // The iframe remains scriptless and contains only the fictitious workspace. All
+        // interactive tour controls belong to the real dialog, not the sandboxed document.
+        frame.tabIndex=-1;
+        dialog.innerHTML='<div id="tour-shield" aria-hidden="true"></div><div id="tour-spot" aria-hidden="true" hidden></div><div id="tour-arrow" aria-hidden="true" hidden></div><section id="tour-tip" role="region" aria-labelledby="tour-heading"></section>';
+        const tip=dialog.querySelector('#tour-tip'),spot=dialog.querySelector('#tour-spot'),arrow=dialog.querySelector('#tour-arrow'),shield=dialog.querySelector('#tour-shield');
         this.contextTourActive=true;
         const finish=()=>{
             if(finished)return;finished=true;host.contextTourDismissed=true;host.contextTourActive=false;
             try{localStorage.setItem(WorkspaceApp.contextTourKey,'1');}catch(_){}
             if(resize)resize.disconnect();
+            detachLayout();themeMedia.removeEventListener('change',systemThemeChanged);
             dialog.close();dialog.remove();
-            // Only an explicitly chosen language is persisted. No clinical action is dispatched.
-            if(language!==originalLanguage){host.readForms();host.prefs.language=language;host.persistPreferences();host.applyPreferences();host.render();}
+            // Only explicitly chosen interface preferences are persisted; no clinical action is dispatched.
+            if(language!==originalLanguage||theme!==originalTheme){host.readForms();host.prefs.language=language;host.prefs.theme=theme;host.persistPreferences();host.applyPreferences();host.render();}
             else if(opener?.isConnected)opener.focus?.({preventScroll:true});
         };
         const mobile=()=>frame.clientWidth<=680;
         const label=k=>demo.esc(demo.t(k));
-        const build=()=>{
+        const build=(focusSelector='#tour-heading')=>{
             if(finished||!doc)return;
+            detachLayout();
             const key=route[index]?.key;
             route=WorkspaceApp.contextTourRoute(mobile());
             const same=route.findIndex(s=>s.key===key);index=same>=0?same:Math.min(index,route.length-1);
             const step=route[index];
             if(!demo||demo.prefs.language!==language)demo=host.contextTourDemo(language);
             doc.documentElement.lang=language;doc.documentElement.dir=language==='ar'?'rtl':'ltr';
-            doc.documentElement.dataset.theme=document.documentElement.dataset.theme||'light';
+            demo.prefs.theme=theme;
+            const resolved=theme==='dark'||theme==='system'&&themeMedia.matches?'dark':'light';
+            doc.documentElement.dataset.theme=resolved;dialog.dataset.theme=resolved;
+            dialog.lang=language;dialog.dir=language==='ar'?'rtl':'ltr';
             doc.documentElement.dataset.navCollapsed='false';
-            const target=demo.contextTourRender(demo,step,doc,mobile()),tip=doc.getElementById('tour-tip'),spot=doc.getElementById('tour-spot'),arrow=doc.getElementById('tour-arrow'),shield=doc.getElementById('tour-shield');
+            const target=demo.contextTourRender(demo,step,doc,mobile());
             const chapters=[...new Set(route.map(s=>s.chapter))];
-            tip.innerHTML='<div class="tour-topline"><span>'+label('tourDemo')+'</span><span>'+demo.number(index+1,0)+' / '+demo.number(route.length,0)+'</span></div><div class="tour-selectors"><select data-tour-language aria-label="'+label('tourLanguage')+'">'+[['fr','Français'],['en','English'],['ar','العربية']].map(([v,n])=>'<option value="'+v+'"'+(language===v?' selected':'')+'>'+n+'</option>').join('')+'</select><select data-tour-chapter aria-label="'+label('tourChapter')+'">'+chapters.map(v=>'<option value="'+v+'"'+(step.chapter===v?' selected':'')+'>'+label('tourCh'+v)+'</option>').join('')+'</select></div><h2 id="tour-heading" tabindex="-1">'+label(step.key+'Title')+'</h2><p>'+label(step.key+'Text')+'</p>'+(!target&&step.target?'<p class="tour-missing">'+label('tourUnavailable')+'</p>':'')+'<div class="tour-controls"><button class="btn" data-tour="skip">'+label('tourSkip')+'</button><div>'+ (index?'<button class="btn" data-tour="prev">'+label('previous')+'</button>':'')+'<button class="btn primary" data-tour="'+(index===route.length-1?'finish':'next')+'">'+label(index===0?'tourStart':index===route.length-1?'tourFinish':'next')+'</button></div></div>';
+            tip.innerHTML='<div class="tour-topline"><span>'+label('tourDemo')+'</span><span>'+demo.number(index+1,0)+' / '+demo.number(route.length,0)+'</span></div><div class="tour-selectors"><select data-tour-language aria-label="'+label('tourLanguage')+'">'+[['fr','Français'],['en','English'],['ar','العربية']].map(([v,n])=>'<option value="'+v+'"'+(language===v?' selected':'')+'>'+n+'</option>').join('')+'</select><select data-tour-theme aria-label="'+label('theme')+'">'+['system','light','dark'].map(v=>'<option value="'+v+'"'+(theme===v?' selected':'')+'>'+label(v)+'</option>').join('')+'</select><select data-tour-chapter aria-label="'+label('tourChapter')+'">'+chapters.map(v=>'<option value="'+v+'"'+(step.chapter===v?' selected':'')+'>'+label('tourCh'+v)+'</option>').join('')+'</select></div><h2 id="tour-heading" tabindex="-1">'+label(step.key+'Title')+'</h2><p>'+label(step.key+'Text')+'</p>'+(!target&&step.target?'<p class="tour-missing">'+label('tourUnavailable')+'</p>':'')+'<div class="tour-controls"><button class="btn" data-tour="skip">'+label('tourSkip')+'</button><div>'+ (index?'<button class="btn" data-tour="prev">'+label('previous')+'</button>':'')+'<button class="btn primary" data-tour="'+(index===route.length-1?'finish':'next')+'">'+label(index===0?'tourStart':index===route.length-1?'tourFinish':'next')+'</button></div></div>';
             const view=frame.contentWindow;
             const layout=()=>{
                 if(finished)return;
@@ -752,24 +764,37 @@ class WorkspaceApp {
                 shield.onpointercancel=()=>{gesture=null;};
             }
             if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else view.scrollTo(0,0);
-            layout();tip.querySelector('#tour-heading').focus({preventScroll:true});
-            view.onresize=layout;view.onscroll=layout;
+            layout();tip.querySelector(focusSelector)?.focus({preventScroll:true});
+            view.addEventListener('resize',layout);view.addEventListener('scroll',layout,{passive:true});
+            detachLayout=()=>{view.removeEventListener('resize',layout);view.removeEventListener('scroll',layout);};
         };
+        const systemThemeChanged=()=>{if(theme==='system')build();};
+        themeMedia.addEventListener('change',systemThemeChanged);
+        dialog.addEventListener('click',e=>{
+            const btn=e.target.closest?.('button[data-tour]');if(!btn||!tip.contains(btn))return;
+            e.preventDefault();e.stopPropagation();const cmd=btn.dataset.tour;
+            if(['skip','finish'].includes(cmd)){finish();return;}
+            if(!['prev','next'].includes(cmd)||!route.length)return;
+            index=Math.max(0,Math.min(route.length-1,index+(cmd==='prev'?-1:1)));build();
+        });
+        dialog.addEventListener('change',e=>{
+            if(!tip.contains(e.target))return;
+            if(e.target.matches('[data-tour-language]')&&['fr','en','ar'].includes(e.target.value)){language=e.target.value;build('[data-tour-language]');}
+            else if(e.target.matches('[data-tour-theme]')&&['system','light','dark'].includes(e.target.value)){theme=e.target.value;build('[data-tour-theme]');}
+            else if(e.target.matches('[data-tour-chapter]')){const next=route.findIndex(s=>s.chapter===e.target.value);if(next>=0){index=next;build('[data-tour-chapter]');}}
+        });
         frame.addEventListener('load',()=>{
             if(finished)return;
             try{
                 doc=frame.contentDocument;
-                doc.addEventListener('click',e=>{const btn=e.target.closest('[data-tour]');if(!btn)return;e.preventDefault();const cmd=btn.dataset.tour;if(['skip','finish'].includes(cmd)){finish();return;}index=Math.max(0,Math.min(route.length-1,index+(cmd==='prev'?-1:1)));build();});
-                doc.addEventListener('change',e=>{if(e.target.matches('[data-tour-language]')&&['fr','en','ar'].includes(e.target.value)){language=e.target.value;build();}else if(e.target.matches('[data-tour-chapter]')){index=route.findIndex(s=>s.chapter===e.target.value);build();}});
-                doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish();}});
                 build();
                 if(typeof ResizeObserver==='function'){let width=frame.clientWidth;resize=new ResizeObserver(()=>{if(width!==frame.clientWidth){width=frame.clientWidth;build();}});resize.observe(frame);}
             }catch(e){console.warn('Context tour unavailable',e);finish();}
         },{once:true});
         dialog.addEventListener('cancel',e=>{e.preventDefault();finish();});
-        frame.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="css/workspace.css"></head><body><div id="app-root"></div><div id="tour-demo-menu" hidden></div><div id="tour-demo-choice" class="choice-popup" hidden></div><div id="tour-shield"></div><div id="tour-spot" hidden></div><div id="tour-arrow" hidden></div><section id="tour-tip" role="region" aria-labelledby="tour-heading"></section></body></html>';
-        dialog.append(frame);document.body.append(dialog);
-        try{dialog.showModal();}catch(e){dialog.remove();this.contextTourActive=false;throw e;}
+        frame.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="css/workspace.css"></head><body><div id="app-root"></div><div id="tour-demo-menu" hidden></div><div id="tour-demo-choice" class="choice-popup" hidden></div></body></html>';
+        dialog.prepend(frame);document.body.append(dialog);
+        try{dialog.showModal();}catch(e){themeMedia.removeEventListener('change',systemThemeChanged);dialog.remove();this.contextTourActive=false;throw e;}
     }
 
     settingsHTML() {
