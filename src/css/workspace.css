@@ -1148,19 +1148,18 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 }
 
 
-/* Compact two-row mobile footer; keep the desktop links and version unchanged. */
+/* Two-row mobile footer: About, feedback and legal links; then offline status alone. */
 .compact-footer .footer-meta,.compact-footer .footer-offline{display:contents}
 @media screen and (max-width:680px){
- .compact-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 8px;font-size:11px;line-height:1.35;padding-block:6px;margin-block-start:10px}
+ .compact-footer{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:3px 5px;font-size:11px;line-height:1.35;padding-block:6px;margin-block-start:10px}
  .compact-footer .github-footer-link,.compact-footer .footer-version,.compact-footer .about-label{display:none}
- .compact-footer .feedback-footer-link{grid-column:1;grid-row:1;justify-self:start;min-width:0;min-height:34px;font-size:clamp(10px,3vw,12px);white-space:nowrap}
- .compact-footer .footer-meta{display:contents}
- .compact-footer .legal-footer-link{grid-column:2;grid-row:1;justify-self:end;display:inline-flex;align-items:center;margin:0;min-height:34px;font-size:clamp(10px,3vw,12px);font-weight:600;white-space:nowrap;text-align:end}
- .compact-footer .footer-offline{grid-column:1/-1;grid-row:2;display:flex;align-items:center;justify-content:center;gap:5px;min-width:0}
- .compact-footer [data-mobile-offline-status]{flex:0 1 auto;min-width:0;text-align:center;line-height:1.35;font-size:11px;overflow-wrap:anywhere}
- .compact-footer .footer-offline>.icon-button{flex:0 0 30px;width:30px;height:30px;min-height:30px;padding:5px}
+ .compact-footer .footer-meta,.compact-footer .footer-offline{display:contents}
+ .compact-footer .feedback-footer-link{grid-column:2;grid-row:1;justify-self:start;min-width:0;min-height:34px;font-size:clamp(10px,2.95vw,12px);white-space:normal;text-wrap:balance}
+ .compact-footer .legal-footer-link{grid-column:3;grid-row:1;justify-self:end;display:inline-flex;align-items:center;margin:0;min-height:34px;font-size:clamp(10px,2.95vw,12px);font-weight:600;white-space:normal;text-align:end;text-wrap:balance;max-width:48vw}
+ .compact-footer .footer-offline>.icon-button{grid-column:1;grid-row:1;justify-self:start;width:28px;height:32px;min-height:32px;padding:4px}
+ .compact-footer [data-mobile-offline-status]{grid-column:1/-1;grid-row:2;justify-self:center;min-width:0;max-width:100%;text-align:center;line-height:1.35;font-size:11px;overflow-wrap:anywhere}
 }
 @media screen and (max-width:340px){
- .compact-footer{column-gap:4px}
+ .compact-footer{column-gap:3px}
  .compact-footer [data-mobile-offline-status]{font-size:10.5px}
 }
