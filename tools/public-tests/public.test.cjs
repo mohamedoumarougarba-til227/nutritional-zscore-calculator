@@ -494,6 +494,8 @@ test('floating mobile navigation relocates work actions and keeps navigation and
             assert.equal((dialog.innerHTML.match(/aria-current="page"/g)||[]).length,1);
             assert.ok(!dialog.innerHTML.includes('data-action="close-header"'));
             assert.ok(dialog.innerHTML.includes('id="menu-connection"'));
+            assert.ok(!dialog.innerHTML.includes('mobile-menu-context'));
+            assert.ok(dialog.innerHTML.includes('id="header-dialog-title" class="sr-only"'));
             const work=['single','batch'].includes(page);
             assert.equal(dialog.innerHTML.includes('data-save-state'),work);
             assert.equal(dialog.innerHTML.includes('data-action="new"'),work);
@@ -501,4 +503,29 @@ test('floating mobile navigation relocates work actions and keeps navigation and
             if(work)assert.ok(dialog.innerHTML.indexOf('data-action="new"')<dialog.innerHTML.indexOf('data-history-pane="versions"'));
         }
     }finally{if(previous===undefined)delete global.document;else global.document=previous;}
+});
+
+
+test('floating menu anchors stay inside the viewport and switch direction based on available space',()=>{
+    const view={left:0,top:0,width:360,height:800};
+    const b=WorkspaceApp.floatingBounds(view,44,60);
+    assert.deepEqual(b,{left:8,top:8,right:308,bottom:688});
+    assert.deepEqual(WorkspaceApp.floatingAnchor(b,{side:'right',ratio:1}),{x:308,y:688});
+    assert.deepEqual(WorkspaceApp.floatingSnap(b,220,999),{side:'right',ratio:1});
+    assert.deepEqual(WorkspaceApp.floatingSnap(b,8,-10),{side:'left',ratio:0});
+    for(const side of ['left','right'])for(const ratio of [0,0.45,1]){
+        const {x,y}=WorkspaceApp.floatingAnchor(b,{side,ratio});
+        const a={left:x,right:x+44,top:y,bottom:y+44,width:44};
+        const m=WorkspaceApp.floatingDialogLayout(view,a,340,355);
+        assert.ok(m.x>=8&&m.x+340<=352);
+        assert.ok(m.y>=8&&m.y+Math.min(355,m.maxHeight)<=792);
+        if(ratio===0)assert.equal(m.direction,'down');
+        if(ratio===1)assert.equal(m.direction,'up');
+        assert.ok(m.direction==='down'?m.y>=a.bottom:m.y+Math.min(355,m.maxHeight)<=a.top);
+    }
+    const short={left:12,top:30,width:320,height:280};
+    const bounds=WorkspaceApp.floatingBounds(short,44,70);
+    const point=WorkspaceApp.floatingAnchor(bounds,{side:'right',ratio:1});
+    const m=WorkspaceApp.floatingDialogLayout(short,{left:point.x,right:point.x+44,top:point.y,bottom:point.y+44,width:44},300,355);
+    assert.ok(m.maxHeight<355);assert.ok(m.x>=20&&m.x+300<=324);assert.ok(m.y>=38);
 });

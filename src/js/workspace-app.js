@@ -265,11 +265,12 @@ class WorkspaceApp {
         const workPage=['single','batch'].includes(this.page);
         const workActions=workPage?this.toolButton('newWork','new','new',{showLabel:true})+this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'}):'';
         d.dataset.opener='menu-button';
-        d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title">${this.esc(this.t('menu'))}</h2><div class="mobile-menu-work-actions">${workActions}</div></div><div class="mobile-menu-context"><strong>${this.esc(this.t(this.page))}</strong><div class="mobile-menu-status">${workPage?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="menu-connection" class="connection-badge" role="status"></span></div></div><div class="dialog-body header-options">${['single','batch','history','references','settings'].map(value=>`<button type="button" class="header-choice" data-action="header-page" data-value="${value}" ${this.page===value?'aria-current="page"':''}>${this.icon(value)}<span class="choice-label">${this.esc(this.t(value))}</span>${this.page===value?this.icon('check'):''}</button>`).join('')}</div>`;
+        d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title" class="sr-only">${this.esc(this.t('menu'))}</h2><div class="mobile-menu-status">${workPage?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="menu-connection" class="connection-badge" role="status"></span></div><div class="mobile-menu-work-actions">${workActions}</div></div><div class="dialog-body header-options">${['single','batch','history','references','settings'].map(value=>`<button type="button" class="header-choice" data-action="header-page" data-value="${value}" ${this.page===value?'aria-current="page"':''}>${this.icon(value)}<span class="choice-label">${this.esc(this.t(value))}</span>${this.page===value?this.icon('check'):''}</button>`).join('')}</div>`;
         this.updateConnection();this.updateSaveStatus();
         document.getElementById(d.dataset.opener)?.setAttribute('aria-expanded','true');
         d.showModal();
-        d.querySelector('[aria-current="page"]')?.focus();
+        this.positionFloatingMenu(d);
+        d.querySelector('[aria-current="page"]')?.focus({preventScroll:true});
     }
     openMobileActions() {
         if(!['single','batch'].includes(this.page))return;
@@ -405,7 +406,7 @@ class WorkspaceApp {
         document.getElementById('app-root').innerHTML = `
             <a class="skip" href="#main">${this.t('skip')}</a>
             <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
-            <button id="menu-button" class="brand-mark mobile-menu-button mobile-floating-menu" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}">Z</button>
+            <button id="menu-button" class="brand-mark mobile-menu-button mobile-floating-menu" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}" title="${this.esc(this.t('floatingMenuHelp'))}">Z</button>
             <div class="shell"><aside class="sidebar"><nav id="main-nav" class="nav" aria-label="${this.t('brand')}">${['single','batch','history','references','settings'].map(p => `<button data-action="page" data-page="${p}" title="${this.esc(this.t(p))}" aria-label="${this.esc(this.t(p))}" ${this.page === p ? 'aria-current="page"' : ''}>${this.icon(p)}<span class="nav-text">${this.t(p)}</span></button>`).join('')}</nav></aside>
             <main id="main" tabindex="-1"><h1 class="mobile-page-heading sr-only">${this.esc(this.t(this.page))}</h1><div class="print-header"><h2>${this.t('brand')}</h2><p>${this.t('appUsageNotice')}</p></div>
               <div id="update-notice">${this.updateHTML()}</div>
@@ -414,6 +415,7 @@ class WorkspaceApp {
               <footer class="compact-footer"><a class="feedback-footer-link" href="${this.prefs.language==='ar'?'https://tally.so/r/GeKzve':this.prefs.language==='en'?'https://tally.so/r/o9Dy6b':'https://tally.so/r/bZ9xb7'}" target="_blank" rel="noopener noreferrer" title="${this.esc(this.prefs.language==='ar'?'يتطلب الاتصال بالإنترنت':this.prefs.language==='en'?'External feedback form — internet required':'Formulaire externe — connexion Internet requise')}"><span class="mobile-label-wide">${this.esc(this.prefs.language==='ar'?'إرسال ملاحظة أو الإبلاغ عن مشكلة':this.prefs.language==='en'?'Send feedback or report a problem':'Donner un avis ou signaler un problème')}</span><span class="mobile-label-short">${this.esc(this.t('mobileFeedbackShort'))}</span></a><a class="github-footer-link" href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator" target="_blank" rel="noopener noreferrer" title="${this.esc(this.t('githubProjectHelp'))}">${this.t('githubProject')}</a><div class="footer-meta"><a class="legal-footer-link" href="${this.prefs.language==='ar'?'legal-ar.html':this.prefs.language==='en'?'legal-en.html':'legal.html'}" target="_blank" rel="noopener noreferrer"><span class="mobile-label-wide">${this.t('legalNoticeLink')}</span><span class="mobile-label-short">${this.t('mobileLegal')}</span></a><span class="footer-version">v${WorkspaceApp.version}</span></div><div class="footer-offline"><span class="mobile-label-wide" data-offline-status>${this.t(this.offlineState)}</span><span class="mobile-label-short" data-mobile-offline-status>${this.t(this.offlineState==='offlineFailed'?'mobileOfflineFailed':this.offlineState)}</span><span class="about-label">${this.t('aboutShort')}</span>${this.toolButton('information','info','show-info',{attrs:'id="app-info-button" data-info="appInfo"'})}</div></footer>
             </main></div>${['single','batch'].includes(this.page)?`<nav class="mobile-action-dock" aria-label="${this.esc(this.t('mobileActions'))}"><button id="mobile-actions-button" class="btn primary" data-action="mobile-actions" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false">${this.icon('batch')}<span>${this.t('mobileActions')}</span></button></nav>`:''}`;
         this.observeHeader();
+        this.mountFloatingMenu();
         this.updateConnection(); this.updateSaveStatus(); this.updateToast(); this.syncImportNotice();
         if (this.page === 'history') this.renderHistoryList();
         if (this.page === 'history') this.refreshCapacity();
@@ -422,6 +424,123 @@ class WorkspaceApp {
         this.updateCSVControls();
         if(this.page==='batch')this.syncBatchSelection();
         if(focusId)document.getElementById(focusId)?.focus();
+    }
+    // The bubble is a device-local UI preference, never part of a clinical workspace.
+    static floatingBounds(view, size=44, dock=0) {
+        const left=view.left+8,top=view.top+8;
+        return {left,top,right:Math.max(left,view.left+view.width-size-8),
+            bottom:Math.max(top,view.top+view.height-size-8-dock)};
+    }
+    static floatingAnchor(bounds,position) {
+        const ratio=Number.isFinite(position?.ratio)?Math.max(0,Math.min(1,position.ratio)):0.45;
+        return {x:position?.side==='right'?bounds.right:bounds.left,y:bounds.top+ratio*(bounds.bottom-bounds.top)};
+    }
+    static floatingSnap(bounds,x,y) {
+        return {side:x>(bounds.left+bounds.right)/2?'right':'left',
+            ratio:bounds.bottom>bounds.top?Math.max(0,Math.min(1,(y-bounds.top)/(bounds.bottom-bounds.top))):0};
+    }
+    static floatingDialogLayout(view,anchor,width,height) {
+        const margin=8,gap=6,left=view.left+margin,right=view.left+view.width-margin,
+            top=view.top+margin,bottom=view.top+view.height-margin;
+        const below=Math.max(0,bottom-anchor.bottom-gap),above=Math.max(0,anchor.top-top-gap);
+        const down=height<=below||height>above&&below>=above;
+        const available=down?below:above;
+        const maxHeight=Math.max(1,available),actual=Math.min(height,maxHeight);
+        const w=Math.max(1,Math.min(width,right-left));
+        const x=anchor.left+anchor.width/2<view.left+view.width/2?anchor.left:anchor.right-w;
+        return {x:Math.max(left,Math.min(right-w,x)),y:Math.max(top,Math.min(bottom-actual,down?anchor.bottom+gap:anchor.top-gap-actual)),maxHeight,direction:down?'down':'up'};
+    }
+    floatingViewport() {
+        if(typeof window==='undefined')return null;
+        const v=window.visualViewport;
+        return {left:v?.offsetLeft||0,top:v?.offsetTop||0,width:v?.width||window.innerWidth,height:v?.height||window.innerHeight};
+    }
+    floatingPosition() {
+        if(!this.floatingMenuPosition){
+            let stored=null;try{stored=JSON.parse(localStorage.getItem('zscore-floating-menu-v1')||'null');}catch(_){}
+            this.floatingMenuPosition=stored&&['left','right'].includes(stored.side)&&Number.isFinite(stored.ratio)?
+                {side:stored.side,ratio:Math.max(0,Math.min(1,stored.ratio))}:{side:this.prefs.language==='ar'?'right':'left',ratio:0.45};
+        }
+        return this.floatingMenuPosition;
+    }
+    floatingMenuBounds() {
+        const view=this.floatingViewport();if(!view)return null;
+        const dock=document.querySelector?.('.mobile-action-dock');
+        return WorkspaceApp.floatingBounds(view,44,dock?.getBoundingClientRect?.().height||0);
+    }
+    placeFloatingButton(button,x,y) {
+        button.style.setProperty('--floating-z-x',Math.round(x)+'px');
+        button.style.setProperty('--floating-z-y',Math.round(y)+'px');
+    }
+    layoutFloatingButton() {
+        const button=document.querySelector?.('#menu-button'),bounds=this.floatingMenuBounds();
+        if(!button||!bounds||button.classList.contains('is-dragging'))return;
+        const {x,y}=WorkspaceApp.floatingAnchor(bounds,this.floatingPosition());
+        this.placeFloatingButton(button,x,y);
+    }
+    saveFloatingPosition(position) {
+        this.floatingMenuPosition=position;
+        try{localStorage.setItem('zscore-floating-menu-v1',JSON.stringify(position));}catch(_){}
+    }
+    mountFloatingMenu() {
+        const button=document.querySelector?.('#menu-button');
+        if(!button||typeof window==='undefined')return;
+        this.layoutFloatingButton();
+        let gesture=null,hold=null,suppress=false;
+        const stopTimer=()=>{if(hold!==null){clearTimeout(hold);hold=null;}};
+        const finish=(event,cancel=false)=>{
+            if(!gesture||gesture.id!==event.pointerId)return;
+            const g=gesture;gesture=null;stopTimer();
+            button.classList.remove('is-dragging');
+            if(g.dragging&&!cancel){
+                const bounds=this.floatingMenuBounds();
+                if(bounds){const rect=button.getBoundingClientRect();this.saveFloatingPosition(WorkspaceApp.floatingSnap(bounds,rect.left,rect.top));}
+            }
+            suppress=g.dragging||g.moved||cancel;
+            this.layoutFloatingButton();
+            if(button.hasPointerCapture?.(g.id))button.releasePointerCapture(g.id);
+        };
+        button.addEventListener('pointerdown',event=>{
+            if(gesture||!event.isPrimary||event.button!==0)return;
+            suppress=false;
+            const rect=button.getBoundingClientRect();
+            const g=gesture={id:event.pointerId,x:event.clientX,y:event.clientY,dx:event.clientX-rect.left,dy:event.clientY-rect.top,dragging:false,moved:false};
+            button.setPointerCapture?.(g.id);
+            hold=setTimeout(()=>{if(gesture===g&&!g.moved&&button.isConnected){g.dragging=true;button.classList.add('is-dragging');}},340);
+        });
+        button.addEventListener('pointermove',event=>{
+            const g=gesture;if(!g||g.id!==event.pointerId)return;
+            if(!g.dragging){if(Math.hypot(event.clientX-g.x,event.clientY-g.y)>9){g.moved=true;stopTimer();}return;}
+            const bounds=this.floatingMenuBounds();if(!bounds)return;
+            const x=Math.max(bounds.left,Math.min(bounds.right,event.clientX-g.dx)),y=Math.max(bounds.top,Math.min(bounds.bottom,event.clientY-g.dy));
+            this.placeFloatingButton(button,x,y);
+        });
+        button.addEventListener('pointerup',event=>finish(event));
+        button.addEventListener('pointercancel',event=>finish(event,true));
+        button.addEventListener('lostpointercapture',event=>finish(event,true));
+        button.addEventListener('contextmenu',event=>event.preventDefault());
+        button.addEventListener('click',event=>{
+            if(suppress&&event.detail!==0){suppress=false;event.preventDefault();event.stopImmediatePropagation();}
+        },true);
+        button.addEventListener('keydown',event=>{
+            if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+            event.preventDefault();
+            const pos={...this.floatingPosition()};
+            if(event.key==='ArrowLeft')pos.side='left';
+            else if(event.key==='ArrowRight')pos.side='right';
+            else pos.ratio=Math.max(0,Math.min(1,pos.ratio+(event.key==='ArrowDown'?0.1:-0.1)));
+            this.saveFloatingPosition(pos);this.layoutFloatingButton();
+        });
+    }
+    positionFloatingMenu(dialog) {
+        const view=this.floatingViewport(),button=document.querySelector?.('#menu-button');
+        if(!view||!button||!dialog?.style||!dialog.open)return;
+        dialog.style.removeProperty('--floating-menu-max');
+        const rect=button.getBoundingClientRect(),natural=dialog.getBoundingClientRect();
+        const layout=WorkspaceApp.floatingDialogLayout(view,rect,natural.width,Math.max(natural.height,dialog.scrollHeight+2));
+        dialog.style.setProperty('--floating-menu-x',Math.round(layout.x)+'px');
+        dialog.style.setProperty('--floating-menu-y',Math.round(layout.y)+'px');
+        dialog.style.setProperty('--floating-menu-max',Math.floor(layout.maxHeight)+'px');
     }
     observeHeader() {
         this.headerObserver?.disconnect();
@@ -1084,7 +1203,14 @@ class WorkspaceApp {
             const r = header.getBoundingClientRect();
             if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) header.close();
         });
-        window.addEventListener('resize',()=>{if(innerWidth>680&&header.open&&(header.classList.contains('mobile-actions-dialog')||header.classList.contains('mobile-navigation-dialog')))header.close();});
+        const floatingViewportChanged=()=>{
+            if(innerWidth>680&&header.open&&(header.classList.contains('mobile-actions-dialog')||header.classList.contains('mobile-navigation-dialog')))header.close();
+            this.layoutFloatingButton();
+            if(header.open&&header.classList.contains('mobile-navigation-dialog'))this.positionFloatingMenu(header);
+        };
+        window.addEventListener('resize',floatingViewportChanged);
+        window.visualViewport?.addEventListener('resize',floatingViewportChanged);
+        window.visualViewport?.addEventListener('scroll',floatingViewportChanged);
         document.getElementById('workspace-dialog').addEventListener('cancel',event=>{if(this.batchCorrection?.busy)event.preventDefault();});
         document.getElementById('workspace-dialog').addEventListener('keydown',event=>this.workspaceDialogKey(event));
         document.getElementById('workspace-dialog').addEventListener('close',()=>this.workspaceDialogClosed());
