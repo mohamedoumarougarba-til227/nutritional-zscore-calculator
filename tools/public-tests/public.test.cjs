@@ -529,3 +529,31 @@ test('floating menu anchors stay inside the viewport and switch direction based 
     const m=WorkspaceApp.floatingDialogLayout(short,{left:point.x,right:point.x+44,top:point.y,bottom:point.y+44,width:44},300,355);
     assert.ok(m.maxHeight<355);assert.ok(m.x>=20&&m.x+300<=324);assert.ok(m.y>=38);
 });
+
+
+test('first use follows supported browser languages and keeps explicit preferences',()=>{
+    const {ReleaseGuard}=require('../../src/js/workspace-bootstrap.js');
+    for(const [saved,legacy,languages,language,expected] of [
+        ['ar','fr',['en-US'],'en-US','ar'],
+        [null,'en',['fr-FR'],'fr-FR','en'],
+        [null,null,['ar-NE','fr-FR'],'ar-NE','ar'],
+        [null,null,['en-GB'],'en-GB','en'],
+        [null,null,['de-DE','en-US'],'de-DE','en'],
+        ['invalid',null,['es-ES'],'es-ES','fr'],
+        [null,null,[],'fr-NE','fr'],
+        [null,null,[],'','fr']
+    ])assert.equal(ReleaseGuard.preferredLanguage(saved,legacy,languages,language),expected);
+});
+test('floating menu defaults to upper right and retains saved device position',()=>{
+    const previous=global.localStorage;
+    try{
+        for(const language of ['fr','en','ar']){
+            global.localStorage={getItem:()=>null};
+            const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language}});
+            assert.deepEqual(app.floatingPosition(),{side:'right',ratio:0});
+            global.localStorage={getItem:()=>JSON.stringify({side:'left',ratio:.72})};
+            delete app.floatingMenuPosition;
+            assert.deepEqual(app.floatingPosition(),{side:'left',ratio:.72});
+        }
+    }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
+});

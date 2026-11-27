@@ -2,6 +2,15 @@
 class ReleaseGuard {
     static failed = false;
     static installPrompt = null;
+    static preferredLanguage(saved,legacy,languages=[],language='') {
+        const supported=['fr','en','ar'];
+        for(const choice of [saved,legacy])if(supported.includes(choice))return choice;
+        for(const locale of [...(Array.isArray(languages)?languages:[]),language]){
+            const base=typeof locale==='string'?locale.trim().toLowerCase().split(/[-_]/)[0]:'';
+            if(supported.includes(base))return base;
+        }
+        return 'fr';
+    }
     static isReleaseResource(target,baseURI=document.baseURI) {
         const script=target?.tagName==='SCRIPT',style=target?.tagName==='LINK'&&target.getAttribute('rel')==='stylesheet';
         if((!script&&!style)||!/^sha256-[A-Za-z0-9+/]{43}=$/.test(target.getAttribute('integrity')||''))return false;
@@ -68,11 +77,13 @@ class ReleaseGuard {
 if(typeof module!=='undefined'&&module.exports)module.exports={ReleaseGuard};
 else {window.ReleaseGuard=ReleaseGuard;
 (() => {
-    let prefs = {};
-    try { prefs = JSON.parse(localStorage.getItem('zscore-ui-v2') || '{}'); } catch (_) { /* Settings are optional. */ }
-    const dark = prefs.theme === 'dark' || (!prefs.theme || prefs.theme === 'system') && matchMedia('(prefers-color-scheme: dark)').matches;
+    let prefs = {},legacy='';
+    try { prefs = JSON.parse(localStorage.getItem('zscore-ui-v2') || '{}')||{}; } catch (_) { /* Settings are optional. */ }
+    try { legacy=localStorage.getItem('zscore-app-language'); } catch (_) { /* Settings are optional. */ }
+    const theme=['light','dark','system'].includes(prefs.theme)?prefs.theme:'system';
+    const dark = theme === 'dark' || theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    document.documentElement.lang = ['fr', 'en', 'ar'].includes(prefs.language) ? prefs.language : 'fr';
+    document.documentElement.lang = ReleaseGuard.preferredLanguage(prefs.language,legacy,navigator.languages,navigator.language);
     document.documentElement.dir = document.documentElement.lang === 'ar' ? 'rtl' : 'ltr';
     window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ReleaseGuard.installPrompt=event;window.dispatchEvent(new Event('zscore-install-ready'));});
     window.addEventListener('appinstalled',()=>{ReleaseGuard.installPrompt=null;window.dispatchEvent(new Event('zscore-install-ready'));});

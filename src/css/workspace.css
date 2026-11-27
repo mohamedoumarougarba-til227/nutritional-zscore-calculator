@@ -1170,7 +1170,7 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 @media screen and (max-width:680px){
  .workspace-topbar{display:none}
  .mobile-page-heading{display:block}
- .mobile-floating-menu{display:grid;position:fixed;left:var(--floating-z-x,8px);top:var(--floating-z-y,45vh);right:auto;bottom:auto;z-index:12;width:44px;height:44px;min-width:44px;min-height:44px;border:1px solid var(--control-line);padding:0;border-radius:12px;font-size:25px;box-shadow:0 2px 10px rgba(0,0,0,.25);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;opacity:.9}
+ .mobile-floating-menu{display:grid;position:fixed;left:var(--floating-z-x,calc(100% - 52px));top:var(--floating-z-y,8px);right:auto;bottom:auto;z-index:12;width:44px;height:44px;min-width:44px;min-height:44px;border:1px solid var(--control-line);padding:0;border-radius:12px;font-size:25px;box-shadow:0 2px 10px rgba(0,0,0,.25);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;opacity:.9}
  .mobile-floating-menu.is-dragging{cursor:grabbing;opacity:1;box-shadow:0 0 0 3px var(--accent-soft),0 4px 14px rgba(0,0,0,.3)}
  .mobile-floating-menu:focus-visible{opacity:1}
  .header-dialog.mobile-navigation-dialog{position:fixed;inset:auto;left:var(--floating-menu-x,8px);top:var(--floating-menu-y,8px);width:min(340px,calc(100% - 16px));max-width:none;margin:0;padding:12px;max-height:min(85dvh,var(--floating-menu-max,85dvh));overflow:auto;overscroll-behavior:contain}

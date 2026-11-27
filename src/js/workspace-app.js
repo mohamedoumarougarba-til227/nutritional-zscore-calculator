@@ -9,6 +9,7 @@ const QualityUI=typeof module!=='undefined'&&module.exports?require('./services/
 const CentileUI=typeof module!=='undefined'&&module.exports?require('./services/percentile-display.js').PercentileDisplay:globalThis.PercentileDisplay;
 const DateUI=typeof module!=='undefined'&&module.exports?require('./services/pdf-manager.js').PDFManager:typeof PDFManager!=='undefined'?PDFManager:null;
 const DraftHistoryUI=typeof module!=='undefined'&&module.exports?require('./services/history-manager.js').HistoryManager:globalThis.HistoryManager;
+const LanguageUI=typeof module!=='undefined'&&module.exports?require('./workspace-bootstrap.js').ReleaseGuard:globalThis.ReleaseGuard;
 class WorkspaceApp {
     static version = '5.14.0';
     static resultIndicators(result) { return result?.applicableIndicators||ClinicalEngine.indicators; }
@@ -37,10 +38,11 @@ class WorkspaceApp {
         this.batchPage = 0; this.singleEditing = false;
         this.sessions = []; this.preparedImport = null; this.saving = Promise.resolve();
         this.saveState = 'ready'; this.translations = null; this.engine = null; this.offlineState = 'offlineLoading';
-        let prefs = {};
-        try { prefs = JSON.parse(localStorage.getItem('zscore-ui-v2') || '{}'); } catch (_) { /* Keep work independent of optional settings. */ }
-        this.prefs = { language: ['fr', 'en', 'ar'].includes(prefs.language) ? prefs.language : localStorage.getItem('zscore-app-language') || 'fr', theme: ['light', 'dark', 'system'].includes(prefs.theme) ? prefs.theme : 'system' };
-        if (!['fr', 'en', 'ar'].includes(this.prefs.language)) this.prefs.language = 'fr';
+        let prefs = {},legacy='';
+        try { prefs = JSON.parse(localStorage.getItem('zscore-ui-v2') || '{}')||{}; } catch (_) { /* Keep work independent of optional settings. */ }
+        try { legacy=localStorage.getItem('zscore-app-language'); } catch (_) { /* Keep work independent of optional settings. */ }
+        const device=typeof navigator==='undefined'?{}:navigator;
+        this.prefs = { language: LanguageUI.preferredLanguage(prefs.language,legacy,device.languages,device.language), theme: ['light', 'dark', 'system'].includes(prefs.theme) ? prefs.theme : 'system' };
         this.prefs.navCollapsed = prefs.navCollapsed === true;
         this.prefs.dateFormat=['auto','dmy','mdy','iso'].includes(prefs.dateFormat)?prefs.dateFormat:'auto';
         this.prefs.timeZone=DateUI.validTimeZone(prefs.timeZone)?prefs.timeZone:'system';
@@ -432,8 +434,8 @@ class WorkspaceApp {
             bottom:Math.max(top,view.top+view.height-size-8-dock)};
     }
     static floatingAnchor(bounds,position) {
-        const ratio=Number.isFinite(position?.ratio)?Math.max(0,Math.min(1,position.ratio)):0.45;
-        return {x:position?.side==='right'?bounds.right:bounds.left,y:bounds.top+ratio*(bounds.bottom-bounds.top)};
+        const ratio=Number.isFinite(position?.ratio)?Math.max(0,Math.min(1,position.ratio)):0;
+        return {x:position?.side!=='left'?bounds.right:bounds.left,y:bounds.top+ratio*(bounds.bottom-bounds.top)};
     }
     static floatingSnap(bounds,x,y) {
         return {side:x>(bounds.left+bounds.right)/2?'right':'left',
@@ -459,7 +461,7 @@ class WorkspaceApp {
         if(!this.floatingMenuPosition){
             let stored=null;try{stored=JSON.parse(localStorage.getItem('zscore-floating-menu-v1')||'null');}catch(_){}
             this.floatingMenuPosition=stored&&['left','right'].includes(stored.side)&&Number.isFinite(stored.ratio)?
-                {side:stored.side,ratio:Math.max(0,Math.min(1,stored.ratio))}:{side:this.prefs.language==='ar'?'right':'left',ratio:0.45};
+                {side:stored.side,ratio:Math.max(0,Math.min(1,stored.ratio))}:{side:'right',ratio:0};
         }
         return this.floatingMenuPosition;
     }
