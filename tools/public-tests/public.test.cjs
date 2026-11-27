@@ -77,10 +77,13 @@ test('feedback links route FR EN AR on every view without embedding local record
                 for(const method of ['updateHTML','singleHTML','batchHTML','historyHTML','referencesHTML','settingsHTML','toolButton','icon'])app[method]=()=>'';
                 app.render();
                 const github=root.innerHTML.match(/<a class="github-footer-link"([^>]*)>([^<]*)<\/a>/);assert(github);assert.equal(github[2],translations[language].githubProject);assert(github[1].includes('href="https://github.com/mohamedoumarougarba-til227/nutritional-zscore-calculator"'));assert(github[1].includes('rel="noopener noreferrer"'));assert(!github[0].includes('FICTIF-NOT-FOR-TALLY'));
-                const links=[...root.innerHTML.matchAll(/<a class="feedback-footer-link"([^>]*)>([^<]*)<\/a>/g)];assert.equal(links.length,1);
-                const [markup,attributes,text]=links[0];assert.equal(text,label);assert.ok(attributes.includes(`href="https://tally.so/r/${id}"`));assert.ok(attributes.includes('target="_blank"'));assert.ok(attributes.includes('rel="noopener noreferrer"'));assert.ok(attributes.includes('title="'));
+                const links=[...root.innerHTML.matchAll(/<a class="feedback-footer-link"([^>]*)><span class="mobile-label-wide">([^<]*)<\/span><span class="mobile-label-short">([^<]*)<\/span><\/a>/g)];assert.equal(links.length,1);
+                const [markup,attributes,text,short]=links[0];assert.equal(text,label);assert.equal(short,translations[language].mobileFeedbackShort);assert.ok(attributes.includes(`href="https://tally.so/r/${id}"`));assert.ok(attributes.includes('target="_blank"'));assert.ok(attributes.includes('rel="noopener noreferrer"'));assert.ok(attributes.includes('title="'));
                 assert.ok(!markup.includes('FICTIF-NOT-FOR-TALLY'));assert.ok(!/[?&]|onclick=|data-action=/.test(markup));assert.equal(JSON.stringify(state),before);
                 assert.ok(!/<(?:iframe|script)[^>]+tally\.so/i.test(root.innerHTML));
+                assert.ok(root.innerHTML.includes('<span class="mobile-label-short">'+translations[language].mobileLegal+'</span>'));
+                assert.ok(root.innerHTML.includes('<span class="footer-version">v'+WorkspaceApp.version+'</span>'));
+                assert.ok(root.innerHTML.includes('data-mobile-offline-status'));
             }
         }
     }finally{if(previous===undefined)delete global.document;else global.document=previous;}
@@ -458,4 +461,22 @@ test('reference help keeps all fourteen sources and verification metadata withou
   const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language},engine,manifest:{referenceVersion:'test-version',sha256:'test-sha'}});
   const html=app.referencesHTML();assert.ok(!html.includes('id="reference-search"'));assert.ok(html.includes('quick-guide-grid'));assert.equal((html.match(/class="source-group"/g)||[]).length,4);assert.equal((html.match(/target="_blank"/g)||[]).length,14);assert.ok(html.includes('test-sha'));assert.ok(html.includes('reference-integrity'));
  }
+});
+
+test('about dialog includes the real application version in all languages and mobile status retains retry guidance',()=>{
+    const previous=global.document,dialog={dataset:{},classList:{add(){},remove(){}},showModal(){}},wide={},mobile={};
+    global.document={getElementById:id=>id==='header-dialog'?dialog:null,querySelectorAll:s=>s==='[data-mobile-offline-status]'?[mobile]:[wide]};
+    try{
+        for(const language of ['fr','en','ar']){
+            const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations,offlineState:'offlineFailed',closeInfo(){},closeChoice(){},toolButton(){return '';},updateInstallStatus(){}});
+            app.showInfo('appInfo','app-info-button');
+            assert.ok(dialog.innerHTML.includes(translations[language].appVersionLabel+' : v'+WorkspaceApp.version));
+            assert.ok(dialog.innerHTML.includes(translations[language].aboutShort));
+            app.updateOfflineStatus();
+            assert.equal(wide.textContent,translations[language].offlineFailed);
+            assert.equal(mobile.textContent,translations[language].mobileOfflineFailed);
+            app.offlineState='offlineUpdate';app.updateOfflineStatus();
+            assert.equal(mobile.textContent,translations[language].offlineUpdate);
+        }
+    }finally{if(previous===undefined)delete global.document;else global.document=previous;}
 });
