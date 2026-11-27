@@ -132,7 +132,6 @@ class WorkspaceApp {
             window.addEventListener('pagehide', () => this.checkpoint());
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.persistDraft(); });
             matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (this.prefs.theme === 'system') this.applyPreferences(); });
-            this.offerOnboarding();
             await this.registerOffline();
         } catch (error) {
             if(!this.translations||error.message==='releaseInvalid'){ReleaseGuard.fail();console.error('Release verification failed',error);return;}
@@ -571,93 +570,12 @@ class WorkspaceApp {
         const select=(key,label,choices)=>'<div class="setting-row"><label for="'+key+'-button">'+this.esc(label)+'</label><select class="choice-trigger" id="'+key+'-button" data-date-preference="'+key+'">'+choices.map(([v,name])=>'<option value="'+this.esc(v)+'"'+(this.prefs[key]===v?' selected':'')+'>'+this.esc(name)+'</option>').join('')+'</select></div>';
         return select('timeZone',labels.zone,[['system',labels.system],...zones.map(v=>[v,v])])+select('dateFormat',labels.format,[['auto',labels.auto],['dmy','JJ/MM/AAAA · DD/MM/YYYY'],['mdy','MM/DD/YYYY'],['iso','YYYY-MM-DD']])+'<p class="hint">'+this.esc(labels.help)+'</p>';
     }
-    // Onboarding is an illustrated, read-only tour. It never navigates or writes clinical state.
-    static onboardingKey='zscore-onboarding-v1';
-    static onboardingSteps=[
-        {key:'Welcome',kind:'welcome',items:[]},
-        {key:'Nav',kind:'nav',items:['single','batch','history','references','settings']},
-        {key:'Input',kind:'fields',items:['caseId','gender','ageMode','measurementDate','weight','height','position']},
-        {key:'Reference',kind:'fields',items:['growthProfile','careProtocol']},
-        {key:'Clinical',kind:'sections',items:['clinicalSection','muac','oedema','additionalMeasures']},
-        {key:'Results',kind:'results',items:['weightForAge','heightForAge','weightForHeight','bmiForAge']},
-        {key:'Batch',kind:'nav',items:['addBatch','csvTools','batchList','qualityTitle','lotSummary','computeBatch']},
-        {key:'Actions',kind:'actions',items:['calculate','computeBatch','pdfCompactShort','tourDetailed','exportCSV','saveNow']},
-        {key:'Backup',kind:'actions',items:['historyVersionsTab','exportAll','exportEncrypted','importBackup']},
-        {key:'Settings',kind:'fields',items:['language','theme','dateFormat','timeZone','settingsUpdates','installHelp']},
-        {key:'End',kind:'end',items:['references','tourLaunch']}
-    ];
-    onboardingSeen(){
-        if(this.onboardingDismissed)return true;
-        try{return localStorage.getItem(WorkspaceApp.onboardingKey)==='1';}catch(_){return false;}
-    }
-    markOnboardingSeen(){
-        this.onboardingDismissed=true;
-        try{localStorage.setItem(WorkspaceApp.onboardingKey,'1');}catch(_){}
-    }
-    offerOnboarding(){
-        if(this.onboardingSeen())return;
-        // A presentation problem must never prevent startup or recovery.
-        try{this.startOnboarding();}catch(error){console.warn('Optional tour unavailable',error);}
-    }
-    onboardingHTML(index){
-        const steps=WorkspaceApp.onboardingSteps,step=steps[index],e=v=>this.esc(v),t=k=>e(this.t(k));
-        if(!step)return '';
-        const first=index===0,last=index===steps.length-1;
-        const mobile=typeof matchMedia==='function'&&matchMedia('(max-width:680px)').matches;
-        const progress=this.t('tourStep').replace('{current}',this.number(index+1,0)).replace('{total}',this.number(steps.length,0));
-        const icons={single:'single',batch:'batch',history:'history',references:'references',settings:'settings',addBatch:'plus',csvTools:'csv',batchList:'batch',qualityTitle:'check',lotSummary:'chart',computeBatch:'run',calculate:'run',pdfCompactShort:'pdf',tourDetailed:'pdf',exportCSV:'csv',saveNow:'save',historyVersionsTab:'history',exportAll:'save',exportEncrypted:'save',importBackup:'new',tourLaunch:'info'};
-        const rows=step.items.map((key,i)=>{
-            const active=i===0?' tour-demo-focus':'';
-            if(step.kind==='fields')return '<div class="tour-demo-field'+active+'"><span>'+t(key)+'</span><span class="tour-demo-input">'+(step.key==='Reference'&&i===0?t('profileWHO'):'—')+'</span></div>';
-            if(step.kind==='results')return '<div class="tour-demo-result'+active+'"><span>'+t(key)+'</span><strong>Z — · P —</strong></div>';
-            if(step.kind==='sections')return '<div class="tour-demo-row'+active+'"><span aria-hidden="true">'+(i===0||i===3?'▾':'·')+'</span><span>'+t(key)+'</span></div>';
-            return '<div class="tour-demo-row'+active+'">'+this.icon(icons[key]||'info')+'<span>'+t(key)+'</span></div>';
-        }).join('');
-        const visual=first?'<div class="tour-brand-visual" aria-hidden="true"><span class="tour-brand-mark">Z</span><span>'+t('brand')+'</span></div>':
-            '<div class="tour-demo tour-demo-'+step.kind+'" aria-hidden="true">'+(step.key==='Nav'?'<div class="tour-demo-nav-title"><span class="tour-mini-z">Z</span>'+t(mobile?'tourMenuZ':'tourDesktopNav')+'</div>':'')+rows+'</div>';
-        const button=(command,key,primary=false)=>'<button type="button" class="btn'+(primary?' primary':'')+'" data-tour-command="'+command+'">'+t(key)+'</button>';
-        return '<div class="tour-top"><span class="tour-kicker">'+t('tourLaunch')+'</span><span class="tour-counter">'+e(progress)+'</span></div>'+
-            '<div class="tour-progress" role="progressbar" aria-label="'+t('tourProgressLabel')+'" aria-valuemin="0" aria-valuemax="'+steps.length+'" aria-valuenow="'+(index+1)+'"><span style="width:'+((index+1)/steps.length*100)+'%"></span></div>'+
-            '<div class="dialog-body tour-body"><h2 id="tour-title" tabindex="-1">'+t('tour'+step.key+'Title')+'</h2><p>'+t('tour'+step.key+'Text')+'</p>'+visual+
-            (!first?'<p class="tour-preview-note">'+t('tourPreview')+'</p>':'')+'</div>'+
-            '<div class="tour-controls">'+button('skip','tourSkip')+'<div class="tour-next-controls">'+(!first?button('previous','previous'):'')+button(last?'finish':'next',last?'tourFinish':first?'tourStart':'next',true)+'</div></div>';
-    }
-    startOnboarding(){
-        if(document.querySelector('dialog[open]'))return;
-        const dialog=document.createElement('dialog');
-        if(typeof dialog.showModal!=='function')return;
-        const opener=document.activeElement;
-        dialog.className='onboarding-dialog';dialog.id='onboarding-dialog';dialog.setAttribute('aria-labelledby','tour-title');
-        let index=0;
-        const render=()=>{
-            dialog.innerHTML=this.onboardingHTML(index);
-            dialog.querySelector('#tour-title')?.focus({preventScroll:true});
-        };
-        const finish=()=>{this.markOnboardingSeen();if(dialog.open)dialog.close();};
-        dialog.addEventListener('click',event=>{
-            const button=event.target.closest('[data-tour-command]');if(!button||!dialog.contains(button))return;
-            const command=button.dataset.tourCommand;
-            if(command==='skip'||command==='finish'){finish();return;}
-            if(command==='next')index=Math.min(WorkspaceApp.onboardingSteps.length-1,index+1);
-            else if(command==='previous')index=Math.max(0,index-1);else return;
-            render();
-        });
-        dialog.addEventListener('cancel',event=>{event.preventDefault();finish();});
-        dialog.addEventListener('close',()=>{
-            if(dialog.open)return;
-            dialog.remove();
-            if(opener?.isConnected)opener.focus?.({preventScroll:true});
-        });
-        document.body.append(dialog);
-        try{render();dialog.showModal();dialog.querySelector('#tour-title')?.focus({preventScroll:true});}
-        catch(error){dialog.remove();throw error;}
-    }
     settingsHTML() {
         const names={fr:'Français',en:'English',ar:'العربية'};
         const label=kind=>kind==='growthProfile'?'growthProfileDefault':kind==='careProtocol'?'careProtocolDefault':kind;
         const value=kind=>kind==='language'?names[this.prefs.language]:this.t(kind==='growthProfile'?this.prefs.growthProfile==='intergrowth'?'profileINTERGROWTH':this.prefs.growthProfile==='us'?'profileUS':'profileWHO':kind==='careProtocol'?this.prefs.careProtocol==='niger2025'?'careNiger2025':this.prefs.careProtocol==='niger2023'?'careNiger2023':'careWHO':this.prefs.theme);
         const picker=kind=>`<div class="setting-row"><label id="${kind}-label" for="${kind}-button">${this.t(label(kind))}</label><button id="${kind}-button" class="choice-trigger" data-action="header-panel" data-kind="${kind}" aria-haspopup="listbox" aria-controls="choice-popup" aria-expanded="false" aria-labelledby="${kind}-label ${kind}-value">${this.icon(kind==='theme'?this.prefs.theme:kind==='careProtocol'?'references':'language')}<span class="choice-value" id="${kind}-value"${kind==='language'?' dir="auto"':''}>${this.esc(value(kind))}</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
-        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}${this.dateSettingsHTML()}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div><section class="card settings-tour"><h2>${this.icon('info')}${this.t('tourLaunch')}</h2><p class="hint">${this.t('tourWelcomeText')}</p><button type="button" class="btn" data-action="start-onboarding">${this.t('tourLaunch')}</button></section></div>`;
+        return `<div class="settings-layout"><section class="card settings-card settings-preferences" aria-labelledby="settings-preferences-title"><h2 id="settings-preferences-title">${this.icon('settings')}${this.t('settingsPreferences')}</h2><p class="hint">${this.t('settingsHelp')}</p><div class="settings-grid">${picker('language')}${picker('theme')}${this.dateSettingsHTML()}</div></section><section class="card settings-card settings-clinical" aria-labelledby="settings-clinical-title"><h2 id="settings-clinical-title">${this.icon('references')}${this.t('settingsClinical')}</h2><div class="settings-grid">${picker('growthProfile')}${picker('careProtocol')}</div><p class="hint">${this.t('growthProfileDefaultHelp')}</p><p class="hint">${this.t('careProtocolDefaultHelp')}</p></section><section class="card settings-update" aria-labelledby="settings-update-title"><h2 id="settings-update-title">${this.icon('history')}${this.t('settingsUpdates')}</h2><p class="settings-version">${this.t('updateCurrent').replace('{version}',WorkspaceApp.version)}</p><p class="hint">${this.t('settingsUpdateHelp')}</p><div id="settings-update-status">${this.updateSettingsHTML()}</div></section><div id="install-status">${this.installHTML()}</div></div>`;
     }
     resultHeadingHTML(entry) {
         const child=entry?.child;
@@ -1253,7 +1171,7 @@ class WorkspaceApp {
         document.querySelector('[data-action="history-next"]').disabled = this.historyPage >= pages-1;
     }
     quickGuideHTML() {
-        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2><button type="button" class="btn tour-replay" data-action="start-onboarding">${this.t('tourLaunch')}</button><div class="quick-guide-grid">${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</div></section>`;
+        return `<section class="card full quick-guide" aria-labelledby="quick-guide-title"><h2 id="quick-guide-title">${this.t('quickGuideTitle')}</h2><div class="quick-guide-grid">${['Measure','Resume','Transfer','Offline','Reports'].map(topic=>`<details><summary>${this.t('quickGuide'+topic)}</summary><p>${this.t('quickGuide'+topic+'Text')}</p></details>`).join('')}</div></section>`;
     }
     referencesHTML() {
         const links = [['sourceClinical2023','https://www.who.int/publications/i/item/9789240082830'],['sourceClinical2026','https://www.who.int/publications/i/item/9789240122840'],['sourceWHO','https://www.who.int/tools/child-growth-standards/standards'],['sourceAnthro','https://www.who.int/toolkits/child-growth-standards/software'],['sourceClassification','https://www.who.int/data/nutrition/nlis/info/malnutrition-in-children/'],['sourceCode','https://github.com/WorldHealthOrganization/anthro/tree/'+this.engine.data.sourceCommit+'/data-raw/growthstandards'],['sourceLicense','data/LICENSE-anthro.txt'],['sourceWHO2007','https://www.who.int/tools/growth-reference-data-for-5to19-years'],['sourceLicense2007','data/LICENSE-anthroplus.txt'],['sourceCDC','https://www.cdc.gov/growthcharts/cdc-data-files.htm'],['sourceCDC2022','https://www.cdc.gov/growthcharts/extended-bmi-data-files.htm'],['sourceIntergrowth','https://intergrowth21.com/tools-resources/postnatal-growth-preterm-infants'],['sourceIntergrowthUse','https://globalhealthtrainingcentre.tghn.org/preterm-infant-feeding-and-growth-monitoring-implementation-intergrowth-21st-protocol/faqs/'],['sourceIntergrowthCode','https://github.com/ropensci/gigs/blob/fb58fe6596d4b289d5362c5efe00f882984d3186/R/ig_png.R']];
@@ -1490,7 +1408,6 @@ class WorkspaceApp {
     updateToast(){const el=document.getElementById('toast');if(el){el.textContent=this.toastKey?(this.t(this.toastKey)===this.toastKey?this.t('error'):this.t(this.toastKey)):'';el.setAttribute('role',this.toastIsError?'alert':'status');}}
     toast(key,error=false) { this.toastKey=key;this.toastIsError=error;this.updateToast();clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>{this.toastKey=null;this.updateToast();},6500); }
     async action(action,button) {
-        if(action==='start-onboarding'){this.startOnboarding();return;}
         if(action==='dismiss-update-notice'){this.dismissUpdateNotice();return;}
         if(this.batchDeleting||this.batchInlineEdit?.busy)return;
         if(action==='batch-inline-open'){this.openBatchInline(Number(button.dataset.index),button.dataset.field);return;}
