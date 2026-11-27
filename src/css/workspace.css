@@ -1254,3 +1254,10 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 #tour-demo-choice{position:fixed;z-index:32;width:180px;max-height:180px;overflow:auto}
 @media screen and (max-width:680px){#tour-tip{width:min(320px,calc(100% - 16px));padding:10px;font-size:12px}#tour-tip h2{font-size:16px}.tour-controls .btn{min-height:40px}}
 @media print{.context-tour-host{display:none!important}}
+
+#tour-tip::before{display:none!important}
+#tour-arrow{position:fixed;z-index:1003;width:12px;height:12px;background:var(--surface);border:1px solid var(--accent);transform:rotate(45deg);pointer-events:none}
+#tour-arrow[data-side=bottom]{border-right:0;border-bottom:0}
+#tour-arrow[data-side=top]{border-left:0;border-top:0}
+#tour-arrow[data-side=right]{border-right:0;border-top:0}
+#tour-arrow[data-side=left]{border-left:0;border-bottom:0}

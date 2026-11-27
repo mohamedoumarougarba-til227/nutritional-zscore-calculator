@@ -565,6 +565,8 @@ test('contextual tour routes differ by device, are translated, and stay within t
     assert.ok(desktop.length>45&&mobile.length>45);
     assert.ok(desktop.some(s=>s.target==='#sidebar-button')&&!mobile.some(s=>s.target==='#sidebar-button'));
     assert.ok(mobile.some(s=>s.target==='#menu-button')&&!desktop.some(s=>s.target==='#menu-button'));
+    assert.ok(mobile.some(s=>s.mode==='mobile-moved')&&mobile.some(s=>s.mode==='mobile-dock'));
+    assert.ok(!desktop.some(s=>s.mode==='mobile-moved'||s.mode==='mobile-dock'));
     for(const s of WorkspaceApp.contextTourSteps)for(const l of ['fr','en','ar']){
         assert.ok(tr[l][s.key+'Title']&&tr[l][s.key+'Text']&&tr[l]['tourCh'+s.chapter]);
     }
