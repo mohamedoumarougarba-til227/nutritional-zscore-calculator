@@ -616,7 +616,7 @@ class WorkspaceApp {
         for(const el of root.querySelectorAll('.reference-profile,.clinical-fields,.additional-fields,.quality-review,.compact-lot-summary'))el.open=true;
         if(step.mode==='csv')for(const id of ['csv-tools-body','csv-heading-actions']){const el=doc.getElementById(id);if(el)el.hidden=false;}
         for(const el of root.querySelectorAll('[data-save-state]'))el.textContent=demo.t('ready');
-        const setConnection=el=>{if(el)el.textContent=demo.t(navigator.onLine?'online':'offline');};
+        const setConnection=el=>{if(el){const online=navigator.onLine;el.dataset.connection=online?'online':'offline';el.innerHTML='<span class="dot" aria-hidden="true"></span>'+demo.esc(demo.t(online?'online':'offline'));}};
         setConnection(doc.getElementById('connection'));
         const menu=doc.getElementById('tour-demo-menu');menu.hidden=true;menu.innerHTML='';menu.className='tour-demo-menu';menu.removeAttribute('style');
         if(mobile&&['mobile-menu','status','work'].includes(step.mode)){
@@ -634,7 +634,7 @@ class WorkspaceApp {
         const choice=doc.getElementById('tour-demo-choice');choice.hidden=true;choice.innerHTML='';
         if(step.mode==='choice'){
             const trigger=root.querySelector(step.target),sel=trigger&&doc.getElementById(trigger.dataset.select);
-            if(sel){choice.innerHTML=[...sel.options].map(o=>'<button type="button" role="option" aria-selected="'+o.selected+'">'+demo.esc(o.textContent)+'</button>').join('');}
+            if(sel){trigger.setAttribute('aria-expanded','true');choice.innerHTML=[...sel.options].map(o=>'<button type="button" role="option" aria-selected="'+o.selected+'"'+(o.disabled?' disabled':'')+'><span>'+demo.esc(o.textContent)+'</span>'+(o.selected?demo.icon('check'):'')+'</button>').join('');}
         }
         // Place the same floating control within the isolated demo. Never store its demo position.
         const bubble=root.querySelector('#menu-button');
@@ -650,7 +650,35 @@ class WorkspaceApp {
         }
         root.inert=true;menu.inert=true;choice.inert=true;
         const visible=el=>el&&el.getClientRects().length&&el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0;
+        // Desktop status wrapper is display:contents and has no own rectangle.
+        if(step.mode==='status')return WorkspaceApp.contextTourStatusTargets(doc,mobile).find(visible)||null;
         return step.target.split('|').filter(Boolean).map(s=>doc.querySelector(s)).find(visible)||null;
+    }
+    static contextTourStatusTargets(doc,mobile){
+        const scope=mobile?'.mobile-menu-status':'.workspace-status-line';
+        return [doc.querySelector(scope+' .connection-badge'),doc.querySelector(scope+' [data-save-state]')].filter(Boolean);
+    }
+    static contextTourHighlight(rects,w,h){
+        return rects.filter(Boolean).map(r=>{
+            const left=Math.max(0,r.left-3),top=Math.max(0,r.top-3),right=Math.min(w,r.right+3),bottom=Math.min(h,r.bottom+3);
+            return {left,top,right,bottom,width:right-left,height:bottom-top};
+        }).filter(r=>r.width>0&&r.height>0);
+    }
+    static contextTourBounds(rects){
+        if(!rects.length)return null;
+        const left=Math.min(...rects.map(r=>r.left)),right=Math.max(...rects.map(r=>r.right)),top=Math.min(...rects.map(r=>r.top)),bottom=Math.max(...rects.map(r=>r.bottom));
+        return {left,right,top,bottom,width:right-left,height:bottom-top};
+    }
+    static contextTourChoicePlacement(rect,w,h,desiredHeight,rtl,tipHeight){
+        const width=Math.min(Math.max(rect.width,180),Math.max(0,w-16));
+        const left=Math.max(8,Math.min(rtl?rect.right-width:rect.left,w-width-8));
+        const above=Math.max(0,rect.top-12),below=Math.max(0,h-rect.bottom-12);
+        // Prefer the real dropdown direction; on narrow screens reserve room for the guide opposite it.
+        const up=below<Math.min(desiredHeight,320)&&above>below;
+        const room=up?above:below,other=up?below:above;
+        const maxHeight=Math.max(0,Math.min(320,room,w<=680?Math.max(36,room-Math.max(0,Math.min(tipHeight,160)-other)):room));
+        const height=Math.min(desiredHeight,maxHeight);
+        return {left,width,maxHeight,top:up?rect.top-height-4:rect.bottom+4};
     }
     static contextTourPlacement(view,rect,w,h){
         const m=8,g=12,maxX=Math.max(m,view.width-w-m),maxY=Math.max(m,view.height-h-m);
@@ -675,8 +703,9 @@ class WorkspaceApp {
         // The iframe remains scriptless and contains only the fictitious workspace. All
         // interactive tour controls belong to the real dialog, not the sandboxed document.
         frame.tabIndex=-1;
-        dialog.innerHTML='<div id="tour-shield" aria-hidden="true"></div><div id="tour-spot" aria-hidden="true" hidden></div><div id="tour-arrow" aria-hidden="true" hidden></div><section id="tour-tip" role="region" aria-labelledby="tour-heading"></section>';
+        dialog.innerHTML='<div id="tour-shield" aria-hidden="true"></div><svg id="tour-mask" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><mask id="tour-cutouts" maskUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%"><rect width="100%" height="100%" fill="white"/><rect id="tour-hole" width="0" height="0" rx="7" fill="black"/><rect id="tour-hole-extra" width="0" height="0" rx="7" fill="black"/></mask></defs><rect width="100%" height="100%" mask="url(#tour-cutouts)"/></svg><div id="tour-spot" aria-hidden="true" hidden></div><div id="tour-spot-extra" aria-hidden="true" hidden></div><div id="tour-arrow" aria-hidden="true" hidden></div><section id="tour-tip" role="region" aria-labelledby="tour-heading"></section>';
         const tip=dialog.querySelector('#tour-tip'),spot=dialog.querySelector('#tour-spot'),arrow=dialog.querySelector('#tour-arrow'),shield=dialog.querySelector('#tour-shield');
+        const spots=[spot,dialog.querySelector('#tour-spot-extra')],holes=[dialog.querySelector('#tour-hole'),dialog.querySelector('#tour-hole-extra')];
         this.contextTourActive=true;
         const finish=()=>{
             if(finished)return;finished=true;host.contextTourDismissed=true;host.contextTourActive=false;
@@ -711,24 +740,45 @@ class WorkspaceApp {
             const layout=()=>{
                 if(finished)return;
                 const w=doc.documentElement.clientWidth,h=doc.documentElement.clientHeight;
-                let rect=target?.getBoundingClientRect();
+                const anchor=target?.getBoundingClientRect();
+                let targets=anchor?[anchor]:[];
                 const choice=doc.getElementById('tour-demo-choice');
-                if(rect&&step.mode==='choice'&&choice.innerHTML){
-                    choice.hidden=false;choice.style.left=Math.max(8,Math.min(w-188,rect.left))+'px';choice.style.top=Math.max(8,Math.min(h-choice.offsetHeight-8,rect.bottom+4))+'px';
-                    const c=choice.getBoundingClientRect();rect={left:Math.min(rect.left,c.left),right:Math.max(rect.right,c.right),top:Math.min(rect.top,c.top),bottom:Math.max(rect.bottom,c.bottom),width:Math.max(rect.right,c.right)-Math.min(rect.left,c.left),height:Math.max(rect.bottom,c.bottom)-Math.min(rect.top,c.top)};
+                tip.style.maxHeight='';
+                if(step.mode==='status'){
+                    targets=WorkspaceApp.contextTourStatusTargets(doc,mobile()).filter(el=>el.getClientRects().length).map(el=>el.getBoundingClientRect()).filter(r=>r.width>0&&r.height>0);
                 }
-                if(rect){
-                    const x=Math.max(0,rect.left-4),y=Math.max(0,rect.top-4),right=Math.min(w,rect.right+4),bottom=Math.min(h,rect.bottom+4);
-                    if(right>x&&bottom>y){spot.hidden=false;Object.assign(spot.style,{left:x+'px',top:y+'px',width:(right-x)+'px',height:(bottom-y)+'px'});rect={left:x,right,top:y,bottom,width:right-x,height:bottom-y};}
-                    else{spot.hidden=true;rect=null;}
-                }else spot.hidden=true;
+                if(anchor&&step.mode==='choice'&&choice.innerHTML){
+                    choice.hidden=false;
+                    choice.style.width=Math.min(Math.max(anchor.width,180),Math.max(0,w-16))+'px';
+                    choice.style.maxHeight='320px';
+                    const desiredHeight=choice.scrollHeight+2;
+                    const p=WorkspaceApp.contextTourChoicePlacement(anchor,w,h,desiredHeight,language==='ar',tip.offsetHeight);
+                    Object.assign(choice.style,{left:p.left+'px',top:p.top+'px',width:p.width+'px',maxHeight:p.maxHeight+'px'});
+                    const c=choice.getBoundingClientRect();
+                    if(p.maxHeight>0&&c.width>0&&c.height>0)targets.push(c);else choice.hidden=true;
+                }
+                // The mask cuts out only the actual rectangles. Their bounding box is
+                // used solely to position the explanation, never to reveal the background.
+                const regions=WorkspaceApp.contextTourHighlight(targets,w,h);
+                for(let i=0;i<spots.length;i++){
+                    const r=regions[i],outline=spots[i],hole=holes[i];
+                    outline.hidden=!r;
+                    if(r)Object.assign(outline.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
+                    for(const [k,v] of Object.entries(r?{x:r.left,y:r.top,width:r.width,height:r.height}:{width:0,height:0}))hole.setAttribute(k,String(v));
+                }
+                const rect=WorkspaceApp.contextTourBounds(regions);
+                if(rect&&step.mode==='choice'&&w<=680){
+                    const free=Math.max(rect.top-20,h-rect.bottom-20);
+                    if(free>=96&&free<tip.offsetHeight)tip.style.maxHeight=free+'px';
+                }
                 tip.classList.toggle('tour-centered',!rect);
                 const pos=WorkspaceApp.contextTourPlacement({width:w,height:h},rect,tip.offsetWidth,tip.offsetHeight);
                 tip.style.left=pos.x+'px';tip.style.top=pos.y+'px';tip.dataset.side=pos.side;
                 arrow.hidden=!rect||pos.side==='none';
                 if(rect&&!arrow.hidden){
-                    const ax=Math.max(pos.x+12,Math.min(pos.x+tip.offsetWidth-12,rect.left+rect.width/2));
-                    const ay=Math.max(pos.y+12,Math.min(pos.y+tip.offsetHeight-12,rect.top+rect.height/2));
+                    const point=step.mode==='status'?(regions[0]||rect):rect;
+                    const ax=Math.max(pos.x+12,Math.min(pos.x+tip.offsetWidth-12,point.left+point.width/2));
+                    const ay=Math.max(pos.y+12,Math.min(pos.y+tip.offsetHeight-12,point.top+point.height/2));
                     arrow.dataset.side=pos.side;
                     arrow.style.left=(pos.side==='left'?pos.x+tip.offsetWidth-6:pos.side==='right'?pos.x-6:ax-6)+'px';
                     arrow.style.top=(pos.side==='top'?pos.y+tip.offsetHeight-6:pos.side==='bottom'?pos.y-6:ay-6)+'px';
@@ -763,7 +813,8 @@ class WorkspaceApp {
                 };
                 shield.onpointercancel=()=>{gesture=null;};
             }
-            if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else view.scrollTo(0,0);
+            if(step.mode==='status')view.scrollTo(0,0);
+            else if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else view.scrollTo(0,0);
             layout();tip.querySelector(focusSelector)?.focus({preventScroll:true});
             view.addEventListener('resize',layout);view.addEventListener('scroll',layout,{passive:true});
             detachLayout=()=>{view.removeEventListener('resize',layout);view.removeEventListener('scroll',layout);};

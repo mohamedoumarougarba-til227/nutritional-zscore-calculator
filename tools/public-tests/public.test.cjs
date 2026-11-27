@@ -601,7 +601,7 @@ test('contextual tour controls advance desktop and mobile and persist only chose
         const eventNode=()=>({events:{},dataset:{},style:{},setAttribute(){},addEventListener(k,fn){this.events[k]=fn;},removeEventListener(k,fn){if(this.events[k]===fn)delete this.events[k];},fire(k,e={}){this.events[k]?.(e);}});
         const focus={focus(){}},tip=Object.assign(eventNode(),{offsetWidth:300,offsetHeight:220,classList:{toggle(){}},contains:()=>true,querySelector:()=>focus});
         const spot=eventNode(),arrow=eventNode(),shield=eventNode(),choice=Object.assign(eventNode(),{innerHTML:''});
-        const overlay={'#tour-tip':tip,'#tour-spot':spot,'#tour-arrow':arrow,'#tour-shield':shield};
+        const overlay={'#tour-tip':tip,'#tour-spot':spot,'#tour-spot-extra':eventNode(),'#tour-hole':eventNode(),'#tour-hole-extra':eventNode(),'#tour-arrow':arrow,'#tour-shield':shield};
         const dialog=Object.assign(eventNode(),{querySelector:k=>overlay[k],prepend(){},showModal(){this.open=true;},close(){this.open=false;},remove(){}});
         const demoDoc={documentElement:{clientWidth:width,clientHeight:800,dataset:{}},getElementById:k=>k==='tour-demo-choice'?choice:null};
         const view=Object.assign(eventNode(),{scrollTo(){}});
@@ -634,4 +634,25 @@ test('contextual tour controls advance desktop and mobile and persist only chose
         assert.equal(saved.length,1);assert.equal(media.events.change,undefined);
     };
     try{run(1440,'tour1');run(390,'tour3');}finally{names.forEach((k,i)=>old[i]?Object.defineProperty(globalThis,k,old[i]):delete globalThis[k]);}
+});
+
+test('contextual tour highlights only real status children and separate dropdown rectangles',()=>{
+    const nodes={connection:{id:'desktop-connection'},save:{id:'desktop-save'},mobileConnection:{id:'mobile-connection'},mobileSave:{id:'mobile-save'}};
+    const selectors={'.workspace-status-line .connection-badge':nodes.connection,'.workspace-status-line [data-save-state]':nodes.save,'.mobile-menu-status .connection-badge':nodes.mobileConnection,'.mobile-menu-status [data-save-state]':nodes.mobileSave};
+    const doc={querySelector:s=>selectors[s]||null};
+    assert.deepEqual(WorkspaceApp.contextTourStatusTargets(doc,false),[nodes.connection,nodes.save]);
+    assert.deepEqual(WorkspaceApp.contextTourStatusTargets(doc,true),[nodes.mobileConnection,nodes.mobileSave]);
+    const field={left:240,top:400,right:840,bottom:438},popup={left:240,top:442,right:440,bottom:620};
+    const holes=WorkspaceApp.contextTourHighlight([field,popup],1440,900);
+    assert.equal(holes.length,2);
+    const inside=(x,y)=>holes.some(r=>x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom);
+    assert.ok(inside(300,420)&&inside(300,500));assert.equal(inside(650,500),false);
+    assert.ok(WorkspaceApp.contextTourBounds(holes).right>640);
+    for(const [w,h] of [[320,568],[390,844],[1440,900]])for(const rtl of [false,true]){
+        const rect={left:12,right:w-12,top:h*.45,bottom:h*.45+40,width:w-24};
+        const p=WorkspaceApp.contextTourChoicePlacement(rect,w,h,220,rtl,260);
+        assert.ok(p.left>=8&&p.left+p.width<=w-8);
+        assert.ok(p.top>=8&&p.top+Math.min(p.maxHeight,220)<=h-8);
+        assert.ok(p.top>=rect.bottom||p.top+Math.min(p.maxHeight,220)<=rect.top);
+    }
 });

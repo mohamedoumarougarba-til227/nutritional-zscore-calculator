@@ -1231,9 +1231,10 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 .context-tour-host[open][data-theme=dark]{--tour-mask:rgba(0,0,0,.82)}
 .context-tour-host>iframe{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;pointer-events:none}
 #tour-shield{position:absolute;inset:0;z-index:1000;background:transparent;touch-action:none}
-#tour-spot{position:absolute;z-index:1001;border:2px solid var(--accent);border-radius:8px;box-shadow:0 0 0 200vmax var(--tour-mask,rgba(0,0,0,.59));pointer-events:none}
+#tour-mask{position:absolute;inset:0;width:100%;height:100%;z-index:1001;pointer-events:none;fill:var(--tour-mask,rgba(0,0,0,.59))}
+#tour-spot,#tour-spot-extra{position:absolute;z-index:1001;border:2px solid var(--accent);border-radius:8px;pointer-events:none}
 #tour-tip{position:absolute;z-index:1002;max-width:calc(100% - 16px);width:360px;max-height:calc(100dvh - 16px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--accent);border-radius:12px;padding:13px;box-shadow:0 8px 30px #0005;font-size:13px;line-height:1.4}
-#tour-tip.tour-centered{box-shadow:0 0 0 200vmax var(--tour-mask,rgba(0,0,0,.59))}
+#tour-tip.tour-centered{box-shadow:0 8px 30px #0005}
 #tour-tip::before{content:"";position:fixed;display:none;width:12px;height:12px;background:var(--surface);border:1px solid var(--accent);transform:rotate(45deg)}
 #tour-tip[data-side=bottom]::before,#tour-tip[data-side=top]::before,#tour-tip[data-side=left]::before,#tour-tip[data-side=right]::before{display:block;position:absolute}
 #tour-tip[data-side=bottom]::before{top:-7px;left:var(--tour-arrow-x);border-right:0;border-bottom:0}
@@ -1253,7 +1254,8 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
 .tour-missing{font-size:11px;color:var(--muted)}
 .tour-demo-menu{position:fixed;z-index:30;top:60px;inset-inline-end:8px;width:min(340px,calc(100% - 16px));max-height:calc(100dvh - 70px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
 .tour-demo-menu.mobile-actions-dialog{top:auto;bottom:60px}
-#tour-demo-choice{position:fixed;z-index:32;width:180px;max-height:180px;overflow:auto}
+#tour-demo-choice{position:fixed;z-index:32;max-height:320px;overflow:auto}
+.workspace-status-line>.connection-badge,.workspace-status-line>[data-save-state],.mobile-menu-status>.connection-badge,.mobile-menu-status>[data-save-state]{justify-self:start;width:fit-content}
 @media screen and (max-width:680px){#tour-tip{width:min(320px,calc(100% - 16px));padding:10px;font-size:12px}#tour-tip h2{font-size:16px}.tour-controls .btn{min-height:40px}}
 @media print{.context-tour-host{display:none!important}}
 
