@@ -480,3 +480,25 @@ test('about dialog includes the real application version in all languages and mo
         }
     }finally{if(previous===undefined)delete global.document;else global.document=previous;}
 });
+
+
+test('floating mobile navigation relocates work actions and keeps navigation and status available without a close button',()=>{
+    const previous=global.document,dialog={dataset:{},classList:{add(){},remove(){}},showModal(){this.open=true;},querySelector(){return null;}},opener={setAttribute(){}};
+    global.document={getElementById:id=>id==='header-dialog'?dialog:id==='menu-button'?opener:null};
+    try{
+        for(const language of ['fr','en','ar'])for(const page of ['single','batch','history','references','settings']){
+            const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations,page,closeInfo(){},closeChoice(){},updateConnection(){},updateSaveStatus(){},icon(){return ''; }});
+            app.openHeaderPanel('menu');
+            assert.equal(dialog.dataset.opener,'menu-button');
+            assert.equal((dialog.innerHTML.match(/data-action="header-page"/g)||[]).length,5);
+            assert.equal((dialog.innerHTML.match(/aria-current="page"/g)||[]).length,1);
+            assert.ok(!dialog.innerHTML.includes('data-action="close-header"'));
+            assert.ok(dialog.innerHTML.includes('id="menu-connection"'));
+            const work=['single','batch'].includes(page);
+            assert.equal(dialog.innerHTML.includes('data-save-state'),work);
+            assert.equal(dialog.innerHTML.includes('data-action="new"'),work);
+            assert.equal(dialog.innerHTML.includes('data-history-pane="versions"'),work);
+            if(work)assert.ok(dialog.innerHTML.indexOf('data-action="new"')<dialog.innerHTML.indexOf('data-history-pane="versions"'));
+        }
+    }finally{if(previous===undefined)delete global.document;else global.document=previous;}
+});

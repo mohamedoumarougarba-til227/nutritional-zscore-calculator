@@ -203,7 +203,7 @@ class WorkspaceApp {
         if(key!=='appInfo'){this.openInfo(key,opener);return;}
         this.closeInfo();this.closeChoice();
         const d=document.getElementById('header-dialog');d.dataset.opener=opener;
-        d.classList.remove('mobile-actions-dialog');d.classList.add('app-info-dialog');
+        d.classList.remove('mobile-actions-dialog','mobile-navigation-dialog');d.classList.add('app-info-dialog');
         const text=key==='appInfo'?`<p class="app-info-version"><strong>${this.esc(this.t('appVersionLabel'))} : v${this.esc(WorkspaceApp.version)}</strong></p>`+['appUsageNotice','free','scopeText','privacyText'].map(k=>`<p>${this.esc(this.t(k))}</p>`).join(''):key==='scoreHelp'?['weightForAge','heightForAge','weightForHeight','bmiForAge','bmiHelp','resultsIntro'].map(k=>`<p>${this.esc(this.t(k))}</p>`).join(''):`<p>${this.esc(this.t(key))}</p>`;
         d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title">${this.t('aboutShort')}</h2>${this.toolButton('close','close','close-header')}</div><div class="dialog-body">${text}</div>`;
         d.showModal();
@@ -261,21 +261,22 @@ class WorkspaceApp {
         this.closeInfo();this.closeChoice();
         const d = document.getElementById('header-dialog');
         d.classList.remove('app-info-dialog','mobile-actions-dialog');
-        const names = {fr:'Français',en:'English',ar:'العربية'};
-        const options = kind === 'menu' ? ['single','batch','history','references','settings'] : kind === 'language' ? ['fr','en','ar'] : ['system','light','dark'];
-        const current = kind === 'menu' ? this.page : this.prefs[kind];
-        d.dataset.opener = kind + '-button';
-        d.innerHTML = `<div class="dialog-top"><h2 id="header-dialog-title">${this.t(kind)}</h2><button class="icon-button" data-action="close-header" aria-label="${this.esc(this.t('close'))}">${this.icon('close')}</button></div><div class="dialog-body header-options">${options.map(value => `<button class="header-choice" data-action="${kind === 'menu' ? 'header-page' : 'set-preference'}" data-kind="${kind}" data-value="${value}" ${kind === 'menu' ? (current === value ? 'aria-current="page"' : '') : `aria-pressed="${current === value}"`}>${kind === 'theme' ? this.icon(value) : ''}<span class="choice-label"${kind === 'language' ? ` lang="${value}" dir="auto"` : ''}>${kind === 'language' ? names[value] : this.t(value)}</span>${current === value ? this.icon('check') : ''}</button>`).join('')}</div>`;
+        d.classList.add('mobile-navigation-dialog');
+        const workPage=['single','batch'].includes(this.page);
+        const workActions=workPage?this.toolButton('newWork','new','new',{showLabel:true})+this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'}):'';
+        d.dataset.opener='menu-button';
+        d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title">${this.esc(this.t('menu'))}</h2><div class="mobile-menu-work-actions">${workActions}</div></div><div class="mobile-menu-context"><strong>${this.esc(this.t(this.page))}</strong><div class="mobile-menu-status">${workPage?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="menu-connection" class="connection-badge" role="status"></span></div></div><div class="dialog-body header-options">${['single','batch','history','references','settings'].map(value=>`<button type="button" class="header-choice" data-action="header-page" data-value="${value}" ${this.page===value?'aria-current="page"':''}>${this.icon(value)}<span class="choice-label">${this.esc(this.t(value))}</span>${this.page===value?this.icon('check'):''}</button>`).join('')}</div>`;
+        this.updateConnection();this.updateSaveStatus();
         document.getElementById(d.dataset.opener)?.setAttribute('aria-expanded','true');
         d.showModal();
-        d.querySelector('[aria-pressed="true"],[aria-current="page"]')?.focus();
+        d.querySelector('[aria-current="page"]')?.focus();
     }
     openMobileActions() {
         if(!['single','batch'].includes(this.page))return;
         this.closeInfo();this.closeChoice();
         const selector=this.page==='batch'?(document.getElementById('measure-card')?.hidden?'.batch-actions button':'.form-top-actions button'):this.state.single&&!this.singleEditing?'.result-toolbar button':'.form-top-actions button,.result-toolbar [data-action="show-results"]';
         const buttons=[...document.querySelectorAll('#page-content '+selector.split(',').join(',#page-content '))];
-        const d=document.getElementById('header-dialog');d.classList.remove('app-info-dialog');d.classList.add('mobile-actions-dialog');d.dataset.opener='mobile-actions-button';
+        const d=document.getElementById('header-dialog');d.classList.remove('app-info-dialog','mobile-navigation-dialog');d.classList.add('mobile-actions-dialog');d.dataset.opener='mobile-actions-button';
         d.innerHTML=`<div class="dialog-top"><h2 id="header-dialog-title">${this.t('mobileActions')}</h2>${this.toolButton('close','close','close-header')}</div><div class="mobile-actions-grid"></div>`;
         const grid=d.querySelector('.mobile-actions-grid');
         for(const button of buttons){const copy=button.cloneNode(true);copy.removeAttribute('id');grid.append(copy);}
@@ -403,9 +404,10 @@ class WorkspaceApp {
         this.renderEpoch = (this.renderEpoch || 0) + 1;
         document.getElementById('app-root').innerHTML = `
             <a class="skip" href="#main">${this.t('skip')}</a>
-            <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><button id="menu-button" class="brand-mark mobile-menu-button" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
+            <header class="topbar workspace-topbar"><div class="brand-group"><button id="sidebar-button" class="brand-mark brand-toggle" data-action="toggle-sidebar" aria-controls="main-nav" aria-expanded="${!this.prefs.navCollapsed}" title="${this.esc(this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}" aria-label="${this.esc(this.t('brand')+' · '+this.t(this.prefs.navCollapsed?'expandMenu':'collapseMenu'))}">Z</button><div class="workspace-context"><div class="page-title-group"><h1>${this.t(this.page)}</h1></div><div class="workspace-status-line">${['single','batch'].includes(this.page)?'<span class="save-state" data-save-state aria-live="polite"></span>':''}<span id="connection" class="connection-badge" role="status"></span></div></div></div><div class="workspace-heading-actions">${['single','batch'].includes(this.page)?`${this.toolButton('resumeWork','history','page',{showLabel:true,attrs:'data-page="history" data-history-pane="versions"'})}${this.toolButton('newWork','new','new',{showLabel:true})}`:''}</div></header>
+            <button id="menu-button" class="brand-mark mobile-menu-button mobile-floating-menu" data-action="header-panel" data-kind="menu" aria-haspopup="dialog" aria-controls="header-dialog" aria-expanded="false" aria-label="${this.esc(this.t('brand')+' · '+this.t('menu'))}">Z</button>
             <div class="shell"><aside class="sidebar"><nav id="main-nav" class="nav" aria-label="${this.t('brand')}">${['single','batch','history','references','settings'].map(p => `<button data-action="page" data-page="${p}" title="${this.esc(this.t(p))}" aria-label="${this.esc(this.t(p))}" ${this.page === p ? 'aria-current="page"' : ''}>${this.icon(p)}<span class="nav-text">${this.t(p)}</span></button>`).join('')}</nav></aside>
-            <main id="main" tabindex="-1"><div class="print-header"><h2>${this.t('brand')}</h2><p>${this.t('appUsageNotice')}</p></div>
+            <main id="main" tabindex="-1"><h1 class="mobile-page-heading sr-only">${this.esc(this.t(this.page))}</h1><div class="print-header"><h2>${this.t('brand')}</h2><p>${this.t('appUsageNotice')}</p></div>
               <div id="update-notice">${this.updateHTML()}</div>
               <div id="page-content">${this.page === 'single' ? this.singleHTML() : this.page === 'batch' ? this.batchHTML() : this.page === 'history' ? this.historyHTML() : this.page === 'settings' ? this.settingsHTML() : this.referencesHTML()}</div>
               ${this.history.recoveryErrors.length ? `<div class="notice warn" role="alert">${this.t('recoveryDamaged')}</div>` : ''}
@@ -1082,7 +1084,7 @@ class WorkspaceApp {
             const r = header.getBoundingClientRect();
             if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) header.close();
         });
-        window.addEventListener('resize',()=>{if(innerWidth>680&&header.open&&header.classList.contains('mobile-actions-dialog'))header.close();});
+        window.addEventListener('resize',()=>{if(innerWidth>680&&header.open&&(header.classList.contains('mobile-actions-dialog')||header.classList.contains('mobile-navigation-dialog')))header.close();});
         document.getElementById('workspace-dialog').addEventListener('cancel',event=>{if(this.batchCorrection?.busy)event.preventDefault();});
         document.getElementById('workspace-dialog').addEventListener('keydown',event=>this.workspaceDialogKey(event));
         document.getElementById('workspace-dialog').addEventListener('close',()=>this.workspaceDialogClosed());
@@ -1288,6 +1290,7 @@ class WorkspaceApp {
         this.readForms();
         if(action==='batch-delete-row'||action==='batch-delete-selected'){await this.deleteBatchRows(action==='batch-delete-row'?[Number(button.dataset.index)]:[...this.batchSelectionSet()]);return;}
         button.closest?.('.mobile-actions-dialog')?.close();
+        if(['new','page'].includes(action))button.closest?.('.mobile-navigation-dialog')?.close();
         if(action==='workspace-view')this.selectWorkspaceView(button.dataset.scope,button.dataset.view);
         else if(action==='dismiss-import-notice')this.dismissImportNotice();
         else if(action==='toggle-sidebar'){this.prefs.navCollapsed=!this.prefs.navCollapsed;this.persistPreferences();this.applyPreferences();this.render('sidebar-button');}
@@ -1707,7 +1710,7 @@ class WorkspaceApp {
             history.innerHTML=`<div class="table-scroll"><table class="visit-history-table"><thead><tr>${['measurementDate',allPreterm?'postmenstrualDays':'ageDays','weight','height','muac','referenceVersion'].map(k=>`<th scope="col">${e(this.t(k))}</th>`).join('')}</tr></thead><tbody>${rows.map(({child:c,result:r})=>`<tr><td>${e(this.calendarDate(c.measurementDate))}</td><td>${e((allPreterm?r?.intergrowthContext?.age.postmenstrualDays:c.ageDays)??this.t('unknown'))}</td><td>${e(this.number(c.weight,0))}</td><td>${e(this.number(c.height,1))}</td><td>${e(r?.nutrition?.muacMm==null?this.t('unknown'):this.number(r.nutrition.muacMm,1)+' mm')}</td><td>${e(r?.referenceVersion||this.t('unknown'))}</td></tr>`).join('')}</tbody></table></div>`;
         }
     }
-    updateConnection(){const badge=document.getElementById('connection');if(badge){const online=navigator.onLine;badge.dataset.connection=online?'online':'offline';badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(online?'online':'offline')}`;}}
+    updateConnection(){for(const id of ['connection','menu-connection']){const badge=document.getElementById(id);if(badge){const online=navigator.onLine;badge.dataset.connection=online?'online':'offline';badge.innerHTML=`<span class="dot" aria-hidden="true"></span>${this.t(online?'online':'offline')}`;}}}
     updateOfflineStatus(){document.querySelectorAll('[data-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState);});document.querySelectorAll('[data-mobile-offline-status]').forEach(el=>{el.textContent=this.t(this.offlineState==='offlineFailed'?'mobileOfflineFailed':this.offlineState);});this.updateInstallStatus();}
     updateNoticeState(){
         const available=!!this.offlineRegistration?.waiting||!!this.reloadAvailable;

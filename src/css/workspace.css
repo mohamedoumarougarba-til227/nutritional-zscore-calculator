@@ -1163,3 +1163,40 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  .compact-footer{column-gap:3px}
  .compact-footer [data-mobile-offline-status]{font-size:10.5px}
 }
+
+
+/* Mobile navigation: a floating Z replaces the full sticky workspace banner.
+   Existing action dock remains available for calculation and exports. */
+.mobile-floating-menu,.mobile-page-heading{display:none}
+@media screen and (max-width:680px){
+ .workspace-topbar{display:none}
+ .mobile-page-heading{display:block}
+ .mobile-floating-menu{display:grid;position:fixed;inset-inline-start:8px;top:max(8px,env(safe-area-inset-top));z-index:12;width:44px;height:44px;min-width:44px;min-height:44px;border:1px solid var(--control-line);padding:0;border-radius:12px;font-size:25px;box-shadow:0 2px 10px rgba(0,0,0,.18);touch-action:manipulation}
+ /* Reserve horizontal space, not an additional banner, next to the first controls. */
+ .batch-workspace>.workspace-view-nav,#page-content>.workspace-view-nav{margin-inline-start:48px}
+ .clinical-workspace #measure-card>.card-top,.clinical-workspace .dashboard-toolbar{padding-inline-start:46px}
+ .clinical-workspace #measure-card>.card-top h2,.clinical-workspace .dashboard-toolbar h2{white-space:normal}
+ .settings-layout .settings-preferences>h2,.reference-grid .quick-guide>h2{min-height:30px;padding-inline-start:40px}
+ #update-notice{top:max(58px,calc(env(safe-area-inset-top) + 50px))}
+ .header-dialog.mobile-navigation-dialog{width:min(400px,calc(100% - 24px));padding:14px;max-height:85dvh}
+ .mobile-navigation-dialog .dialog-top{display:flex;align-items:center;gap:8px;padding-bottom:8px;margin:0 0 8px}
+ .mobile-navigation-dialog .dialog-top h2{font-size:17px;margin:0;min-width:0;flex:1}
+ .mobile-menu-work-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+ .mobile-menu-work-actions:empty{display:none}
+ .mobile-menu-work-actions>.action-with-label{display:flex;align-items:center;gap:4px;width:auto;height:42px;min-height:42px;padding:5px 8px;font-size:12px;border-radius:8px}
+ .mobile-menu-work-actions .action-label{display:inline;white-space:nowrap}
+ .mobile-menu-work-actions .action-text-wide{display:none}
+ .mobile-menu-work-actions .action-text-compact{display:inline}
+ .mobile-menu-work-actions .ui-icon{width:18px;height:18px;flex-shrink:0}
+ .mobile-menu-context{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:3px 8px;padding:4px 4px 8px;font-size:13px}
+ .mobile-menu-context strong{color:var(--ink)}
+ .mobile-menu-status{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--muted)}
+ .mobile-menu-status .connection-badge{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:11px;color:var(--muted)}
+ .mobile-menu-status .connection-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+ .mobile-menu-status .connection-badge[data-connection="offline"]{color:var(--danger)}
+ .mobile-menu-status .connection-badge[data-connection="offline"] .dot{background:var(--danger)}
+ .mobile-navigation-dialog .header-options{gap:4px;padding:0}
+ .mobile-navigation-dialog .header-choice{min-height:44px;padding:8px 10px;font-size:14px}
+ .mobile-navigation-dialog .header-choice>.ui-icon{width:19px;height:19px;flex-shrink:0}
+}
+@media print{.mobile-floating-menu,.mobile-page-heading{display:none!important}}
