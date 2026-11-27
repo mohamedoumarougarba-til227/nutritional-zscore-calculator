@@ -1196,3 +1196,29 @@ th{font-size:13px;color:var(--ink)}table{font-size:13px}
  .mobile-menu-work-actions>.action-with-label{padding:4px;font-size:11px;gap:3px}
 }
 @media print{.mobile-floating-menu,.mobile-page-heading{display:none!important}}
+
+
+/* Native disclosure titles contain only text. Independent controls are
+   siblings of summary, accessible when the disclosure is expanded. */
+.individual-compact-form :is(.reference-profile,.clinical-fields,.additional-fields),
+.additional-results,.quality-review,.compact-lot-summary{position:relative}
+.individual-compact-form details[open]>.form-section-summary,
+.additional-results[open]:has(>.disclosure-help)>summary,
+.quality-review[open]>summary{padding-inline-end:32px}
+.individual-compact-form details[open]>.form-section-summary>.form-section-brief{margin-inline-end:0}
+.disclosure-help{position:absolute;inset-inline-end:10px;top:7px;display:inline-flex;align-items:center}
+.disclosure-help>.field-info{margin:0}
+.compact-lot-summary[open]>.lot-disclosure-tools{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:5px;margin-block:3px 5px}
+.compact-lot-summary[open]>.lot-disclosure-tools .lot-heading-actions{display:flex;flex-wrap:wrap;gap:5px;margin:0}
+.compact-lot-summary[open]>.lot-summary-reference{display:block;max-width:100%;text-align:start;margin-block:3px 6px;overflow-wrap:anywhere}
+@media screen and (max-width:680px){
+ .individual-compact-form details[open]>.form-section-summary{padding-inline-end:24px}
+ .individual-compact-form .additional-fields>summary[data-section-title="additionalMeasures"]{font-size:clamp(10px,3vw,12px)}
+ .individual-compact-form .disclosure-help{inset-inline-end:7px;top:8px}
+ .individual-compact-form .disclosure-help>.field-info{width:24px;min-width:24px;height:28px;padding:4px}
+ #batch-view-quality .quality-desktop-help{display:none}
+ #batch-view-statistics .compact-lot-summary[open]>.lot-disclosure-tools{margin-block:0 4px}
+ #batch-view-statistics .compact-lot-summary[open]>.lot-disclosure-tools .lot-heading-actions{flex-wrap:wrap}
+ #batch-view-statistics .compact-lot-summary[open]>.lot-summary-reference{font-size:11px}
+}
+@media print{.disclosure-help,.lot-disclosure-tools{display:none!important}}

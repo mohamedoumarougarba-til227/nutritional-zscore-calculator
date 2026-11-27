@@ -2,6 +2,16 @@
 class ReleaseGuard {
     static failed = false;
     static installPrompt = null;
+    static captureInstallOffer(event,notify) {
+        // Do not cancel the browser's native installation promotion.
+        // Keep the optional in-app route while this offer is available.
+        this.installPrompt=event;
+        notify();
+        if(event.userChoice&&typeof event.userChoice.then==='function'){
+            const clear=()=>{if(this.installPrompt===event){this.installPrompt=null;notify();}};
+            event.userChoice.then(clear,clear);
+        }
+    }
     static preferredLanguage(saved,legacy,languages=[],language='') {
         const supported=['fr','en','ar'];
         for(const choice of [saved,legacy])if(supported.includes(choice))return choice;
@@ -86,7 +96,7 @@ else {window.ReleaseGuard=ReleaseGuard;
     const device=typeof navigator==='undefined'?{}:navigator;
     document.documentElement.lang = ReleaseGuard.preferredLanguage(prefs.language,legacy,device.languages,device.language);
     document.documentElement.dir = document.documentElement.lang === 'ar' ? 'rtl' : 'ltr';
-    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ReleaseGuard.installPrompt=event;window.dispatchEvent(new Event('zscore-install-ready'));});
+    window.addEventListener('beforeinstallprompt',event=>ReleaseGuard.captureInstallOffer(event,()=>window.dispatchEvent(new Event('zscore-install-ready'))));
     window.addEventListener('appinstalled',()=>{ReleaseGuard.installPrompt=null;window.dispatchEvent(new Event('zscore-install-ready'));});
     window.addEventListener('error',event=>{
         if(ReleaseGuard.isReleaseResource(event.target))ReleaseGuard.fail();

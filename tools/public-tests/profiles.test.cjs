@@ -426,7 +426,8 @@ test('lot section headers carry exports, complementary help and compact score ra
   const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,theme:'light',growthProfile:'who'},engine});
   app.state={...app.emptyWorkspace(),mode:'batch',batch:[entry],paste:'name,weight'};app.batchPane='statistics';
   const before=JSON.stringify(app.state),html=app.batchHTML();
-  assert.ok(/<summary><span class="lot-heading-layout">[^]*?class="toolbar compact-toolbar lot-heading-actions"[^]*?<\/summary>/.test(html));
+  assert.ok(/<summary><span class="lot-heading-layout">[^]*?<\/summary><div class="lot-disclosure-tools">[^]*?class="toolbar compact-toolbar lot-heading-actions"/.test(html));
+  for(const summary of html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/gi))assert.doesNotMatch(summary[1],/<(?:button|input|select|textarea|a)\b/i);
   assert.ok(html.includes('class="lot-score-range"'));assert.ok(html.includes(app.esc(app.t('lotMeanShort'))));
   assert.ok(html.includes('lot-indicator-help-'));assert.ok(html.includes('class="quality-heading-title"'));
   assert.ok(html.indexOf('id="csv-parse-button"')<html.indexOf('id="csv-tools-body"'));
@@ -449,4 +450,17 @@ test('individual desktop opens optional sections by default without changing bat
  const mobile=app.formHTML('single',draft);
  for(const key of ['clinical-fields','additional-fields'])assert.ok(mobile.includes('class="'+key+'"'));
  assert.equal(JSON.stringify(draft),before);
+});
+
+
+test('entry disclosure titles do not contain interactive descendants in FR EN AR',()=>{
+ const translations=data('interface-translations.json');
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{translations,prefs:{language,growthProfile:'who'}});
+  for(const prefix of ['single','batch']){
+   const html=app.formHTML(prefix,app.emptyDraft('who'),prefix==='batch');
+   for(const summary of html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/gi))assert.doesNotMatch(summary[1],/<(?:button|input|select|textarea|a)\b/i);
+   if(html.includes('form-section-summary'))assert.ok(html.includes('</summary><span class="disclosure-help">'));
+  }
+ }
 });

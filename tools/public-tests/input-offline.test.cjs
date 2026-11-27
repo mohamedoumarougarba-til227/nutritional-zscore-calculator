@@ -122,3 +122,15 @@ test('PCIMA privacy/attribution is explicit in every language and GPL correspond
     for(const language of ['fr','en','ar']){const sections=content[language].sections;const privacy=sections.find(s=>s[0]==='privacy')[2].join(' '),sources=sections.find(s=>s[0]==='sources')[2].join(' ');assert(privacy.includes('PCIMA'));assert(sources.includes('2023')&&sources.includes('2025'));assert(sources.includes('GIGS'));}
     const assets=JSON.parse(fs.readFileSync('tools/scripts/offline-assets.json','utf8'));for(const file of ['data/zscore-sources.zip','data/zscore-sources.json','data/who-data-sources.zip'])assert(assets.includes(file));
 });
+
+
+test('native install promotion is not cancelled and a consumed offer is released',async()=>{
+ const previous=Guard.installPrompt;let notified=0,prevented=0,resolve;
+ try{
+  const event={preventDefault(){prevented++;},userChoice:new Promise(r=>{resolve=r;})};
+  Guard.captureInstallOffer(event,()=>notified++);
+  assert.equal(prevented,0);assert.equal(Guard.installPrompt,event);assert.equal(notified,1);
+  resolve({outcome:'dismissed'});await event.userChoice;
+  assert.equal(Guard.installPrompt,null);assert.equal(notified,2);
+ }finally{Guard.installPrompt=previous;}
+});
