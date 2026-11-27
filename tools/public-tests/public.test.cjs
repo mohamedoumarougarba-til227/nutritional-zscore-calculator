@@ -557,3 +557,37 @@ test('floating menu defaults to upper right and retains saved device position',(
         }
     }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
 });
+
+
+test('optional onboarding covers the workspace in every language without touching clinical data',()=>{
+    const translations=json('src/data/interface-translations.json');
+    for(const language of ['fr','en','ar']){
+        const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language},translations,state:{draft:{name:'FICTIF'},batch:[]},page:'settings'});
+        const before=JSON.stringify(app.state);
+        for(let i=0;i<WorkspaceApp.onboardingSteps.length;i++){
+            const step=WorkspaceApp.onboardingSteps[i],html=app.onboardingHTML(i);
+            assert.ok(html.includes(app.esc(translations[language]['tour'+step.key+'Title'])));
+            assert.ok(html.includes('data-tour-command="skip"'));
+            assert.ok(html.includes('role="progressbar"'));
+            assert.ok(!html.includes('FICTIF'));
+            assert.ok(!html.includes('data-action='));
+            assert.ok(html.includes('data-tour-command="'+(i===WorkspaceApp.onboardingSteps.length-1?'finish':'next')+'"'));
+            for(const key of step.items)assert.ok(translations[language][key],'missing tour label '+language+' '+key);
+        }
+        assert.equal(JSON.stringify(app.state),before);
+        assert.equal(app.page,'settings');
+        assert.ok(app.quickGuideHTML().includes('data-action="start-onboarding"'));
+    }
+});
+test('onboarding dismissal is a separate local preference and works when storage is blocked',()=>{
+    const previous=global.localStorage,values=new Map();
+    try{
+        global.localStorage={getItem:key=>values.get(key),setItem:(key,value)=>values.set(key,value)};
+        const app=Object.create(WorkspaceApp.prototype);
+        assert.equal(app.onboardingSeen(),false);app.markOnboardingSeen();assert.equal(app.onboardingSeen(),true);
+        assert.equal(values.size,1);assert.equal(values.get(WorkspaceApp.onboardingKey),'1');
+        assert.equal(Object.create(WorkspaceApp.prototype).onboardingSeen(),true);
+        global.localStorage={getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}};
+        const blocked=Object.create(WorkspaceApp.prototype);assert.equal(blocked.onboardingSeen(),false);blocked.markOnboardingSeen();assert.equal(blocked.onboardingSeen(),true);
+    }finally{if(previous===undefined)delete global.localStorage;else global.localStorage=previous;}
+});
