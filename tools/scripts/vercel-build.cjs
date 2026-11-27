@@ -13,7 +13,7 @@ function build({directory=path.resolve(__dirname,'../../dist'),requireRights=tru
 if(require.main===module){try{
     // Preview builds may regenerate corresponding sources and integrity pins in the
     // isolated checkout. Production still requires reviewed, committed release bytes.
-    if(process.env.VERCEL==='1'&&process.env.VERCEL_ENV==='preview'&&['fix/settings-ui-20261125','fix/ui-finishing-20261125'].includes(process.env.VERCEL_GIT_COMMIT_REF)){
+    if(process.env.VERCEL==='1'&&process.env.VERCEL_ENV==='preview'&&['fix/settings-ui-20261125','fix/ui-finishing-20261125','fix/mobile-ui-20261127'].includes(process.env.VERCEL_GIT_COMMIT_REF)){
         const {execFileSync}=require('node:child_process');
         execFileSync(process.execPath,[path.join(__dirname,'build-release.cjs')],{stdio:'inherit'});
         execFileSync(process.execPath,[path.join(__dirname,'test-public.cjs')],{stdio:'inherit'});

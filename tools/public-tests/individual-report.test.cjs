@@ -375,3 +375,14 @@ test('adaptive observation planning chooses one, two, three or mixed bands witho
         assert.deepEqual(PDFManager.observationPlan(counts),plan);
     }
 });
+
+test('synthetic batch preserves stored conditional warnings in every language',()=>{
+    globalThis.ClinicalEngine=ClinicalEngine;
+    const e=visit(),entry={...e,result:{...e.result,warnings:[...new Set([...e.result.warnings,'oedemaUnknown'])]}},before=JSON.stringify(entry);
+    for(const language of ['fr','en','ar']){
+        const model=PDFManager.model([entry],{language,translations}),row=PDFManager.compact(model,[entry]).body[0];
+        assert.ok(row.at(-2).includes(model.t('oedemaUnknown')));
+        assert.equal(row.at(-2).split(model.t('oedemaUnknown')).length,2);
+    }
+    assert.equal(JSON.stringify(entry),before);
+});

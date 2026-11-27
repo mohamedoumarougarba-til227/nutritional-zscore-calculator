@@ -343,3 +343,15 @@ test('quality controls are outside the native disclosure summary in every langua
  assert.ok(!summary.includes('data-action="quality-filter"'));assert.ok(html.indexOf('data-action="quality-filter"')>html.indexOf('</summary>'));
  }
 });
+
+test('mobile batch and quality filters expose existing counts and preserve the source workspace',()=>{
+ const one=engine.calculate(input()),state=workspace([{child:one.child,result:null},one]),before=JSON.stringify(state);
+ for(const language of ['fr','en','ar']){
+  const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,prefs:{language},translations,batchFilter:'pending'});
+  const html=app.batchKpisHTML();assert.ok(html.includes('id="batch-mobile-filter"'));assert.ok(html.includes('value="pending" selected'));assert.ok(html.includes('id="batch-select-all"'));
+  const quality=app.qualityHTML({open:true});assert.ok(quality.includes('id="quality-mobile-filter"'));
+  const pager=app.paginationHTML({current:0,pages:2,total:13,from:1,to:8},{action:'batch-page'});
+  assert.ok(pager.includes('pager-mobile'));assert.ok(pager.includes('range-mobile'));
+  assert.equal(JSON.stringify(state),before);
+ }
+});

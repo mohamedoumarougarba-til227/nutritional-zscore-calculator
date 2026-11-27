@@ -334,9 +334,12 @@ class PDFManager {
             const context=[row.screening];
             if(assessment?.orientation)context.push(t(assessment.orientation));
             if(assessment?.missing?.length&&assessment.category!=='nutritionIncomplete')context.push(t('pdfClinicalMissing'));
+            if(Array.isArray(result?.warnings))context.push(...result.warnings.map(t));
+            // The stored warning is authoritative, including for imported records.
+            // No new interpretation or calculation is performed by the report.
             const references=result?[result.referenceVersion,assessment?.reference&&assessment.reference+' v'+assessment.version,t('engineVersion')+' '+result.engineVersion]:[];
             if(result?.imported)references.push(t('pdfImportedShort'));
-            return [String(row.index),[...row.briefIdentity,measured].join('\n'),measures.filter(Boolean).join('\n'),...scores,context.join('\n'),references.filter(Boolean).join('\n')];
+            return [String(row.index),[...row.briefIdentity,measured].join('\n'),measures.filter(Boolean).join('\n'),...scores,[...new Set(context.filter(Boolean))].join('\n'),references.filter(Boolean).join('\n')];
         });
         return {body};
     }
