@@ -472,9 +472,17 @@ class WorkspaceApp {
         const editing=!!this.singleEditing;
         return `<div class="toolbar compact-toolbar result-toolbar">${this.toolButton('print','print','print',{showLabel:true})}${exports()}${child.caseId?this.toolButton('newVisit','plus','new-visit',{showLabel:true,labelKey:'newVisitShort'}):''}<button id="single-view-toggle" class="icon-button action-with-label" data-action="${editing?'show-results':'edit-measures'}" aria-controls="measure-card" aria-expanded="${editing}" title="${this.esc(this.t(editing?'showResults':'editMeasures'))}" aria-label="${this.esc(this.t(editing?'showResults':'editMeasures'))}">${this.icon(editing?'chart':'edit')}${this.actionLabelHTML(editing?'showResults':'editMeasures')}</button>${!editing?this.toolButton('saveNow','save','save',{showLabel:true,labelKey:'saveShort'}):''}</div>`;
     }
+    // Preserve the current disclosure when a profile/protocol rebuilds the same mobile entry form.
+    renderEntryProfile(prefix,focusId) {
+        const mobile=typeof matchMedia==='function'&&matchMedia('(max-width: 680px)').matches;
+        const section=()=>document.getElementById(prefix+'-form')?.querySelector?.('.clinical-fields');
+        const previous=mobile?section()?.open:undefined;
+        this.render(focusId);
+        if(typeof previous==='boolean'){const next=section();if(next)next.open=previous;}
+    }
     /** The postnatal model does not calculate skinfold Z-scores. Preserve existing values until explicitly cleared. */
     formSectionSummary(prefix,title,help,brief='') {
-        return `<summary class="form-section-summary"><span class="form-section-title">${this.t(title)}</span>${this.infoButton(help,title,`${prefix}-${help}-section-info`)}${brief?`<span class="form-section-brief">${this.esc(this.t(brief))}</span>`:''}</summary>`;
+        return `<summary class="form-section-summary" data-section-title="${this.esc(title)}"><span class="form-section-title">${this.t(title)}</span>${this.infoButton(help,title,`${prefix}-${help}-section-info`)}${brief?`<span class="form-section-brief">${this.esc(this.t(brief))}</span>`:''}</summary>`;
     }
     static compactEntryForm(prefix){return prefix==='single'||prefix==='batch';}
     static desktopSingleSections(prefix){return prefix==='single'&&typeof matchMedia==='function'&&matchMedia('(min-width: 681px)').matches;}
@@ -1137,10 +1145,10 @@ class WorkspaceApp {
                 this.readForms();const form=event.target.closest('form'),prefix=form.id==='single-form'?'single':'batch';
                 const key=prefix==='single'?'draft':'batchDraft';
                 this.state[key]=WorkspaceApp.draftForProfile(this.state[key],event.target.value);
-                this.render(prefix+'-growthProfile');this.scheduleSave();
+                this.renderEntryProfile(prefix,prefix+'-growthProfile-picker');this.scheduleSave();
             } else if (event.target.name === 'careProtocol') {
                 this.readForms();const prefix=event.target.closest('form').id==='single-form'?'single':'batch';
-                this.render(prefix+'-careProtocol-picker');this.scheduleSave();
+                this.renderEntryProfile(prefix,prefix+'-careProtocol-picker');this.scheduleSave();
             } else if (event.target.id === 'backup-file') {
                 const file = event.target.files[0]; if (file) await this.previewImport(file); event.target.value = '';
             } else if (event.target.id === 'csv-file') {

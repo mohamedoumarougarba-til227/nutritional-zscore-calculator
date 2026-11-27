@@ -355,3 +355,21 @@ test('mobile batch and quality filters expose existing counts and preserve the s
   assert.equal(JSON.stringify(state),before);
  }
 });
+
+
+test('mobile profile and protocol rerenders preserve the clinical disclosure without changing the workspace',()=>{
+ const oldDoc=global.document,oldMedia=global.matchMedia;
+ const state=workspace([]),before=JSON.stringify(state);
+ try{
+  for(const prefix of ['single','batch'])for(const open of [true,false])for(const mobile of [true,false]){
+   let section={open},focus;
+   global.document={getElementById:id=>id===prefix+'-form'?{querySelector:selector=>selector==='.clinical-fields'?section:null}:null};
+   global.matchMedia=()=>({matches:mobile});
+   const app=Object.assign(Object.create(WorkspaceApp.prototype),{state,render:id=>{focus=id;section={open:!open};}});
+   app.renderEntryProfile(prefix,prefix+'-careProtocol-picker');
+   assert.equal(focus,prefix+'-careProtocol-picker');
+   assert.equal(section.open,mobile?open:!open);
+   assert.equal(JSON.stringify(state),before);
+  }
+ }finally{if(oldDoc===undefined)delete global.document;else global.document=oldDoc;if(oldMedia===undefined)delete global.matchMedia;else global.matchMedia=oldMedia;}
+});
