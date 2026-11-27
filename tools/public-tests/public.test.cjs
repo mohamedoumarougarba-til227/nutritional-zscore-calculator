@@ -576,6 +576,9 @@ test('contextual tour routes differ by device, are translated, and stay within t
     }
 });
 test('contextual demo uses separate fictitious records without storage or clinical workspace mutations',()=>{
+    globalThis.LotAnalysis=LotAnalysis;
+    globalThis.GrowthChart=require('../../src/js/components/growth-chart.js').GrowthChart;
+    globalThis.CSVManager=CSVManager;
     const engine=new GrowthEngine(json('src/data/who-official.json'),json('src/data/who-2007.json'),json('src/data/who-additional.json'),json('src/data/cdc-growth.json'));
     const app=Object.assign(Object.create(WorkspaceApp.prototype),{prefs:{language:'fr',theme:'system',dateFormat:'auto',timeZone:'system'},translations:json('src/data/interface-translations.json'),engine,manifest:json('src/data/who-manifest.json'),olderManifest:json('src/data/who-2007-manifest.json'),cdcManifest:json('src/data/cdc-growth-manifest.json'),state:{draft:{name:'PRIVATE'},batch:[]},history:{},offlineState:'offlineReady'});
     const before=JSON.stringify(app.state);
